@@ -44,6 +44,8 @@ interface HelperRow {
   status: string;
   stripe_account_id: string | null;
   stripe_payouts_enabled: boolean | null;
+  /** How customers pay the helper directly (Revolut tag etc — direct-pay model). */
+  payment_handle?: string | null;
   /** Optional — only present once find-helper-by-phone returns them. */
   student_email_verified?: boolean | null;
   id_verified?: boolean | null;
@@ -112,6 +114,7 @@ const StudentAccount = () => {
   }, [helperId]);
 
   const [bio,          setBio]          = useState('');
+  const [payHandle,    setPayHandle]    = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [avail,        setAvail]        = useState<string[]>([]);
   const [photoFile,    setPhotoFile]    = useState<File | null>(null);
@@ -201,6 +204,7 @@ const StudentAccount = () => {
   function loadHelper(data: HelperRow) {
     setHelper(data);
     setBio(data.bio ?? '');
+    setPayHandle(data.payment_handle ?? '');
     const cats = data.categories ?? [];
     // Apply the ?add= deep link — pre-tick only, the helper still taps Save
     // (nothing is ever written silently from a URL param).
@@ -312,10 +316,11 @@ const StudentAccount = () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
       const fd = new FormData();
-      fd.append('phone',        helper.phone);
-      fd.append('bio',          bio.trim());
-      fd.append('availability', JSON.stringify(avail));
-      fd.append('categories',   JSON.stringify(selectedCats));
+      fd.append('phone',          helper.phone);
+      fd.append('bio',            bio.trim());
+      fd.append('payment_handle', payHandle.trim());
+      fd.append('availability',   JSON.stringify(avail));
+      fd.append('categories',     JSON.stringify(selectedCats));
       if (photoFile) fd.append('photo', photoFile);
 
       const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
@@ -332,7 +337,7 @@ const StudentAccount = () => {
       const photoUrl = json.photo_url ?? helper.photo_url;
       setPhotoFile(null);
       setHelper(h => h
-        ? { ...h, bio: bio.trim() || null, categories: selectedCats, availability: avail, photo_url: photoUrl }
+        ? { ...h, bio: bio.trim() || null, payment_handle: payHandle.trim() || null, categories: selectedCats, availability: avail, photo_url: photoUrl }
         : h,
       );
       setSaved(true);
@@ -966,6 +971,24 @@ const StudentAccount = () => {
               className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
             <p className="text-right text-xs text-muted-foreground mt-1">{bio.length}/120</p>
+          </section>
+
+          {/* How customers pay you — direct-pay model: customers pay the helper
+              directly after the job (Revolut or cash) and keep 100%; this handle
+              is shown on their pay screen and in the accept messages. */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">How customers pay you</p>
+            <input
+              type="text"
+              value={payHandle}
+              onChange={e => setPayHandle(e.target.value)}
+              placeholder="Revolut tag, e.g. @seanog1"
+              maxLength={60}
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Customers pay you directly when the job's done — you keep 100%. Add your Revolut tag so they can send it in one tap (cash works too).
+            </p>
           </section>
 
           {/* Availability */}

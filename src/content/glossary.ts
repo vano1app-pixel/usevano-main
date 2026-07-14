@@ -64,13 +64,13 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     slug: "pay-after-accept",
     term: "Pay-after-accept",
     short:
-      "The customer pays only once a helper has accepted the job — never upfront.",
+      "Nothing is charged until a helper accepts — then a small booking fee confirms it.",
     category: "Payments",
     bodyHtml: `
-<p><strong>Pay-after-accept</strong> is how Vano handles money: the customer isn't charged when they request a job — only once a <a href="/glossary/vano-helper">helper</a> has accepted it. No upfront payment, no paying for a job that never gets picked up.</p>
-<p>For helpers, this is the reassuring part: by the time you set off, the customer has already paid and the funds are secured by <a href="/glossary/vano-pay">Vano Pay</a>. You're never chasing anyone for cash. It's one of the reasons students <a href="/blog/why-vano-fair-pay-same-day">choose Vano</a>.</p>
+<p><strong>Pay-after-accept</strong> is how Vano handles money: requesting a job is free, and nothing touches your card until a <a href="/glossary/vano-helper">helper</a> has actually accepted it. At that point a small <a href="/glossary/platform-fee">booking fee</a> by card confirms the booking — never the job price itself.</p>
+<p>The job price is paid to your helper <strong>directly</strong> once the work is done — Revolut or cash, whatever suits — and they keep 100% of it. No upfront payment, no paying for a job that never gets picked up, and helpers confirm in the app that they've been paid.</p>
 `,
-    related: ["vano-pay", "escrow", "stripe-connect-payout"],
+    related: ["platform-fee", "net-pay", "vano-helper"],
   },
   {
     slug: "vano-pay",
@@ -79,8 +79,8 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Vano's secure payment system that holds funds safely and pays helpers out.",
     category: "Payments",
     bodyHtml: `
-<p><strong>Vano Pay</strong> is the payment engine behind every job. When a customer pays (after a helper <a href="/glossary/pay-after-accept">accepts</a>), Vano Pay holds the money safely in <a href="/glossary/escrow">escrow</a>, then releases the helper's <a href="/glossary/net-pay">earnings</a> through <a href="/glossary/stripe-connect-payout">Stripe</a> once the job is marked complete.</p>
-<p>It means customers know their money is protected until the work is done, and helpers know they'll be paid the moment they finish. Nobody handles cash.</p>
+<p><strong>Vano Pay</strong> was the payment engine behind older Vano bookings: when a customer paid (after a helper <a href="/glossary/pay-after-accept">accepted</a>), Vano Pay held the money safely in <a href="/glossary/escrow">escrow</a>, then released the helper's <a href="/glossary/net-pay">earnings</a> through <a href="/glossary/stripe-connect-payout">Stripe</a> once the job was marked complete.</p>
+<p>Today's bookings work more simply: Vano charges only its <a href="/glossary/platform-fee">booking fee</a> by card, and the customer pays the helper the job price directly when the work is done — the helper keeps 100%. Bookings made under the old system still pay out the old way.</p>
 `,
     related: ["escrow", "pay-after-accept", "stripe-connect-payout"],
   },
@@ -91,8 +91,8 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Money held safely by a third party until both sides have done their part.",
     category: "Payments",
     bodyHtml: `
-<p><strong>Escrow</strong> is a simple, old idea: a neutral party holds the money until the deal is complete. On Vano, when a customer pays for a job, the funds sit in escrow — not in the helper's account yet, and no longer fully in the customer's.</p>
-<p>Once the <a href="/glossary/vano-helper">helper</a> marks the job done, escrow releases their <a href="/glossary/net-pay">earnings</a> via <a href="/glossary/stripe-connect-payout">Stripe</a>. It protects both sides: the customer's money isn't gone until the work happens, and the helper knows the cash is already there. This is all handled by <a href="/glossary/vano-pay">Vano Pay</a>.</p>
+<p><strong>Escrow</strong> is a simple, old idea: a neutral party holds the money until the deal is complete. On older Vano bookings, when a customer paid for a job the funds sat in escrow — not in the helper's account yet, and no longer fully in the customer's — then released to the helper via <a href="/glossary/stripe-connect-payout">Stripe</a> when the job was done. This was handled by <a href="/glossary/vano-pay">Vano Pay</a>.</p>
+<p>Current bookings don't need it: the customer pays the <a href="/glossary/vano-helper">helper</a> directly when the job's done and the helper keeps 100%, with Vano charging only a small <a href="/glossary/platform-fee">booking fee</a>. Older bookings still in flight complete under the escrow rules.</p>
 `,
     related: ["vano-pay", "stripe-connect-payout", "pay-after-accept"],
   },
@@ -103,20 +103,20 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "The secure transfer that lands a helper's earnings in their own account.",
     category: "Payments",
     bodyHtml: `
-<p>A <strong>Stripe Connect payout</strong> is how a <a href="/glossary/vano-helper">helper's</a> money actually reaches them. Stripe is the same trusted payments company used by huge platforms worldwide; "Connect" is the part of it built for paying out to many individual people.</p>
-<p>During <a href="/blog/how-to-become-a-vano-helper">sign-up</a> you complete a short Stripe onboarding once. After that, each completed job's <a href="/glossary/net-pay">net earnings</a> are transferred to you automatically. If onboarding isn't finished yet, earnings wait safely and sweep through the moment it is.</p>
+<p>A <strong>Stripe Connect payout</strong> is how a <a href="/glossary/vano-helper">helper's</a> money reached them on older Vano bookings. Stripe is the same trusted payments company used by huge platforms worldwide; "Connect" is the part of it built for paying out to many individual people.</p>
+<p>On current bookings helpers don't need it — the customer pays them <strong>directly</strong> when the job's done (Revolut or cash) and they keep 100%. Any older booking's <a href="/glossary/net-pay">earnings</a> still transfer automatically through Stripe once the job completes.</p>
 `,
     related: ["vano-pay", "escrow", "net-pay"],
   },
   {
     slug: "platform-fee",
-    term: "Platform fee (student-side cut)",
+    term: "Booking fee (platform fee)",
     short:
-      "The 15% Vano keeps from a time-based job — the rest is the helper's net pay.",
+      "The small fee Vano charges the customer when a helper accepts — 15% of the job price, minimum €4.",
     category: "Payments",
     bodyHtml: `
-<p>The <strong>platform fee</strong>, or student-side cut, is the slice Vano keeps to run the service: <strong>15%</strong> of a time-based job. The remaining 85% is the helper's <a href="/glossary/net-pay">net pay</a>.</p>
-<p>We set prices around this fee on purpose, so that what's left always clears the <a href="/glossary/minimum-wage-ireland">minimum wage</a>. On a €18/hr job, the 15% cut leaves the helper €15.30/hr. (Customers also pay a small separate booking fee, so Vano's total take is around 22.5% of the quoted price.) The full breakdown is in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
+<p>The <strong>booking fee</strong> is how Vano is paid: <strong>15% of the job price, with a €4 minimum</strong>, charged to the customer's card when a helper accepts. It's the only money Vano touches — it funds the matching, ID checks, support and the money-back guarantee.</p>
+<p>Nothing comes out of the helper's side any more: the job price is paid to the helper directly and they keep <strong>100%</strong> of it as their <a href="/glossary/net-pay">take-home</a>. (On older bookings Vano kept a 15% student-side cut instead — that only applies to jobs booked under the old system.) The full breakdown is in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
 `,
     related: ["net-pay", "minimum-wage-ireland", "vano-pay"],
   },
@@ -124,11 +124,11 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     slug: "net-pay",
     term: "Net pay (take-home)",
     short:
-      "What a helper actually keeps after Vano's cut — €15.30/hr on time-based jobs.",
+      "What a helper actually keeps — 100% of the job price, €18/hr on time-based jobs.",
     category: "Payments",
     bodyHtml: `
-<p><strong>Net pay</strong> is the number that matters: what you actually take home after the <a href="/glossary/platform-fee">platform fee</a> comes out. On Vano's time-based jobs — cleaning, garden, moving, online tutoring — that's <strong>€15.30 an hour</strong>.</p>
-<p>That figure isn't random. It's set so your take-home always lands above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15. Earnings are paid to you via <a href="/glossary/stripe-connect-payout">Stripe</a> after each job. See how students stack it up in the <a href="/blog/atu-students-earning-with-vano">ATU earnings guide</a>.</p>
+<p><strong>Net pay</strong> is the number that matters: what you actually take home. On Vano it's simple — the customer pays you the full job price directly and you keep <strong>100%</strong>. On time-based jobs — cleaning, garden, moving, online tutoring — that's <strong>€18 an hour</strong>; Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not you.</p>
+<p>That comfortably clears Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15. You're paid straight after each job — Revolut or cash — and you confirm it in the app. See how students stack it up in the <a href="/blog/atu-students-earning-with-vano">ATU earnings guide</a>.</p>
 `,
     related: ["platform-fee", "minimum-wage-ireland", "stripe-connect-payout"],
   },
@@ -140,7 +140,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Money",
     bodyHtml: `
 <p>The <strong>national minimum wage</strong> in Ireland is the lowest hourly rate an employer can legally pay. For 2026 it's <strong>€14.15 an hour</strong>.</p>
-<p>Vano treats that as a floor to beat, not a target to hit. Every time-based job is priced so a helper's <a href="/glossary/net-pay">net pay</a> — after the <a href="/glossary/platform-fee">15% cut</a> — comes to €15.30/hr, comfortably above the minimum. There's even an automated test in our codebase that blocks any rate from shipping below the legal floor. More in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
+<p>Vano treats that as a floor to beat, not a target to hit. Every time-based job is priced at €18/hr and the helper keeps <a href="/glossary/net-pay">100% of it</a> — Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer instead. There's even an automated test in our codebase that blocks any rate from shipping below the legal floor. More in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
 `,
     related: ["net-pay", "platform-fee", "flexible-work"],
   },
@@ -164,7 +164,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Work",
     bodyHtml: `
 <p><strong>Flexible work</strong> means there's no set rota and no boss assigning you shifts. You decide when you're available and accept jobs that fit — perfect for a student whose timetable changes every semester.</p>
-<p>On Vano, flexible doesn't mean badly paid: time-based jobs still clear the <a href="/glossary/minimum-wage-ireland">minimum wage</a> at €15.30/hr <a href="/glossary/net-pay">net</a>. That combination — your schedule, fair pay — is the whole pitch. Read <a href="/blog/part-time-jobs-students-galway">why flexible beats a fixed rota</a>.</p>
+<p>On Vano, flexible doesn't mean badly paid: time-based jobs pay €18/hr and you keep <a href="/glossary/net-pay">100%</a> — well clear of the <a href="/glossary/minimum-wage-ireland">minimum wage</a>. That combination — your schedule, fair pay — is the whole pitch. Read <a href="/blog/part-time-jobs-students-galway">why flexible beats a fixed rota</a>.</p>
 `,
     related: ["net-pay", "vano-helper", "same-day-home-help"],
   },

@@ -214,6 +214,10 @@ const StudentJobDetail = () => {
   // Before/after job photos — which slot is mid-upload (fail-soft: an upload
   // error never blocks the job flow, it just toasts and lets them retry).
   const [photoUploading, setPhotoUploading] = useState<'arrival' | 'finish' | null>(null);
+  // Direct-pay two-way review: "did the customer pay you?" state
+  const [paidStars, setPaidStars] = useState(0);
+  const [paidSubmitting, setPaidSubmitting] = useState(false);
+  const [unpaidWarn, setUnpaidWarn] = useState(false);
   // Set when the browser refuses geolocation while on_way — the customer's
   // live map silently shows nothing, so the helper deserves to know.
   const [locationDenied, setLocationDenied] = useState(false);
@@ -518,6 +522,31 @@ const StudentJobDetail = () => {
     }
   };
 
+  // Direct-pay two-way review: the helper confirms they were paid (optional
+  // star rating for the customer) or reports an unpaid job — a strike that
+  // alerts the owner and, at two strikes, blocks the customer from booking.
+  const submitPaidReview = async (paid: boolean) => {
+    if (!bookingId || paidSubmitting) return;
+    setPaidSubmitting(true);
+    try {
+      const { error } = await supabase.functions.invoke('household-arrival', {
+        body: { booking_id: bookingId, action: paid ? 'confirm_paid' : 'report_unpaid', ...(paid && paidStars > 0 ? { rating: paidStars } : {}) },
+      });
+      if (error) throw error;
+      setBooking((b) => b ? { ...b, booking_data: { ...(b.booking_data ?? {}), paid_to_helper: paid } } : b);
+      if (paid) {
+        toast({ title: 'Payment confirmed ✓', description: 'Nice one — job fully wrapped up.' });
+      } else {
+        toast({ title: "We're on it", description: 'The owner has been alerted. This customer will be blocked from booking if it happens again — you\'ll hear from us.' });
+      }
+    } catch (err) {
+      toast({ title: 'Could not save', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
+    } finally {
+      setPaidSubmitting(false);
+      setUnpaidWarn(false);
+    }
+  };
+
   // "I've finished" — flags the job done and asks the customer to confirm.
   // Does NOT pay the helper; the customer still has to mark complete.
   const handleFinished = async () => {
@@ -527,7 +556,12 @@ const StudentJobDetail = () => {
       const { error } = await supabase.functions.invoke('household-arrival', { body: { booking_id: bookingId, action: 'finished' } });
       if (error) throw error;
       setBooking((b) => b ? { ...b, helper_finished_at: new Date().toISOString() } : b);
-      toast({ title: 'Marked as finished', description: "We've asked the customer to confirm so you get paid." });
+      toast({
+        title: 'Marked as finished',
+        description: (booking?.booking_data as Record<string, unknown> | null)?.direct_pay === true
+          ? 'Collect your money from the customer (Revolut or cash), then confirm it below.'
+          : "We've asked the customer to confirm so you get paid.",
+      });
     } catch (err) {
       toast({ title: 'Could not mark finished', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
     } finally {
@@ -674,15 +708,21 @@ const StudentJobDetail = () => {
   const needsPayment = mine && (booking.price_estimate_cents ?? 0) > 0 && !booking.paid_at;
   const isUnclaimed = booking.status === 'pending' && !booking.student_id;
   const claimedByOther = !!booking.student_id && booking.student_id !== userId;
-  // Helper keeps the price minus Vano's 15% cut (PLATFORM_FEE_BPS = 1500 in
-  // capture-household-payment) — must match the ACTUAL payout, not 5%. When a
-  // schedule/loyalty discount shrank the customer price, the payout base is
-  // booking_data.helper_pay_base_cents (platform-funded — helper paid in full).
+  const bd = (booking.booking_data ?? {}) as Record<string, unknown>;
+  // DIRECT-PAY (July 2026): the customer pays the helper the full job price
+  // directly (Revolut/cash) — the helper keeps 100%. Legacy escrow bookings
+  // (pre-deploy, still in flight) keep the old 85% payout figure.
+  const directPay = bd.direct_pay === true;
   const helperPayBase = Math.max(
     booking.price_estimate_cents ?? 0,
-    Number((booking.booking_data as Record<string, unknown> | null)?.helper_pay_base_cents) || 0,
+    Number(bd.helper_pay_base_cents) || 0,
   );
-  const earnCents = helperPayBase > 0 ? Math.floor(helperPayBase * 0.85) : null;
+  const earnCents = helperPayBase > 0 ? (directPay ? helperPayBase : Math.floor(helperPayBase * 0.85)) : null;
+  // Customer reputation snapshot stamped at booking (checkout) — shown before
+  // accepting so the helper knows who they're dealing with.
+  const rep = (bd.customer_rep ?? null) as { paid_jobs?: number; unpaid_reports?: number; stars?: number } | null;
+  // Two-way review state: has this helper confirmed/denied being paid yet?
+  const paidToHelper = bd.paid_to_helper as boolean | undefined;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -813,6 +853,27 @@ const StudentJobDetail = () => {
             {earnCents && (
               <p className="text-2xl font-extrabold text-foreground mb-0.5">
                 Earn €{(earnCents / 100).toFixed(2)}
+                {directPay && <span className="ml-2 align-middle inline-block rounded-full bg-sage text-white text-[10px] font-bold px-2 py-0.5">you keep 100%</span>}
+              </p>
+            )}
+            {directPay && (
+              <p className="text-[11px] text-muted-foreground mb-1">Paid straight to you by the customer (Revolut or cash) when the job's done.</p>
+            )}
+            {/* Who you're dealing with — the customer's two-way-review record */}
+            {rep && (
+              <p className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold mb-2',
+                (rep.unpaid_reports ?? 0) > 0
+                  ? 'border-amber-300 bg-amber-50 text-amber-800'
+                  : (rep.paid_jobs ?? 0) > 0
+                    ? 'border-sage/40 bg-sage-light text-sage-dark'
+                    : 'border-border bg-secondary/40 text-muted-foreground',
+              )}>
+                {(rep.unpaid_reports ?? 0) > 0
+                  ? `⚠ ${rep.unpaid_reports} unpaid report${(rep.unpaid_reports ?? 0) === 1 ? '' : 's'} from helpers`
+                  : (rep.paid_jobs ?? 0) > 0
+                    ? `✓ Pays promptly · ${rep.paid_jobs} job${(rep.paid_jobs ?? 0) === 1 ? '' : 's'}${rep.stars ? ` · ★ ${rep.stars}` : ''}`
+                    : 'New customer'}
               </p>
             )}
             <p className="text-xs text-muted-foreground mb-4">
@@ -872,12 +933,20 @@ const StudentJobDetail = () => {
           >
             <p className="font-bold text-foreground text-sm mb-3">✅ This job is yours — here's how it works</p>
             <ol className="space-y-2.5">
-              {[
-                ['1', 'The customer is being asked to pay now — that locks the booking in.'],
-                ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
-                ['3', 'At the door, tap “I’ve reached”, ask the customer for their 4-digit code, and enter it to start.'],
-                ['4', 'Timed jobs run a countdown; when the work’s done the customer rates you and taps “Mark complete” — and you’re paid instantly.'],
-              ].map(([n, text]) => (
+              {(directPay
+                ? [
+                    ['1', 'The customer is confirming the booking now (a small VANO fee locks it in).'],
+                    ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
+                    ['3', 'At the door, tap “I’ve reached”, ask the customer for their 4-digit code, and enter it to start.'],
+                    ['4', `When the work's done, the customer pays YOU directly — €${earnCents ? (earnCents / 100).toFixed(2) : '…'} by Revolut or cash. You keep 100%. Then confirm you were paid here.`],
+                  ]
+                : [
+                    ['1', 'The customer is being asked to pay now — that locks the booking in.'],
+                    ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
+                    ['3', 'At the door, tap “I’ve reached”, ask the customer for their 4-digit code, and enter it to start.'],
+                    ['4', 'Timed jobs run a countdown; when the work’s done the customer rates you and taps “Mark complete” — and you’re paid instantly.'],
+                  ]
+              ).map(([n, text]) => (
                 <li key={n} className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-sage text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
                   <span className="text-xs text-foreground/80 leading-relaxed">{text}</span>
@@ -1061,7 +1130,9 @@ const StudentJobDetail = () => {
                 <CheckCircle2 size={24} className="text-sage mx-auto mb-1.5" strokeWidth={1.5} />
                 <p className="text-sm font-semibold text-foreground">Marked as finished</p>
                 <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  Waiting for the customer to confirm — you’re paid the moment they do. We’ve nudged them.
+                  {directPay
+                    ? 'Collect your money from the customer (Revolut or cash) and confirm it below. We’ve nudged them to wrap up too.'
+                    : 'Waiting for the customer to confirm — you’re paid the moment they do. We’ve nudged them.'}
                 </p>
               </>
             ) : (
@@ -1093,6 +1164,64 @@ const StudentJobDetail = () => {
               </>
             )}
           </motion.div>
+        )}
+
+        {/* Direct-pay: did the customer pay you? Confirm (optional stars for
+            the customer) or report unpaid — a strike that alerts the owner
+            and blocks repeat offenders from booking. */}
+        {mine && directPay && (booking.helper_finished_at || isComplete) && !isCancelled && paidToHelper !== true && (
+          <div className="rounded-2xl border-2 border-gold/50 bg-amber-50/60 p-5 mb-6">
+            <p className="text-sm font-bold text-foreground mb-1">
+              Did {booking.customer_name && booking.customer_name !== 'Guest' ? booking.customer_name.split(' ')[0] : 'the customer'} pay you{earnCents ? ` €${(earnCents / 100).toFixed(2)}` : ''}?
+            </p>
+            <p className="text-xs text-muted-foreground mb-3">Revolut or cash — you keep all of it. Confirming closes the job out properly.</p>
+            {/* Optional star rating for the customer — two-way reviews */}
+            <div className="flex items-center gap-1.5 mb-3" role="group" aria-label="Rate this customer (optional)">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPaidStars(n === paidStars ? 0 : n)}
+                  aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                  className="text-2xl leading-none active:scale-90 transition-transform"
+                >
+                  <span className={n <= paidStars ? 'grayscale-0' : 'grayscale opacity-40'}>⭐</span>
+                </button>
+              ))}
+              <span className="text-[11px] text-muted-foreground ml-1">rate them (optional)</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => void submitPaidReview(true)}
+              disabled={paidSubmitting}
+              className="w-full h-12 rounded-full bg-sage text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {paidSubmitting ? <Loader2 size={16} className="animate-spin" /> : <>💶 Yes — I've been paid</>}
+            </button>
+            {unpaidWarn ? (
+              <div className="mt-2.5 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+                <p className="text-xs text-foreground/80 mb-2">Only report this if the job is done and they're refusing to pay — the owner is alerted immediately and repeat offenders are blocked from booking.</p>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setUnpaidWarn(false)} className="flex-1 h-9 rounded-full border border-border text-xs font-semibold text-foreground/70">Go back</button>
+                  <button type="button" onClick={() => void submitPaidReview(false)} disabled={paidSubmitting} className="flex-1 h-9 rounded-full bg-destructive text-white text-xs font-semibold disabled:opacity-50">Report unpaid</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setUnpaidWarn(true)}
+                className="mt-2 w-full text-center text-[11px] font-medium text-muted-foreground underline underline-offset-2 py-1.5"
+              >
+                They haven't paid me
+              </button>
+            )}
+          </div>
+        )}
+        {mine && directPay && paidToHelper === true && (
+          <div className="rounded-2xl border border-sage/30 bg-sage-light px-4 py-3 mb-6 flex items-center gap-2.5">
+            <CheckCircle2 size={18} className="text-sage flex-shrink-0" />
+            <p className="text-sm font-semibold text-foreground">Payment confirmed — job wrapped up ✓</p>
+          </div>
         )}
 
         {/* Before/after job photos — the evidence layer. A "before" shot once
@@ -1249,7 +1378,11 @@ const StudentJobDetail = () => {
           <div className="flex flex-col items-center text-center py-4 mb-6">
             <CheckCircle2 size={32} className="text-sage mb-2" strokeWidth={1.5} />
             <p className="font-semibold text-foreground">Job complete</p>
-            <p className="text-sm text-muted-foreground mt-0.5">You'll be paid out to your bank or Revolut shortly.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {directPay
+                ? (paidToHelper === true ? 'Paid and wrapped up — nice work.' : 'The customer pays you directly — confirm it above once you have it.')
+                : "You'll be paid out to your bank or Revolut shortly."}
+            </p>
           </div>
         )}
 

@@ -56,10 +56,11 @@ const Terms = () => (
             booked as a one-off job or as a recurring &quot;House Autopilot&quot; plan.
           </p>
           <p className="mt-3">
-            We provide the technology to request help, match with a Helper, pay securely, and get
-            support. <strong>Helpers are independent providers, not employees or agents of VANO.</strong>{' '}
+            We provide the technology to request help, match with a Helper, and get support.{' '}
+            <strong>Helpers are independent providers, not employees or agents of VANO.</strong>{' '}
             VANO is not the provider of the household services themselves; the service is carried out
-            by the Helper. We facilitate the booking, payment and support around it.
+            by the Helper, and the job price is paid by you to the Helper directly. We facilitate the
+            booking and the support around it, and charge a booking fee for doing so.
           </p>
         </section>
 
@@ -92,9 +93,15 @@ const Terms = () => (
           <h2 className="text-lg font-semibold text-foreground mb-3">5. Booking help (Customers)</h2>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              You request a job and, for one-off bookings, you are charged by card{' '}
-              <strong>after a Helper accepts</strong> — not before. The price is agreed and shown
-              upfront before you pay.
+              You request a job free of charge. When a Helper accepts, you confirm the booking by
+              paying <strong>VANO&apos;s booking fee</strong> by card — that card payment is the fee
+              only, not the job price. The job price shown at booking is what you pay{' '}
+              <strong>your Helper directly</strong> (Revolut or cash) once the job is done.
+            </li>
+            <li>
+              You agree to pay your Helper the agreed job price when the job is complete. Helpers
+              confirm payment in the app; bookings from phone numbers with repeated unpaid jobs are
+              blocked from booking again.
             </li>
             <li>
               House Autopilot plans are subscriptions billed on a recurring basis (weekly or monthly,
@@ -119,16 +126,23 @@ const Terms = () => (
           </p>
           <ul className="list-disc pl-5 space-y-1.5 mt-2">
             <li>
-              <strong>The total you pay — including any VANO service fee — is shown to you before you
-              confirm payment.</strong> There are no hidden charges added after a price is confirmed.
+              <strong>What VANO charges your card is its booking fee</strong> — currently 15% of the
+              job price with a &euro;4 minimum — plus optional{' '}
+              <Link to="/cover" className="text-primary hover:underline underline-offset-4">
+                Vano Cover
+              </Link>{' '}
+              (&euro;2) if you add it. The exact fee is shown before you confirm, and there are no
+              hidden charges added after a price is confirmed. The fee is how we keep the Platform
+              running, verify and support Helpers, and provide our guarantee.
             </li>
             <li>
-              VANO earns a service fee on bookings. This is how we keep the Platform running, vet and
-              support Helpers, and provide our guarantee.
+              <strong>The job price is paid to your Helper directly</strong> — Revolut or cash, when
+              the job is done. Helpers keep 100% of it; VANO takes nothing from what you pay them.
             </li>
             <li>
-              From time to time we may offer discounts (for example for scheduling ahead, loyalty, or
-              referrals). Discounts are optional, may change, and may be withdrawn at any time.
+              From time to time we may offer discounts (for example loyalty or referral rewards).
+              Discounts reduce VANO&apos;s booking fee — never what your Helper receives — are
+              optional, may change, and may be withdrawn at any time.
             </li>
             <li>
               Subscriptions renew automatically at the stated interval until cancelled. Cancelling
@@ -157,10 +171,11 @@ const Terms = () => (
               </Link>.
             </li>
             <li>
-              Where VANO holds a Customer&apos;s payment until a job is complete, the payment is
-              released to the Helper after the Customer confirms completion, or automatically after a
-              holding period (by default around 14 days) if no issue is raised. Helper payouts are
-              made through Stripe.
+              Helpers are paid the full job price <strong>directly by the Customer</strong> when the
+              job is done — Revolut, cash, or however the two of you agree — and keep 100% of it.
+              On older bookings where VANO held the Customer&apos;s payment, it is released to the
+              Helper through Stripe after the Customer confirms completion, or automatically after a
+              holding period if no issue is raised.
             </li>
             <li>
               Helpers must provide accurate profile information, complete verification, and may be
@@ -174,13 +189,18 @@ const Terms = () => (
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
               <strong>Satisfaction guarantee:</strong> if you are not happy with a completed job, tell
-              us within 24 hours. We will make it right — either by arranging for the job to be
-              re-done or by giving you a refund.
+              us within 24 hours. We will make it right — by arranging for the job to be re-done,
+              refunding VANO&apos;s booking fee, and helping resolve what was paid to the Helper. On
+              older bookings paid through VANO, we refund the job payment itself.
             </li>
             <li>
-              <strong>Vano Cover:</strong> if a Helper accidentally damages your property during a
-              booking paid through VANO, we may cover the damage up to &euro;250 under our
-              discretionary{' '}
+              If a Helper never accepts your booking, or the job is cancelled before it happens,
+              anything charged to your card is refunded automatically.
+            </li>
+            <li>
+              <strong>Vano Cover:</strong> if you add Vano Cover to a booking (a small optional
+              add-on at checkout) and your Helper accidentally damages your property during that
+              booking, we may cover the damage up to &euro;250 under our discretionary{' '}
               <Link to="/cover" className="text-primary hover:underline underline-offset-4">
                 Vano Cover guarantee
               </Link>
@@ -190,8 +210,8 @@ const Terms = () => (
             </li>
             <li>House Autopilot subscriptions can be cancelled at any time to stop future billing.</li>
             <li>
-              Where we hold a payment in escrow, you can release it to your Helper once the job is
-              done, or raise a problem before it auto-releases.
+              On older bookings where we held a payment in escrow, you can release it to your Helper
+              once the job is done, or raise a problem before it auto-releases.
             </li>
             <li>
               Nothing in these Terms removes or limits your statutory rights as a consumer under Irish

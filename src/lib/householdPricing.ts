@@ -44,9 +44,9 @@ function hoursFromLabel(size: string): number | null {
  */
 /**
  * Booking minimum (cents) for short custom visits. €18/hr × 0.5 = €9 would be
- * too small to be worth a student's trip (or our cut), so a half-hour job is
- * floored to €12. The student still clears minimum wage (keeps 85% = €10.20 for
- * 30 min ≈ €20/hr). Mirrors the server's custom hour map.
+ * too small to be worth a student's trip, so a half-hour job is floored to
+ * €12. Direct-pay: the student keeps 100% (€12 for 30 min = €24/hr), well
+ * clear of minimum wage. Mirrors the server's custom hour map.
  */
 export const MIN_BOOKING_CENTS = 1200;
 
@@ -71,4 +71,22 @@ export function getHouseholdPriceCents(slug: string, size: string): number | nul
 export function hourlyRateLabel(slug: string): string | null {
   const rate = HOURLY_RATE_CENTS[slug];
   return rate ? `from €${rate / 100}/hr` : null;
+}
+
+// ── Direct-pay model (July 2026) ──────────────────────────────────────────
+// Vano never holds the job money: the customer pays the STUDENT directly
+// (Revolut / cash) and the student keeps 100% of the job price. Vano's card
+// charge is ONLY the booking fee below (+ the optional €2 Vano Cover), taken
+// when a helper accepts. Mirrors supabase/functions/_shared/vanoFees.ts —
+// householdPayMath.test.ts keeps the two in lock-step.
+
+/** Customer-side booking fee: 15% of the job price, floored at €4. */
+export const VANO_FEE_BPS = 1500;
+export const VANO_FEE_MIN_CENTS = 400;
+/** Optional Vano Cover add-on (accidental damage up to €250) — flat €2. */
+export const VANO_COVER_CENTS = 200;
+
+export function computeVanoFeeCents(jobPriceCents: number): number {
+  if (!Number.isFinite(jobPriceCents) || jobPriceCents <= 0) return VANO_FEE_MIN_CENTS;
+  return Math.max(VANO_FEE_MIN_CENTS, Math.round((jobPriceCents * VANO_FEE_BPS) / 10000));
 }

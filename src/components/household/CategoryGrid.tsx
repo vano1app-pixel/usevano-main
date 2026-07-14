@@ -13,7 +13,7 @@ import { AddressPicker } from '@/components/household/AddressPicker';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
-import { getHouseholdPriceCents } from '@/lib/householdPricing';
+import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
@@ -218,7 +218,7 @@ const getPriceCents = getHouseholdPriceCents;
 
 function fmt(cents: number): string {
   const eur = cents / 100;
-  // Discounted prices (10% off) aren't whole euros — show cents only then
+  // Fee amounts aren't always whole euros — show cents only then
   return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
 }
 
@@ -240,15 +240,10 @@ function getTimeSlots(): string[] {
   return slots.slice(0, 8); // max 8 time chips
 }
 
-// Booking ahead earns the server-side 10% scheduled discount (the backend
-// has supported `scheduled: true` all along — the quick sheet just never
-// offered it). Labels are stored verbatim as scheduled_date.
+// Book-ahead slots — scheduled dispatch at the same price (the old 10%
+// scheduled discount retired with direct-pay; discounts now only ever touch
+// Vano's booking fee). Labels are stored verbatim as scheduled_date.
 const TOMORROW_SLOTS = ['Tomorrow 9am', 'Tomorrow 12pm', 'Tomorrow 3pm', 'Tomorrow 6pm'];
-
-/** Must mirror the backend's discount math exactly: Math.round(cents * 0.9) */
-function applyScheduledDiscount(cents: number): number {
-  return Math.round(cents * 0.9);
-}
 
 /**
  * Turn a chosen "when" slot into a real local timestamp (ISO) for book-ahead.
@@ -398,6 +393,8 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Returning customers see their remembered phone + address as a read-only
   // summary (a one-tap confirm), not the full form. "Edit" reveals the fields.
   const [editDetails, setEditDetails] = useState(false);
+  // Optional Vano Cover add-on — customer-elected at booking, flat €2.
+  const [coverOpted, setCoverOpted] = useState(false);
   const [size,     setSize]    = useState(
     // Honour the caller's size even when no size chips are shown (custom jobs
     // already pick the duration on the first page, so the sheet doesn't re-ask).
@@ -568,8 +565,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   }, []);
 
   const isScheduledAhead = when.startsWith('Tomorrow');
-  const baseCents  = getPriceCents(cat.slug, size);
-  const priceCents = baseCents && isScheduledAhead ? applyScheduledDiscount(baseCents) : baseCents;
+  // Direct-pay: the job price is the helper's money (no book-ahead discount —
+  // Vano can't discount money it never collects; discounts live on the fee).
+  const priceCents = getPriceCents(cat.slug, size);
   const priceLabel = priceCents ? fmt(priceCents) : null;
 
   // Live field validity — drives the small green ✓ next to each label as it's
@@ -650,7 +648,8 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           category:         cat.slug,
           when_label:       when,
           size_label:       size,
-          scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
+          scheduled:        isScheduledAhead,
+          cover:            coverOpted,
           ...(computeScheduledAt(when) ? { scheduled_at: computeScheduledAt(when) } : {}),
           note:             note ?? '',
           ...(extraLabel ? { extra_label: extraLabel } : {}),
@@ -810,7 +809,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5">
               {[
                 'ID-verified student',
-                '€250 damage cover',
+                'Optional €250 cover',
                 'Money-back guarantee',
               ].map((t) => (
                 <span key={t} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-sage-dark">
@@ -1040,8 +1039,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                           </Chip>
                         ))}
                       </div>
-                      {/* Book ahead — server grants 10% off scheduled bookings */}
-                      <p className="text-[11px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
+                      {/* Book ahead — scheduled dispatch, same price (the old
+                          10% book-ahead discount retired with direct-pay) */}
+                      <p className="text-[11px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead</p>
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {TOMORROW_SLOTS.map(opt => (
                           <Chip key={opt} group="when-ahead" active={when === opt} onClick={() => setWhen(opt)}>
@@ -1134,7 +1134,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               </motion.div>
             )}
 
-            {/* Price summary + CTA */}
+            {/* Price summary + CTA. Direct-pay: the job money goes to the
+                helper directly (they keep 100%); Vano's card charge at accept
+                is only the booking fee + the optional €2 Cover. */}
             <motion.div variants={listItem} className="space-y-2.5 pt-1">
               {priceCents && (
                 <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
@@ -1151,28 +1153,39 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       {fmt(priceCents)}
                     </motion.span>
                   </div>
-                  <AnimatePresence initial={false}>
-                    {isScheduledAhead && baseCents && (
-                      <motion.p
-                        key="book-ahead"
-                        initial={{ opacity: 0, height: 0, y: -4 }}
-                        animate={{ opacity: 1, height: 'auto', y: 0 }}
-                        exit={{ opacity: 0, height: 0, y: -4 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                        className="flex items-center justify-between text-[11px] mt-1 overflow-hidden"
-                      >
-                        <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
-                        <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
+                  <p className="flex items-center justify-between text-[11px] mt-1">
+                    <span className="text-muted-foreground">Paid to your helper directly — they keep 100%</span>
+                  </p>
+                  <p className="flex items-center justify-between text-[11px] mt-1 border-t border-foreground/8 pt-1.5">
+                    <span className="text-muted-foreground">VANO booking fee (card, when a helper accepts)</span>
+                    <span className="font-semibold text-foreground tabular-nums">{fmt(computeVanoFeeCents(priceCents))}</span>
+                  </p>
                 </div>
               )}
+
+              {/* Optional Vano Cover — customer-elected, flat €2 */}
+              <label className="flex items-start gap-2.5 rounded-xl border border-border/70 bg-white px-3.5 py-3 cursor-pointer hover:border-sage/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={coverOpted}
+                  onChange={(e) => setCoverOpted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border accent-[#4a7c59]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold text-foreground">
+                    Add Vano Cover · {fmt(VANO_COVER_CENTS)}
+                  </span>
+                  <span className="block text-xs text-muted-foreground leading-relaxed">
+                    Accidental damage covered up to €250 —{' '}
+                    <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" onClick={(e) => e.stopPropagation()}>how it works</a>
+                  </span>
+                </span>
+              </label>
 
               {referralCode && (
                 <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
                   <span aria-hidden="true">🎁</span>
-                  Your friend's €5 comes off your first booking when you pay
+                  Your friend's €5 comes off your booking fee
                 </p>
               )}
 
@@ -1199,7 +1212,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </motion.div>
 
             <motion.p variants={listItem} className="text-center text-[13px] leading-relaxed text-muted-foreground">
-              No payment now — you're charged only when a helper accepts, and they're paid only once you confirm it's done. Card, Apple Pay or Google Pay · money-back guarantee
+              No payment now — a small VANO booking fee confirms it when a helper accepts, and you pay your helper directly (Revolut or cash) once the job's done. Money-back guarantee on the fee
             </motion.p>
             {/* Contract moment: the Terms (incl. "your helper is an independent
                 provider, VANO is the platform") must be incorporated at the
@@ -1207,8 +1220,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
               By booking you agree to VANO's{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
-              {' '}— your helper is an independent provider, and accidental damage is covered by{' '}
-              <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>.
+              {' '}— your helper is an independent provider you pay directly, and{' '}
+              <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+              {' '}is there if you add it.
             </motion.p>
           </motion.form>
           )}

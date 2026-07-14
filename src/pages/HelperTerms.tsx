@@ -47,8 +47,8 @@ const HelperTerms = () => (
           <p>
             When you help someone through VANO, <strong>you are an independent provider — not an
             employee, worker or agent of VANO</strong>. The agreement to do each job is between you
-            and the customer; VANO provides the platform that connects you, handles the payment,
-            and supports you both. This agreement sits alongside VANO&apos;s{' '}
+            and the customer; VANO provides the platform that connects you — it charges the
+            customer a booking fee for that, and supports you both. This agreement sits alongside VANO&apos;s{' '}
             <Link to="/terms" className="text-primary hover:underline underline-offset-4">
               Terms of Service
             </Link>
@@ -69,8 +69,12 @@ const HelperTerms = () => (
               you bring your own everyday equipment unless the booking says otherwise.
             </li>
             <li>
-              <strong>You are paid per job</strong> — the earnings shown on each offer are what
-              lands in your account for that job (the job price minus VANO&apos;s platform cut).
+              <strong>The customer pays you directly, and you keep 100%.</strong> When the job is
+              done the customer settles the full job price with you — Revolut or cash, your
+              choice (add your Revolut tag in your account so it&apos;s one tap for them). VANO
+              takes nothing from your earnings; the platform is paid by the customer&apos;s
+              booking fee. Bookings made before this change are still paid out the old way
+              (through the platform, minus the old platform cut).
             </li>
           </ul>
         </section>
@@ -132,13 +136,13 @@ const HelperTerms = () => (
               taking reasonable care of the customer&apos;s property.
             </li>
             <li>
-              If you accidentally damage something, tell us straight away. Customers can claim under{' '}
+              If you accidentally damage something, tell us straight away. Customers who added{' '}
               <Link to="/cover" className="text-primary hover:underline underline-offset-4">
                 Vano Cover
               </Link>{' '}
-              (up to &euro;250); where VANO pays out for damage you caused, we may recover that
-              cost from you. Honesty always beats a cover-up — accidents reported immediately are
-              handled as accidents.
+              to their booking can claim up to &euro;250; where VANO pays out for damage you
+              caused, we may recover that cost from you. Honesty always beats a cover-up —
+              accidents reported immediately are handled as accidents.
             </li>
             <li>
               For higher-risk job types (for example moving or garden machinery work), we may in
@@ -164,7 +168,8 @@ const HelperTerms = () => (
           <ul className="list-disc pl-5 space-y-1.5">
             <li><strong>Show up on time</strong> — and if you're running late or can't make it, release the job in the app as early as you can so it can be re-dispatched.</li>
             <li><strong>Use the arrival code flow</strong>: ask the customer for their 4-digit code at the door. Never ask for it by text or start work without it unless the app's fallback tells you to.</li>
-            <li><strong>Keep everything on-platform</strong>: no cash jobs, no side-arrangements with VANO customers, no swapping the job to a friend — the person who accepted is the person who shows up. Off-platform work has no payment protection, no guarantee, and no cover for anyone.</li>
+            <li><strong>Every job goes through a VANO booking</strong>: no side-arrangements with VANO customers and no swapping the job to a friend — the person who accepted is the person who shows up. How the customer pays <em>you</em> is direct (Revolut or cash, on the booking), but the booking itself must be on VANO — off-platform work has no record, no reviews, and no cover for anyone.</li>
+            <li><strong>Confirm your payment in the app</strong> once the customer settles up — and if they don&apos;t pay, report it there too. That record protects you: numbers with unpaid reports are blocked from booking again.</li>
             <li><strong>Be sound.</strong> Treat customers, their homes and their pets with respect. No smoking or vaping in homes, no bringing other people along, and keep customer keys, alarm codes and personal details private.</li>
             <li><strong>Take the job photos</strong> where the app asks (arrival and finish) — they protect you as much as the customer if anything is questioned.</li>
             <li><strong>Communicate in the app</strong> so there's a record — it protects both sides in a dispute.</li>
@@ -178,8 +183,8 @@ const HelperTerms = () => (
             concerns, dishonesty (including fake profiles or reviews), repeated no-shows, taking
             VANO customers off-platform, or breaching this agreement or the{' '}
             <Link to="/terms" className="text-primary hover:underline underline-offset-4">Terms</Link>.
-            Earnings already due to you for completed work are paid out in the normal way. You can
-            leave at any time — set yourself unavailable or ask us to delete your profile.
+            Anything already owed to you for completed work is still settled in the normal way. You
+            can leave at any time — set yourself unavailable or ask us to delete your profile.
           </p>
         </section>
 

@@ -384,18 +384,19 @@ serve(async (req) => {
       city: string | null; status: string; category: string;
       scheduled_date: string | null; price_estimate_cents: number | null;
     };
-    // Students respond to money: show what they'd actually keep — the helper
-    // is paid the job price minus the 15% platform cut (PLATFORM_FEE_BPS=1500
-    // in capture-household-payment), i.e. 85%. This must match the payout, or
-    // the offer overpromises vs what lands in their account. The payout base
-    // is helper_pay_base_cents when a schedule/loyalty discount shrank the
-    // customer price (platform-funded — the helper is still paid in full).
+    // Students respond to money: show what they'd actually keep.
+    // DIRECT-PAY bookings (booking_data.direct_pay): the customer pays the
+    // helper the FULL job price directly — 100%, no cut. Legacy escrow
+    // bookings still in flight keep the old 85% payout figure so the offer
+    // never overpromises vs what actually lands.
+    const bookingDataForPay = (dbBooking as { booking_data?: Record<string, unknown> | null }).booking_data ?? null;
+    const isDirectPay = bookingDataForPay?.direct_pay === true;
     const helperPayBaseCents = Math.max(
       typeof price_estimate_cents === 'number' ? price_estimate_cents : 0,
-      Number((dbBooking as { booking_data?: Record<string, unknown> | null }).booking_data?.helper_pay_base_cents) || 0,
+      Number(bookingDataForPay?.helper_pay_base_cents) || 0,
     );
     const earnCents = helperPayBaseCents > 0
-      ? Math.floor(helperPayBaseCents * 0.85)
+      ? (isDirectPay ? helperPayBaseCents : Math.floor(helperPayBaseCents * 0.85))
       : null;
 
     if (status !== 'pending') {

@@ -556,15 +556,16 @@ const VerifyHelper: React.FC = () => {
                 </div>
               )}
 
-              {/* Payout nudge — phone-gated friendly (the account page hosts
-                  payout setup now, no sign-in needed). */}
+              {/* Get-paid nudge — direct-pay: customers pay the helper straight
+                  after the job (Revolut or cash), helper keeps 100%. The account
+                  page hosts the Revolut-tag field, no sign-in needed. */}
               {!hasTick && (
                 <div className="rounded-2xl border border-sage/30 bg-sage-light p-4">
-                  <p className="text-sm font-semibold text-foreground mb-1">Set up payouts</p>
+                  <p className="text-sm font-semibold text-foreground mb-1">Add how you get paid</p>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                    Add your bank or Revolut (any IBAN) to get paid automatically after each job. You can do this anytime — earnings are held safely until you do.
+                    Customers pay you directly when the job's done — you keep 100%. Add your Revolut tag so they can send it in one tap (cash works too).
                   </p>
-                  <a href="/student-account" className="inline-flex h-10 items-center justify-center rounded-full bg-sage text-white text-xs font-semibold px-5">Set up payouts</a>
+                  <a href="/student-account" className="inline-flex h-10 items-center justify-center rounded-full bg-sage text-white text-xs font-semibold px-5">Add my Revolut tag</a>
                 </div>
               )}
 

@@ -189,17 +189,19 @@ serve(async (req) => {
     let helperPhoto: string | null = null;
     let helperRating: number | null = null;
     let helperJobs = 0;
+    let helperPaymentHandle: string | null = null;
     const { data: helper } = await supabase
       .from('household_helpers')
-      .select('id, name, photo_url, average_rating, accepted_count')
+      .select('id, name, photo_url, average_rating, accepted_count, payment_handle')
       .eq('user_id', studentUserId)
-      .maybeSingle() as { data: { id?: string; name?: string; photo_url?: string | null; average_rating?: number | null; accepted_count?: number } | null };
+      .maybeSingle() as { data: { id?: string; name?: string; photo_url?: string | null; average_rating?: number | null; accepted_count?: number; payment_handle?: string | null } | null };
     if (helper?.name) {
       helperFirstName = helper.name.split(' ')[0];
       helperId     = helper.id ?? null;
       helperPhoto  = helper.photo_url || null;
       helperRating = helper.average_rating ?? null;
       helperJobs   = helper.accepted_count ?? 0;
+      helperPaymentHandle = (helper.payment_handle ?? '').trim() || null;
     } else {
       const { data: profile } = await supabase
         .from('profiles')
@@ -211,29 +213,70 @@ serve(async (req) => {
     // True when we resolved a real first name (not the generic fallback).
     const helperNamed = helperFirstName !== 'Your helper';
 
-    // ── Pay-after-accept: create the Stripe Checkout session now ──────────────────
-    // A helper is confirmed, so this is the moment the customer pays.
-    // Idempotent: reuse the session created on a previous acceptance
-    // (e.g. helper released → re-dispatched → accepted again).
+    // ── Confirm-on-accept: what the customer's card is charged ─────────────
+    // DIRECT-PAY bookings (booking_data.direct_pay): the card charge is ONLY
+    // Vano's fee (+ optional €2 Cover) — fee_due_cents, already net of any
+    // loyalty/referral fee discount from checkout. The JOB money is paid to
+    // the helper directly (Revolut/cash) and never touches Vano.
+    // LEGACY bookings (created before the direct-pay deploy, still in flight):
+    // keep the old full charge (job + 7.5% fee, Stripe coupon for referrals).
     const priceCents = Number(booking.price_estimate_cents) || 0;
     const bookingData = (booking.booking_data ?? {}) as {
+      direct_pay?: boolean;
+      fee_due_cents?: number;
+      vano_fee_cents?: number;
+      cover_cents?: number;
+      cover_opted?: boolean;
+      fee_waived_loyalty?: boolean;
       service_fee_cents?: number;
       referral_discount_cents?: number;
       referral_welcome_id?: string;
       redeem_referral_id?: string;
     };
-    const serviceFeeCents = Number(bookingData.service_fee_cents) || 0;
-    // Referral discount reserved at booking time. Re-capped here so the
-    // charge can never drop under €1 even if booking_data was hand-edited.
-    const reservedDiscountCents = Math.min(
+    const directPay = bookingData.direct_pay === true;
+    const coverCents = directPay ? Math.max(0, Number(bookingData.cover_cents) || 0) : 0;
+    const serviceFeeCents = directPay ? 0 : (Number(bookingData.service_fee_cents) || 0);
+    // Legacy referral discount (Stripe coupon). Direct-pay bookings arrive
+    // with the discount already baked into fee_due_cents — no coupon needed.
+    const reservedDiscountCents = directPay ? 0 : Math.min(
       Math.max(0, Number(bookingData.referral_discount_cents) || 0),
       Math.max(0, priceCents + serviceFeeCents - 100),
     );
+    // What the card is charged when the customer confirms.
+    const chargeCents = directPay
+      ? Math.max(0, Number(bookingData.fee_due_cents) || 0)
+      : priceCents + serviceFeeCents;
     let appliedDiscountCents = 0;
-    let totalCents = priceCents + serviceFeeCents;
+    let totalCents = chargeCents;
     let payUrl = (booking.stripe_checkout_url as string | null) ?? null;
 
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
+
+    // Stamp the helper's payment details onto the booking so the customer's
+    // tracking page can show "Pay {name} — @revtag" at the right moment.
+    // Atomic top-level merge (never clobbers other booking_data keys).
+    if (directPay) {
+      try {
+        await supabase.rpc('merge_booking_data', {
+          p_id: booking_id,
+          p_patch: { helper_first_name: helperFirstName, helper_payment_handle: helperPaymentHandle },
+        });
+      } catch (e) {
+        console.warn('[notify-household-accepted] payment-handle stamp failed (non-fatal)', e);
+      }
+    }
+
+    // ── Fee-free confirm (loyalty / referral covered the whole fee) ────────
+    // Nothing to charge → no Stripe at all; the booking confirms instantly.
+    let feeFree = false;
+    if (directPay && chargeCents === 0 && !booking.paid_at) {
+      const paidIso = new Date().toISOString();
+      await supabase.from('household_bookings')
+        .update({ paid_at: paidIso })
+        .eq('id', booking_id).is('paid_at', null);
+      (booking as { paid_at?: string | null }).paid_at = paidIso;
+      feeFree = true;
+    }
 
     // ── Card on file → auto-charge (OFF until VANO_AUTO_CHARGE=1) ────────────
     // If this household has a saved card (from a previous paid booking) and
@@ -246,7 +289,7 @@ serve(async (req) => {
     let autoCharged = false;
     if (
       Deno.env.get('VANO_AUTO_CHARGE') === '1' &&
-      !payUrl && !booking.paid_at && priceCents > 0 && STRIPE_SECRET_KEY &&
+      !payUrl && !booking.paid_at && chargeCents > 0 && STRIPE_SECRET_KEY &&
       reservedDiscountCents < 100
     ) {
       try {
@@ -274,7 +317,7 @@ serve(async (req) => {
                   'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: formEncode({
-                  amount: String(priceCents + serviceFeeCents),
+                  amount: String(chargeCents),
                   currency: 'eur',
                   customer: customerId,
                   payment_method: pmId,
@@ -283,7 +326,9 @@ serve(async (req) => {
                   'metadata[household_booking_id]': booking_id,
                   // The charge description is contract-moment copy too: the
                   // work is the helper's, VANO is the platform arranging it.
-                  description: `${CATEGORY_LABELS[booking.category as string] ?? 'Household help'}${helperNamed ? ` with ${helperFirstName} (independent helper)` : ''} — arranged via VANO (card on file)`,
+                  description: directPay
+                    ? `VANO booking fee — ${CATEGORY_LABELS[booking.category as string] ?? 'Household help'}${helperNamed ? ` with ${helperFirstName}` : ''} (card on file). You pay your helper directly.`
+                    : `${CATEGORY_LABELS[booking.category as string] ?? 'Household help'}${helperNamed ? ` with ${helperFirstName} (independent helper)` : ''} — arranged via VANO (card on file)`,
                 }),
               });
               if (piResp.ok) {
@@ -308,11 +353,11 @@ serve(async (req) => {
       }
     }
 
-    if (!payUrl && !booking.paid_at && priceCents > 0 && STRIPE_SECRET_KEY) {
+    if (!payUrl && !booking.paid_at && chargeCents > 0 && STRIPE_SECRET_KEY) {
       // Mint the referral coupon first so the session params can include it.
-      // Any failure here simply produces a full-price pay link.
+      // (Legacy bookings only — direct-pay fees arrive pre-discounted.)
       let couponId: string | null = null;
-      if (reservedDiscountCents >= 100) {
+      if (!directPay && reservedDiscountCents >= 100) {
         try {
           const couponResp = await fetch('https://api.stripe.com/v1/coupons', {
             method: 'POST',
@@ -339,25 +384,44 @@ serve(async (req) => {
       }
 
       const origin = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+      const catLabelForLines = CATEGORY_LABELS[booking.category as string] ?? 'Household help';
+      // DIRECT-PAY: the card charge is Vano's fee (+ optional Cover) — the
+      // receipt says so plainly, and names the job money the customer pays
+      // the helper directly. LEGACY: the old job + platform-fee lines.
+      const lineItems: Record<string, string> = directPay
+        ? {
+            'line_items[0][price_data][currency]': 'eur',
+            'line_items[0][price_data][unit_amount]': String(Math.max(0, chargeCents - coverCents)),
+            'line_items[0][price_data][product_data][name]': 'VANO booking fee',
+            'line_items[0][price_data][product_data][description]':
+              `Matching, ID verification & support for your ${catLabelForLines}${helperNamed ? ` with ${helperFirstName}` : ''}. ` +
+              `The job itself (€${(priceCents / 100).toFixed(2)}) is paid to ${helperNamed ? helperFirstName : 'your helper'} directly when the work is done.`,
+            'line_items[0][quantity]': '1',
+            ...(coverCents > 0 ? {
+              'line_items[1][price_data][currency]': 'eur',
+              'line_items[1][price_data][unit_amount]': String(coverCents),
+              'line_items[1][price_data][product_data][name]': 'Vano Cover — accidental damage up to €250',
+              'line_items[1][quantity]': '1',
+            } : {}),
+          }
+        : {
+            'line_items[0][price_data][currency]': 'eur',
+            'line_items[0][price_data][unit_amount]': String(priceCents),
+            'line_items[0][price_data][product_data][name]':
+              `${catLabelForLines}${helperNamed ? ` — with ${helperFirstName}` : ''}`,
+            'line_items[0][price_data][product_data][description]':
+              `Carried out by ${helperNamed ? `${helperFirstName}, an independent helper` : 'an independent helper'} — booked, paid and supported via VANO. This payment secures the booking.`,
+            'line_items[0][quantity]': '1',
+            ...(serviceFeeCents > 0 ? {
+              'line_items[1][price_data][currency]': 'eur',
+              'line_items[1][price_data][unit_amount]': String(serviceFeeCents),
+              'line_items[1][price_data][product_data][name]': 'VANO platform fee',
+              'line_items[1][quantity]': '1',
+            } : {}),
+          };
       const checkoutParams: Record<string, string> = {
         mode: 'payment',
-        'line_items[0][price_data][currency]': 'eur',
-        'line_items[0][price_data][unit_amount]': String(priceCents),
-        // The receipt is where the marketplace structure has to be visible:
-        // the job line belongs to the named independent helper, the platform
-        // fee line belongs to VANO. (Previously both lines read "VANO — …",
-        // which told the customer VANO was the service provider.)
-        'line_items[0][price_data][product_data][name]':
-          `${CATEGORY_LABELS[booking.category as string] ?? 'Household help'}${helperNamed ? ` — with ${helperFirstName}` : ''}`,
-        'line_items[0][price_data][product_data][description]':
-          `Carried out by ${helperNamed ? `${helperFirstName}, an independent helper` : 'an independent helper'} — booked, paid and supported via VANO. This payment secures the booking.`,
-        'line_items[0][quantity]': '1',
-        ...(serviceFeeCents > 0 ? {
-          'line_items[1][price_data][currency]': 'eur',
-          'line_items[1][price_data][unit_amount]': String(serviceFeeCents),
-          'line_items[1][price_data][product_data][name]': 'VANO platform fee',
-          'line_items[1][quantity]': '1',
-        } : {}),
+        ...lineItems,
         'payment_intent_data[capture_method]': 'automatic',
         'payment_intent_data[metadata][household_booking_id]': booking_id,
         // Stripe's own itemised receipt (amount + line items) — the only
@@ -412,7 +476,12 @@ serve(async (req) => {
       // discount, so quoted amounts should still reflect it.
       appliedDiscountCents = reservedDiscountCents;
     }
-    totalCents = priceCents + serviceFeeCents - appliedDiscountCents;
+    totalCents = directPay ? chargeCents : priceCents + serviceFeeCents - appliedDiscountCents;
+    // Direct-pay message building blocks: the fee the card pays now, and the
+    // job money the customer hands the helper directly at the end.
+    const feeStr = `€${(totalCents / 100).toFixed(2)}`;
+    const jobStr = `€${(priceCents / 100).toFixed(2)}`;
+    const payHelperHow = helperPaymentHandle ? ` (Revolut ${helperPaymentHandle} or cash)` : ' (Revolut or cash)';
 
     // Quick-book customers often leave no email — keep going so the admin
     // email below still fires (it carries the pay link to WhatsApp onward).
@@ -427,11 +496,19 @@ serve(async (req) => {
         const siteUrlSms = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
         const catSms = CATEGORY_LABELS[booking.category as string] ?? 'job';
         const discountSms = appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : '';
-        const smsBody = payUrl && !booking.paid_at
-          ? `VANO: ${helperFirstName} accepted your ${catSms} and is holding your slot — confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely: ${payUrl}`
-          : autoCharged
-            ? `VANO: ${helperFirstName} accepted your ${catSms}! €${(totalCents / 100).toFixed(2)} was charged to your saved card. Track here: ${siteUrlSms}/track/${booking_id}`
-            : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${siteUrlSms}/track/${booking_id}`;
+        const smsBody = directPay
+          ? (payUrl && !booking.paid_at
+              ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm with the ${feeStr} booking fee: ${payUrl} — you pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done.`
+              : feeFree
+                ? `VANO: ${helperFirstName} accepted your ${catSms} — no booking fee today 🎉 You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done. Track: ${siteUrlSms}/track/${booking_id}`
+                : autoCharged
+                  ? `VANO: ${helperFirstName} accepted your ${catSms}! The ${feeStr} booking fee went on your saved card. You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when done. Track: ${siteUrlSms}/track/${booking_id}`
+                  : `VANO: ${helperFirstName} accepted your ${catSms}! You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done. Track: ${siteUrlSms}/track/${booking_id}`)
+          : (payUrl && !booking.paid_at
+              ? `VANO: ${helperFirstName} accepted your ${catSms} and is holding your slot — confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely: ${payUrl}`
+              : autoCharged
+                ? `VANO: ${helperFirstName} accepted your ${catSms}! €${(totalCents / 100).toFixed(2)} was charged to your saved card. Track here: ${siteUrlSms}/track/${booking_id}`
+                : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${siteUrlSms}/track/${booking_id}`);
         smsSent = await sendSms(phone, smsBody);
       }
     }
@@ -486,13 +563,23 @@ serve(async (req) => {
       <strong>${helperFirstName}</strong> has accepted your <strong>${catLabel}</strong>${whenLine ? ' for <strong>' + whenLine + '</strong>' : ''}.
     </p>
     ${helperCard}
+    ${directPay ? `
+    <div style="background:#fffbf0;border:1px solid #f0e2be;border-radius:14px;padding:14px 18px;margin:0 0 20px;">
+      <p style="margin:0;color:#6b5b21;font-size:13px;line-height:1.6;"><strong>How payment works:</strong> you pay ${helperFirstName} <strong>€${(priceCents / 100).toFixed(2)} directly</strong>${helperPaymentHandle ? ` (Revolut <strong>${helperPaymentHandle}</strong> or cash)` : ' (Revolut or cash)'} when the job's done — they keep 100%. VANO only charges its booking fee.</p>
+    </div>` : ''}
     ${payUrl && !booking.paid_at ? `
     <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:18px 20px;margin:0 0 24px;">
-      <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">Secure your booking — €${(totalCents / 100).toFixed(2)}</p>
+      <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">${directPay ? `Confirm your booking — €${(totalCents / 100).toFixed(2)} fee` : `Secure your booking — €${(totalCents / 100).toFixed(2)}`}</p>
       ${discountLine}
-      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">${helperFirstName} is holding your slot — pay securely by card to lock it in. No cash needed on the day.</p>
-      <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Confirm &amp; pay €${(totalCents / 100).toFixed(2)} →</a>
-      <p style="margin:12px 0 0;color:#9ca3af;font-size:11px;line-height:1.5;">By paying you agree to VANO's <a href="${siteUrl}/terms" style="color:#9ca3af;">Terms</a> — the work is carried out by ${helperFirstName}, an independent provider, with <a href="${siteUrl}/cover" style="color:#9ca3af;">Vano Cover</a> up to €250 for accidental damage.</p>
+      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">${directPay
+        ? `${helperFirstName} is holding your slot — the small booking fee confirms it${bookingData.cover_opted ? ' (includes your €2 Vano Cover)' : ''}. The job itself is paid to ${helperFirstName} directly after the work.`
+        : `${helperFirstName} is holding your slot — pay securely by card to lock it in. No cash needed on the day.`}</p>
+      <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">${directPay ? `Confirm booking — €${(totalCents / 100).toFixed(2)} fee` : `Confirm &amp; pay €${(totalCents / 100).toFixed(2)}`} →</a>
+      <p style="margin:12px 0 0;color:#9ca3af;font-size:11px;line-height:1.5;">By paying you agree to VANO's <a href="${siteUrl}/terms" style="color:#9ca3af;">Terms</a> — the work is carried out by ${helperFirstName}, an independent provider${bookingData.cover_opted ? `, with <a href="${siteUrl}/cover" style="color:#9ca3af;">Vano Cover</a> up to €250 for accidental damage` : ''}.</p>
+    </div>` : ''}
+    ${directPay && feeFree ? `
+    <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:14px 18px;margin:0 0 20px;">
+      <p style="margin:0;color:#2f4f3a;font-size:14px;font-weight:600;">🎉 Your booking fee is on us this time — you're all set.</p>
     </div>` : ''}
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
       You'll get another message when they're on their way — including a <strong>live map</strong> so you can track exactly where they are.
@@ -512,10 +599,12 @@ serve(async (req) => {
           from,
           to: [booking.customer_email as string],
           subject: payUrl && !booking.paid_at
-            ? `${helperFirstName} accepted your ${catLabel} — confirm & pay €${(totalCents / 100).toFixed(2)}`
+            ? (directPay
+                ? `${helperFirstName} accepted your ${catLabel} — confirm (€${(totalCents / 100).toFixed(2)} fee)`
+                : `${helperFirstName} accepted your ${catLabel} — confirm & pay €${(totalCents / 100).toFixed(2)}`)
             : `${helperFirstName} is on your ${catLabel} — VANO`,
           html,
-          text: `Hi ${custName}, ${helperFirstName} has accepted your ${catLabel}${whenLine ? ' for ' + whenLine : ''}.${payUrl && !booking.paid_at ? ` Confirm & pay €${(totalCents / 100).toFixed(2)}${appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : ''} securely here: ${payUrl}.` : ''} Track: ${trackUrl}. Ref: ${ref}`,
+          text: `Hi ${custName}, ${helperFirstName} has accepted your ${catLabel}${whenLine ? ' for ' + whenLine : ''}.${payUrl && !booking.paid_at ? (directPay ? ` Confirm with the €${(totalCents / 100).toFixed(2)} booking fee: ${payUrl}.` : ` Confirm & pay €${(totalCents / 100).toFixed(2)}${appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : ''} securely here: ${payUrl}.`) : ''}${directPay ? ` You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done.` : ''} Track: ${trackUrl}. Ref: ${ref}`,
         }),
       });
       if (!res.ok) console.warn('[notify-household-accepted] Resend error', res.status, await res.text());
@@ -550,7 +639,9 @@ serve(async (req) => {
             `Phone: ${booking.customer_phone ?? '—'}`,
             `Email: ${booking.customer_email ?? '—'}`,
             `When: ${whenLine || 'Flexible'}`,
-            `Payment: ${booking.paid_at ? 'PAID' : `UNPAID — customer asked to pay €${(totalCents / 100).toFixed(2)}`}`,
+            directPay
+              ? `Fee: ${booking.paid_at ? (feeFree ? 'WAIVED (loyalty/referral)' : 'PAID') : `UNPAID — customer asked to confirm €${(totalCents / 100).toFixed(2)} fee`} · helper is paid ${jobStr} directly by the customer`
+              : `Payment: ${booking.paid_at ? 'PAID' : `UNPAID — customer asked to pay €${(totalCents / 100).toFixed(2)}`}`,
             ...(appliedDiscountCents > 0 ? [`Referral discount applied: -€${(appliedDiscountCents / 100).toFixed(2)}`] : []),
             ...(payUrl && !booking.paid_at && !payLinkUndelivered ? [`Pay link (WhatsApp it to the customer if they have no email): ${payUrl}`] : []),
             `Ref: ${ref}`,

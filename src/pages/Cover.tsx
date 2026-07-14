@@ -12,17 +12,18 @@ import {
 const LAST_UPDATED = '14 July 2026';
 
 // Vano Cover — the discretionary property-damage guarantee (up to €250 per
-// booking), TaskRabbit-Happiness-Pledge style: self-funded from the platform
-// take, so it is deliberately NEVER called "insurance" (a regulated term —
-// VANO is not an insurance distributor). Copy anywhere else that mentions
-// damage cover must link here; this page is the single source of the
-// conditions.
+// booking), TaskRabbit-Happiness-Pledge style. Since the direct-pay pivot it
+// is an OPTIONAL €2 add-on the customer ticks at checkout (VANO_COVER_CENTS
+// in _shared/vanoFees.ts) — self-funded, so it is deliberately NEVER called
+// "insurance" (a regulated term — VANO is not an insurance distributor).
+// Copy anywhere else that mentions damage cover must link here; this page is
+// the single source of the conditions.
 
 const Cover = () => (
   <div className="min-h-screen bg-background pb-16 md:pb-0">
     <SEOHead
       title="Vano Cover — accidental damage guarantee"
-      description="If a helper accidentally damages your property during a booking paid through VANO, Vano Cover can repair, replace or refund up to €250. How it works, what's covered, and how to claim."
+      description="Add Vano Cover to your booking for €2 and if a helper accidentally damages your property, we can repair, replace or refund up to €250. How it works, what's covered, and how to claim."
       keywords="Vano Cover, VANO damage guarantee, home help damage policy Galway, accidental damage cover cleaning, VANO guarantee"
     />
     <HouseholdNav />
@@ -42,16 +43,17 @@ const Cover = () => (
         </h1>
       </div>
       <p className="text-sm text-muted-foreground mb-10">
-        Accidental damage covered up to &euro;250 · Last updated: {LAST_UPDATED}
+        Optional &euro;2 add-on · accidental damage covered up to &euro;250 · Last updated: {LAST_UPDATED}
       </p>
 
       <div className="prose prose-sm sm:prose-base prose-neutral dark:prose-invert max-w-none space-y-8 text-foreground/85 leading-relaxed">
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-3">1. What Vano Cover is</h2>
           <p>
-            Accidents are rare, but they happen. <strong>Vano Cover</strong> means that if your
-            helper accidentally damages your property during a booking paid through VANO, we can
-            repair, replace or refund the damage — up to <strong>&euro;250 per booking</strong>.
+            Accidents are rare, but they happen. <strong>Vano Cover</strong> is an optional{' '}
+            <strong>&euro;2 add-on</strong> you can tick when you book: if your helper accidentally
+            damages your property during that booking, we can repair, replace or refund the damage
+            — up to <strong>&euro;250 per booking</strong>.
           </p>
           <p className="mt-3">
             Vano Cover is a <strong>discretionary goodwill guarantee provided by VANO</strong>. It
@@ -78,7 +80,11 @@ const Cover = () => (
               carrying out the booked task — for example a knocked-over lamp, a scratched floor
               while moving furniture, or a broken ornament while cleaning.
             </li>
-            <li>The booking must have been <strong>booked and paid through VANO</strong>.</li>
+            <li>
+              The job must have been <strong>booked through VANO with Vano Cover added</strong> —
+              tick it when you book (&euro;2, charged with your booking fee). Older bookings paid
+              in full through VANO include it automatically.
+            </li>
             <li>
               The damage must have happened <strong>during the booking</strong> (between the
               helper&apos;s arrival and the end of the job) and within the scope of the booked task.
@@ -89,7 +95,11 @@ const Cover = () => (
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-3">3. What&apos;s not covered</h2>
           <ul className="list-disc pl-5 space-y-1.5">
-            <li>Anything arranged or paid <strong>off-platform</strong> (cash jobs, private arrangements).</li>
+            <li>
+              Jobs arranged <strong>off-platform</strong> (private arrangements not booked through
+              VANO), and bookings where Vano Cover wasn&apos;t added. Paying your helper in cash on
+              a VANO booking is fine — it&apos;s the booking that must be on VANO.
+            </li>
             <li>Pre-existing damage, general wear and tear, or damage from normal careful use.</li>
             <li>
               Jewellery, cash, antiques, artwork, collectibles, and items of sentimental or

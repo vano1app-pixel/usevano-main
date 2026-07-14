@@ -62,6 +62,16 @@ interface Booking {
   booking_data: {
     service_fee_cents?: number;
     referral_discount_cents?: number;
+    /** Direct-pay model (July 2026): Vano charges only its fee; the customer
+     *  pays the helper directly. */
+    direct_pay?: boolean;
+    fee_due_cents?: number;
+    cover_opted?: boolean;
+    job_price_cents?: number;
+    helper_first_name?: string;
+    helper_payment_handle?: string | null;
+    /** Set by the helper's confirm_paid / report_unpaid review. */
+    paid_to_helper?: boolean;
   } | null;
   created_at: string;
 }
@@ -1031,27 +1041,32 @@ const TrackBooking = () => {
             <p className="font-bold text-foreground text-sm">
               {helperName ? `${helperName} is confirmed — secure your booking` : 'Helper confirmed — secure your booking'}
             </p>
-            <p className="text-foreground/70 text-[13px] mt-1 leading-relaxed">
-              Pay now to lock in your helper — your payment's protected until the job's confirmed done, money back if it's not right. No cash needed on the day.
-            </p>
             {(() => {
+              const bd = booking.booking_data ?? {};
+              const direct = bd.direct_pay === true;
               const price = booking.price_estimate_cents ?? 0;
-              const fee = booking.booking_data?.service_fee_cents ?? 0;
-              const discount = booking.booking_data?.referral_discount_cents ?? 0;
-              const due = Math.max(0, price + fee - discount);
+              const discount = bd.referral_discount_cents ?? 0;
+              const due = direct
+                ? Math.max(0, bd.fee_due_cents ?? 0)
+                : Math.max(0, price + (bd.service_fee_cents ?? 0) - discount);
               return (
                 <>
+                  <p className="text-foreground/70 text-[13px] mt-1 leading-relaxed">
+                    {direct
+                      ? <>A small booking fee confirms {helperName ? helperName : 'your helper'}{bd.cover_opted ? ' (includes your €2 Vano Cover)' : ''}. The job itself — <span className="font-semibold text-foreground">€{(price / 100).toFixed(2)}</span> — is paid to {helperName ? helperName : 'them'} directly (Revolut or cash) when the work's done. They keep 100%.</>
+                      : <>Pay now to lock in your helper — your payment's protected until the job's confirmed done, money back if it's not right. No cash needed on the day.</>}
+                  </p>
                   {discount > 0 && (
                     <p className="flex items-center gap-1.5 text-xs font-semibold text-sage-dark mt-2">
                       <span aria-hidden="true">🎁</span>
-                      €{(discount / 100).toFixed(0)} referral discount applied
+                      €{(discount / 100).toFixed(0)} referral credit applied{direct ? ' to your fee' : ''}
                     </p>
                   )}
                   <a
                     href={booking.stripe_checkout_url!}
                     className="mt-3 w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-[opacity,transform] duration-150"
                   >
-                    Pay €{(due / 100).toFixed(2)} to confirm →
+                    {direct ? `Confirm booking — €${(due / 100).toFixed(2)} fee →` : `Pay €${(due / 100).toFixed(2)} to confirm →`}
                   </a>
                 </>
               );
@@ -1060,13 +1075,20 @@ const TrackBooking = () => {
               Card, Apple Pay or Google Pay · secured by Stripe · money back guarantee
             </p>
             {/* Contract moment #2 — payment is where the deal is struck, so the
-                independent-provider terms ride with the pay button too. */}
+                independent-provider terms ride with the pay button too. Cover
+                is only claimed when this booking actually has it (direct-pay
+                opt-in, or any legacy booking where it was bundled). */}
             <p className="text-center text-xs leading-relaxed text-muted-foreground mt-1.5">
               By paying you agree to VANO's{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
-              {' '}— the work is carried out by {helperName ? helperName : 'your helper'}, an independent provider, with{' '}
-              <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
-              {' '}up to €250 for accidental damage.
+              {' '}— the work is carried out by {helperName ? helperName : 'your helper'}, an independent provider
+              {(booking.booking_data?.direct_pay !== true || booking.booking_data?.cover_opted === true) ? (
+                <>
+                  , with{' '}
+                  <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+                  {' '}up to €250 for accidental damage.
+                </>
+              ) : '.'}
             </p>
           </motion.div>
         )}
@@ -1464,7 +1486,7 @@ const TrackBooking = () => {
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                 {booking.paid_at
                   ? 'Your refund will appear within 5–7 business days. '
-                  : "You weren't charged — with VANO you only pay once a helper accepts. "}
+                  : "You weren't charged — with VANO nothing hits your card until a helper accepts. "}
                 Questions? WhatsApp{' '}
                 <a href="https://wa.me/353899817111" className="text-primary underline">+353 89 981 7111</a>
               </p>
@@ -1680,6 +1702,63 @@ const TrackBooking = () => {
             </div>
           </motion.div>
         )}
+
+        {/* Direct-pay: the "pay your helper" moment. Appears once the work is
+            underway/done and flips to a paid tick when the helper confirms.
+            Vano never holds this money — it goes straight to the student. */}
+        {booking.booking_data?.direct_pay === true && ['in_progress', 'completed'].includes(booking.status) && !isCancelled && (() => {
+          const bd = booking.booking_data ?? {};
+          const owed = booking.price_estimate_cents ?? bd.job_price_cents ?? 0;
+          const name = helperName || bd.helper_first_name || 'your helper';
+          const handle = (bd.helper_payment_handle ?? '').trim();
+          const revolutHref = handle
+            ? (handle.startsWith('@')
+                ? `https://revolut.me/${handle.slice(1)}`
+                : /^[a-z0-9_]+$/i.test(handle) ? `https://revolut.me/${handle}` : null)
+            : null;
+          if (bd.paid_to_helper === true) {
+            return (
+              <div className="mt-4 rounded-2xl border border-sage/30 bg-sage-light px-4 py-3 flex items-center gap-2.5">
+                <span className="text-lg leading-none" aria-hidden="true">✓</span>
+                <p className="text-sm font-semibold text-foreground">{name} confirmed your payment — all settled. 💚</p>
+              </div>
+            );
+          }
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 rounded-2xl border-2 border-gold/50 bg-amber-50/70 p-5"
+            >
+              <p className="font-bold text-foreground text-sm">
+                {booking.status === 'completed' ? `Pay ${name} — €${(owed / 100).toFixed(2)}` : `When the job's done: pay ${name} €${(owed / 100).toFixed(2)}`}
+              </p>
+              <p className="text-[13px] text-foreground/70 mt-1 leading-relaxed">
+                You pay {name} directly — they keep 100%. Revolut{handle ? '' : ' or cash'} is easiest{handle ? ` (their tag is below), or cash is grand too` : ''}.
+              </p>
+              {handle && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="flex-1 min-w-0 rounded-xl bg-white border border-border px-3 py-2.5 text-sm font-mono text-foreground/80 truncate select-all">
+                    {handle}
+                  </span>
+                  {revolutHref && (
+                    <a
+                      href={revolutHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-10 px-4 rounded-xl bg-navy text-white text-sm font-semibold flex items-center flex-shrink-0 hover:opacity-90 active:scale-95 transition-[opacity,transform] duration-150"
+                    >
+                      Open Revolut →
+                    </a>
+                  )}
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground mt-2.5">
+                {name} will confirm once they've received it — that wraps the job up for both of you.
+              </p>
+            </motion.div>
+          );
+        })()}
 
         {/* Before/after job photos — the helper's evidence shots, rendered as
             the customer's reveal. On a completed job with both photos it grows

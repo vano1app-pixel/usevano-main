@@ -261,9 +261,17 @@ serve(async (_req) => {
 
     const payUrl   = b.stripe_checkout_url as string;
     const nudgeTag = count >= 1 ? ' (reminder)' : '';
+    // Direct-pay: the card charge is only Vano's booking fee — the job itself
+    // is paid to the helper directly on the day. Legacy: full job payment.
+    const isDirectPay = bd.direct_pay === true;
+    const feeStr = isDirectPay && typeof bd.fee_due_cents === 'number'
+      ? `€${(bd.fee_due_cents / 100).toFixed(2).replace(/\.00$/, '')}` : '';
+    const smsAsk = isDirectPay
+      ? `confirm with the small booking fee${feeStr ? ` (${feeStr})` : ''} to lock them in — you pay ${helperFirst} directly when the job's done`
+      : `just complete your secure payment to lock them in`;
 
     if (b.customer_phone) {
-      void sendCustomerSms(b.customer_phone, `VANO${nudgeTag}: ${helperFirst} is confirmed for your ${catLabel} — just complete your secure payment to lock them in: ${payUrl}`);
+      void sendCustomerSms(b.customer_phone, `VANO${nudgeTag}: ${helperFirst} is confirmed for your ${catLabel} — ${smsAsk}: ${payUrl}`);
     }
     if (resendKey && b.customer_email) {
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -274,9 +282,11 @@ serve(async (_req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperFirst}</strong> has accepted your <strong>${catLabel}</strong> — you just need to complete your secure payment to lock them in. No cash needed on the day.
+      ${isDirectPay
+        ? `<strong>${helperFirst}</strong> has accepted your <strong>${catLabel}</strong> — confirm with the small VANO booking fee${feeStr ? ` (${feeStr})` : ''} to lock them in. The job itself is paid to ${helperFirst} directly (Revolut or cash) once it's done.`
+        : `<strong>${helperFirst}</strong> has accepted your <strong>${catLabel}</strong> — you just need to complete your secure payment to lock them in. No cash needed on the day.`}
     </p>
-    <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Complete payment →</a>
+    <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">${isDirectPay ? 'Confirm booking →' : 'Complete payment →'}</a>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Card, Apple Pay or Google Pay · secured by Stripe<br>Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#9ca3af;">+353 89 981 7111</a></p>
   </div>
 </div>
@@ -286,9 +296,11 @@ serve(async (_req) => {
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from, to: [b.customer_email as string],
-          subject: `${helperFirst} is confirmed for your ${catLabel} — complete your payment`,
+          subject: isDirectPay
+            ? `${helperFirst} is confirmed for your ${catLabel} — confirm your booking`
+            : `${helperFirst} is confirmed for your ${catLabel} — complete your payment`,
           html,
-          text: `Hi ${custName}, ${helperFirst} accepted your ${catLabel} — complete your secure payment to lock them in: ${payUrl}. Track: ${trackUrl}. Ref: ${ref}`,
+          text: `Hi ${custName}, ${helperFirst} accepted your ${catLabel} — ${smsAsk}: ${payUrl}. Track: ${trackUrl}. Ref: ${ref}`,
         }),
       }).catch(() => {});
     }

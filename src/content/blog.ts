@@ -93,8 +93,8 @@ export const BLOG_POSTS: BlogPost[] = [
 </ul>
 <p>Most of it is local, walkable or cyclable, and finished inside an hour or two — the kind of thing you can slot between a morning lecture and an afternoon seminar.</p>
 <h2>Does the pay actually stack up?</h2>
-<p>This is where flexible work earns its keep. The problem with a lot of student jobs is the rate. On Vano, every time-based job is priced so that after our cut you take home <strong>more than the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a></strong> — currently €15.30 an hour net on cleaning, garden, moving and online tutoring. That's a deliberate floor, not a happy accident. We explain exactly how that maths works in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
-<p>And because of <a href="/glossary/pay-after-accept">pay-after-accept</a>, there's no chasing anyone for cash — the customer pays once you accept, and your earnings land via <a href="/glossary/stripe-connect-payout">Stripe</a> after the job's done.</p>
+<p>This is where flexible work earns its keep. The problem with a lot of student jobs is the rate. On Vano, time-based jobs pay <strong>€18 an hour and you keep 100% of it</strong> — comfortably above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a>. Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not carved out of your pay. We explain exactly how that maths works in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
+<p>Payment is simple too: the customer pays you <strong>directly</strong> when the job's done — Revolut or cash — and you confirm it in the app. Customers who don't pay get blocked from booking again, so the app has your back.</p>
 <h2>Getting started</h2>
 <p>If you're an <a href="/glossary/atu">ATU</a> or University of Galway student, you can sign up, verify your ID, and start seeing nearby jobs the same week. We walk through the whole thing — verification, getting paid, your first job — in <a href="/blog/how-to-become-a-vano-helper">how to become a Vano helper</a>.</p>
 <p><a href="/join"><strong>Join as a helper →</strong></a></p>
@@ -103,18 +103,18 @@ export const BLOG_POSTS: BlogPost[] = [
     faqs: [
       { q: "What are the best part-time jobs for students in Galway?", a: "Flexible, local jobs you can do around lectures — dog walks, cleaning, garden help, moving help, errands and online tutoring — without committing to a fixed weekly rota." },
       { q: "How many hours do I have to work?", a: "None are required. There's no rota and no minimum: you accept jobs only when you're free, and pause completely during exams." },
-      { q: "Do part-time student jobs in Galway pay well?", a: "On Vano, time-based jobs are priced so you take home €15.30 an hour net — above Ireland's 2026 minimum wage of €14.15." },
+      { q: "Do part-time student jobs in Galway pay well?", a: "On Vano, time-based jobs pay €18 an hour and you keep 100% — well above Ireland's 2026 minimum wage of €14.15. Customers pay you directly after each job." },
       { q: "Can I really work around my college timetable?", a: "Yes. You pick up same-day jobs in the gaps between classes, so the work fits your week instead of the other way around." },
     ],
   },
 
   {
     slug: "atu-students-earning-with-vano",
-    title: "How ATU Students Are Earning €15+/hr With Vano Between Lectures",
+    title: "How ATU Students Are Earning €18/hr With Vano Between Lectures",
     summary:
-      "ATU students earn €15.30 an hour (net, above Ireland's minimum wage) doing short jobs near campus — dog walks, cleaning, moving help — picked up whenever they have a gap between lectures, with payment secured before they start.",
+      "ATU students earn €18 an hour — and keep 100% of it — doing short jobs near campus: dog walks, cleaning, moving help, picked up whenever they have a gap between lectures. Customers pay them directly after each job.",
     description:
-      "ATU Galway students are picking up same-day jobs around campus and taking home €15.30/hr net. Here's how the money works and why students like it.",
+      "ATU Galway students are picking up same-day jobs around campus and keeping 100% of €18/hr. Here's how the money works and why students like it.",
     keywords:
       "ATU student jobs, ATU Galway jobs, student income Galway, earn money between lectures, student jobs near ATU, part-time work ATU students",
     eyebrow: "For students",
@@ -128,8 +128,8 @@ export const BLOG_POSTS: BlogPost[] = [
     tags: ["ATU", "Student income", "Galway"],
     bodyHtml: `
 <p><a href="/glossary/atu">ATU</a> — Atlantic Technological University — sits right in the middle of Vano's home turf in Galway, which makes its students some of our most active <a href="/glossary/vano-helper">helpers</a>. The pitch is simple: real money, earned around your timetable, on jobs a short walk or cycle from campus.</p>
-<h2>The number that matters: €15.30/hr net</h2>
-<p>Most student jobs quote you a gross hourly rate and let the reality sink in later. We do it the other way around. On every <strong>time-based</strong> job — cleaning, garden work, moving help, online tutoring — the price is set so that <em>after</em> our <a href="/glossary/platform-fee">platform cut</a>, you take home <strong>€15.30 an hour</strong>. That's above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15, and it's a rule we built into the pricing on purpose.</p>
+<h2>The number that matters: €18/hr, and it's all yours</h2>
+<p>Most student jobs quote you a gross hourly rate and let the reality sink in later. We do it the other way around. On every <strong>time-based</strong> job — cleaning, garden work, moving help, online tutoring — the customer pays you <strong>€18 an hour and you keep 100%</strong>. Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not to you. That's well above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15, and it's a rule we built into the pricing on purpose.</p>
 <p>Job-based tasks (a bag of laundry, a bin run, a quick errand) are priced for the task rather than the hour, but the same principle holds: the rate has to be worth your time or students simply won't accept it.</p>
 <h2>How a typical week looks</h2>
 <p>There's no rota. You open the app when you've got a gap, see what's nearby, and take what fits:</p>
@@ -140,19 +140,19 @@ export const BLOG_POSTS: BlogPost[] = [
 </ul>
 <p>String a few of those together across a week and it adds up — without committing to fixed shifts you'll resent during exams.</p>
 <h2>You're never out of pocket</h2>
-<p>Two things make this student-friendly. First, <a href="/glossary/pay-after-accept">pay-after-accept</a>: the customer only pays once you've accepted the job, so the money's secured before you show up. Second, <a href="/glossary/vano-pay">Vano Pay</a> holds that payment safely and releases your earnings through <a href="/glossary/stripe-connect-payout">Stripe</a> once the job's marked done. No invoices, no awkward "can you transfer me later?" conversations.</p>
+<p>Two things make this student-friendly. First, the customer has already paid Vano's <a href="/glossary/platform-fee">booking fee</a> by card before you set off — they've committed real money to the booking. Second, they pay <em>you</em> the full job price directly the moment the job's done — Revolut or cash — and you confirm it in the app. If a customer ever doesn't pay, you report it with one tap and their number is blocked from booking again. No invoices, no chasing.</p>
 <blockquote>It's the only work I've found that actually bends around my timetable instead of the other way round.</blockquote>
 <h2>What you'll need</h2>
-<p>You'll verify your identity once (we're an <a href="/glossary/id-verified-helper">ID-verified</a> platform — it's what keeps customers trusting the students they let into their homes), connect a payout account, and you're live. Full steps are in <a href="/blog/how-to-become-a-vano-helper">how to become a Vano helper</a>.</p>
+<p>You'll verify your identity once (we're an <a href="/glossary/id-verified-helper">ID-verified</a> platform — it's what keeps customers trusting the students they let into their homes), add your Revolut tag so customers can pay you in one tap, and you're live. Full steps are in <a href="/blog/how-to-become-a-vano-helper">how to become a Vano helper</a>.</p>
 <p>Wondering why now is a good time to start? Read <a href="/blog/why-now-galway-student-cost-of-living">Galway's student cost-of-living squeeze</a>.</p>
 <p><a href="/join"><strong>Start earning around your lectures →</strong></a></p>
 `,
     related: ["how-to-become-a-vano-helper", "part-time-jobs-students-galway", "why-now-galway-student-cost-of-living"],
     faqs: [
-      { q: "How much can ATU students earn with Vano?", a: "€15.30 an hour net on time-based jobs like cleaning, garden, moving and online tutoring — above the 2026 minimum wage. Job-based tasks are priced for the task." },
+      { q: "How much can ATU students earn with Vano?", a: "€18 an hour on time-based jobs like cleaning, garden, moving and online tutoring — and you keep 100% of it, well above the 2026 minimum wage. Job-based tasks are priced for the task." },
       { q: "Are the jobs near the ATU Galway campus?", a: "Often, yes — many jobs are a short walk or cycle from campus around the city." },
       { q: "Do I have to be an ATU student to join?", a: "No. University of Galway students and other locals join too; ATU students are simply a large share of helpers." },
-      { q: "When and how do I get paid?", a: "After you mark a job complete, your earnings are released to your own account through Stripe." },
+      { q: "When and how do I get paid?", a: "The customer pays you directly the moment the job's done — Revolut or cash, whichever suits — and you keep 100% of the job price." },
     ],
   },
 
@@ -185,7 +185,7 @@ export const BLOG_POSTS: BlogPost[] = [
 </ul>
 <h2>Why flexible work is the realistic answer</h2>
 <p>You can't add hours to the day, but you <em>can</em> turn the gaps you already have into income. A free Wednesday afternoon, an hour before a late lecture, a quiet Sunday — these are dead time on a fixed rota but live earning time on a <a href="/glossary/flexible-work">flexible</a> platform. You accept a <a href="/glossary/same-day-home-help">same-day</a> job only when it suits you, and skip everything during deadline week.</p>
-<p>The catch with most "flexible" gig work is that the pay is thin once fees come out. We deliberately don't do that — every time-based job clears Ireland's <a href="/glossary/minimum-wage-ireland">minimum wage</a> after our cut, landing you €15.30/hr net. The <a href="/blog/atu-students-earning-with-vano">ATU earnings breakdown</a> shows exactly how.</p>
+<p>The catch with most "flexible" gig work is that the pay is thin once fees come out. We deliberately don't do that — on Vano there are <em>no</em> fees on your side: time-based jobs pay €18/hr and you keep 100%, well clear of Ireland's <a href="/glossary/minimum-wage-ireland">minimum wage</a>. The <a href="/blog/atu-students-earning-with-vano">ATU earnings breakdown</a> shows exactly how.</p>
 <h2>Earning without wrecking your degree</h2>
 <p>The whole point is that the work bends around study, not the reverse. Short, local jobs — a dog walk, an hour of cleaning, a hand with a move — finish quickly and leave your evenings for the library. Because there's no rota, there's nothing to "call in sick" for during exams; you just stop accepting until you've got time again.</p>
 <p>If that sounds like the kind of work you've been looking for, here's <a href="/blog/part-time-jobs-students-galway">why flexible beats a fixed rota</a>, and <a href="/blog/how-to-become-a-vano-helper">how to get started</a>.</p>
@@ -203,7 +203,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "why-vano-fair-pay-same-day",
     title: "Why Vano: Fair Pay Above Minimum Wage, Same-Day, No Awkward Boss",
     summary:
-      "Vano is built on three things: pay that clears Ireland's minimum wage by design (€15.30/hr net), same-day jobs you can do today, and no boss or rota — you choose what to accept. Every helper is ID-verified and paid securely through Stripe.",
+      "Vano is built on three things: pay that clears Ireland's minimum wage by design (€18/hr, you keep 100%), same-day jobs you can do today, and no boss or rota — you choose what to accept. Every helper is ID-verified and paid directly by the customer after each job.",
     description:
       "Why choose Vano over other student work? Pay that clears minimum wage by design, same-day jobs, and no fixed boss or rota. Here's exactly how it works.",
     keywords:
@@ -220,23 +220,23 @@ export const BLOG_POSTS: BlogPost[] = [
     bodyHtml: `
 <p>There's no shortage of ways for a student to earn a bit of money. So <em>why Vano</em>? It comes down to three things we've built in on purpose: pay that actually clears minimum wage, work you can do today, and no boss standing over a rota.</p>
 <h2>1. Pay that clears minimum wage — by design</h2>
-<p>This is the one we're proudest of. A lot of gig platforms advertise a headline rate, then quietly shave it with fees until your real take-home dips below what the law guarantees. We refuse to do that. Every <strong>time-based</strong> job on Vano is priced so that after our <a href="/glossary/platform-fee">platform cut</a>, your <a href="/glossary/net-pay">net pay</a> is <strong>€15.30 an hour</strong> — above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15.</p>
-<p>Here's the actual maths, no hand-waving: cleaning, garden, moving and online tutoring are all quoted at €18/hr to the customer. We take a 15% student-side cut, which leaves €15.30 in your pocket per hour. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
+<p>This is the one we're proudest of. A lot of gig platforms advertise a headline rate, then quietly shave it with fees until your real take-home dips below what the law guarantees. We refuse to do that. On Vano, <strong>you keep 100% of the job price</strong>: your <a href="/glossary/net-pay">take-home</a> on time-based jobs is the full <strong>€18 an hour</strong> — far above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15.</p>
+<p>Here's the actual maths, no hand-waving: cleaning, garden, moving and online tutoring are all quoted at €18/hr to the customer, and the customer pays you that directly when the job's done. Vano's <a href="/glossary/platform-fee">booking fee</a> (15% of the job price, minimum €4) is charged to the customer's card — none of it comes out of your pocket. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
 <h2>2. Same-day, not "sometime next week"</h2>
 <p>Vano is built for <a href="/glossary/same-day-home-help">same-day</a> help. A customer books, the job is <a href="/glossary/job-dispatch">dispatched</a> to nearby helpers by SMS and push, and whoever accepts first gets it. For you that means you can earn <em>today</em> — open the app on a free afternoon and there may already be a job two streets away.</p>
 <h2>3. No awkward boss, no rota</h2>
 <p>You're not an employee waiting for a manager to post next week's shifts. You choose what to accept and what to skip. Slammed with coursework? Accept nothing. Free all weekend? Take five jobs. The platform never penalises you for being a student first.</p>
 <h2>And it's safe on both sides</h2>
-<p>Customers let helpers into their homes, so trust is everything. Every helper is <a href="/glossary/id-verified-helper">ID-verified</a>, and money is handled by <a href="/glossary/vano-pay">Vano Pay</a> — the customer pays after you accept (<a href="/glossary/pay-after-accept">pay-after-accept</a>), the funds are held safely in <a href="/glossary/escrow">escrow</a>, and your earnings are released via <a href="/glossary/stripe-connect-payout">Stripe</a> when the job's done. Nobody's chasing anybody for cash.</p>
+<p>Customers let helpers into their homes, so trust is everything. Every helper is <a href="/glossary/id-verified-helper">ID-verified</a>, and the money is simple: the customer confirms the booking with a card fee when you accept (<a href="/glossary/pay-after-accept">pay-after-accept</a>), then pays you the full job price directly when the job's done — Revolut or cash. You confirm you've been paid in the app, and any number that stiffs a helper is blocked from booking again.</p>
 <p>Convinced? Here's <a href="/blog/how-to-become-a-vano-helper">how to become a Vano helper</a>.</p>
 <p><a href="/join"><strong>Join Vano →</strong></a></p>
 `,
     related: ["how-to-become-a-vano-helper", "what-vano-helpers-do", "atu-students-earning-with-vano"],
     faqs: [
-      { q: "How much do Vano helpers take home?", a: "€15.30 an hour net on time-based jobs, after the 15% platform cut — above Ireland's €14.15 minimum wage." },
-      { q: "Is Vano safe to work through?", a: "Yes. Every helper is ID-verified, and payments are held securely by Vano Pay and released through Stripe once the job is done." },
+      { q: "How much do Vano helpers take home?", a: "The full job price — 100%. Time-based jobs pay €18 an hour, well above Ireland's €14.15 minimum wage; Vano's booking fee is charged to the customer instead." },
+      { q: "Is Vano safe to work through?", a: "Yes. Every helper is ID-verified, customers commit with a card fee before you set off, and you confirm your payment in the app — unpaid jobs get the customer's number blocked." },
       { q: "Do I get a boss or a fixed schedule?", a: "Neither. You choose which jobs to accept and when — there's no manager and no rota." },
-      { q: "When does the customer pay?", a: "After you accept the job (pay-after-accept), so the money is secured before you set off." },
+      { q: "When does the customer pay?", a: "They pay Vano's booking fee by card when you accept — committing to the job — then pay you the full job price directly (Revolut or cash) when the job's done." },
     ],
   },
 
@@ -324,21 +324,21 @@ export const BLOG_POSTS: BlogPost[] = [
 <p>Head to the <a href="/join">join page</a> and create your account. You'll tell us the basics: who you are, where in Galway you're based, and the kinds of jobs you're up for — <a href="/blog/what-vano-helpers-do">dog walks, cleaning, garden, moving, errands or online tutoring</a>.</p>
 <h2>Step 2 — Verify your ID</h2>
 <p>Vano is an <a href="/glossary/id-verified-helper">ID-verified</a> platform. That single step is what lets customers feel safe letting a student into their home, and it's non-negotiable for that reason. You verify once; it protects you too, because everyone on the platform is a real, checked person.</p>
-<h2>Step 3 — Connect how you get paid</h2>
-<p>You'll set up a payout account through <a href="/glossary/stripe-connect-payout">Stripe Connect</a>. This is what your earnings land in after each job. It's the same secure system used by countless platforms to pay people — you complete a short onboarding once, and you're set. Until it's finished, any earnings simply wait safely and sweep through the moment you're done.</p>
+<h2>Step 3 — Add how you get paid</h2>
+<p>Customers pay you <strong>directly</strong> after each job — Revolut or cash — and you keep <strong>100%</strong> of the job price. Add your Revolut tag in your account so paying you is one tap; that's the whole setup.</p>
 <h2>Step 4 — Accept your first job</h2>
-<p>Now you're live. When a nearby job is <a href="/glossary/job-dispatch">dispatched</a>, you'll get an SMS and a push notification. Open it, check the details and the pay, and accept if it suits. The moment you accept, <a href="/glossary/pay-after-accept">the customer pays</a> and the money is secured by <a href="/glossary/vano-pay">Vano Pay</a> — so you know you'll be paid before you set off.</p>
+<p>Now you're live. When a nearby job is <a href="/glossary/job-dispatch">dispatched</a>, you'll get an SMS and a push notification. Open it, check the details and the pay, and accept if it suits. The moment you accept, <a href="/glossary/pay-after-accept">the customer pays Vano's booking fee</a> by card — real money committed to the booking before you set off.</p>
 <h2>Step 5 — Do the job, get paid</h2>
-<p>Find the address from the <a href="/glossary/eircode">Eircode</a>, do a good job, and mark it complete in the app. Your <a href="/glossary/net-pay">net earnings</a> — €15.30/hr on time-based work, above the <a href="/glossary/minimum-wage-ireland">minimum wage</a> — are released to your Stripe account.</p>
+<p>Find the address from the <a href="/glossary/eircode">Eircode</a>, do a good job, and tap "I've finished" in the app. The customer pays you the full job price on the spot — <a href="/glossary/net-pay">€18/hr on time-based work</a>, well above the <a href="/glossary/minimum-wage-ireland">minimum wage</a> — and you confirm you've been paid. If anyone ever doesn't pay, one tap reports it and their number is blocked.</p>
 <h2>That's it</h2>
 <p>No interview, no rota, no commitment. Do one job a month or one a day — it's entirely up to you. If you want the bigger picture first, read <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a> or <a href="/blog/part-time-jobs-students-galway">why flexible work beats a fixed rota</a>.</p>
 <p><a href="/join"><strong>Create your helper account →</strong></a></p>
 `,
     related: ["what-vano-helpers-do", "why-vano-fair-pay-same-day", "atu-students-earning-with-vano"],
     faqs: [
-      { q: "How do I become a Vano helper?", a: "Sign up, verify your ID, connect a Stripe payout account, then accept your first nearby job. The whole thing takes minutes." },
+      { q: "How do I become a Vano helper?", a: "Sign up, verify your ID, add your Revolut tag, then accept your first nearby job. The whole thing takes minutes." },
       { q: "Do I need to verify my identity?", a: "Yes — a one-time ID check before your first job. It's what lets customers trust the helpers they let into their homes." },
-      { q: "How soon can I start earning?", a: "Often the same week you sign up, once your ID check and payout account are set up." },
+      { q: "How soon can I start earning?", a: "Often the same week you sign up, once your ID check is done." },
       { q: "Do I need any experience?", a: "No. Most jobs — dog walks, cleaning, errands — need reliability, not experience." },
     ],
   },
@@ -369,7 +369,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <h2>Why we built Vano</h2>
 <p>Two problems, one platform:</p>
 <ul>
-<li><strong>For students:</strong> proper pay. Every time-based job is priced so a helper takes home <strong>€15.30/hr net</strong> — above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a> — with no fixed rota. The full breakdown is in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</li>
+<li><strong>For students:</strong> proper pay. Time-based jobs pay <strong>€18/hr and helpers keep 100%</strong> — far above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a> — with no fixed rota. The full breakdown is in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</li>
 <li><strong>For households:</strong> <a href="/glossary/same-day-home-help">same-day help</a> from an <a href="/glossary/id-verified-helper">ID-verified</a> local student — cleaning, dog walks, garden, moving, errands and more — without the hassle.</li>
 </ul>
 <figure><img src="/blog/team-podcast.jpg" alt="Vano's founders recording a podcast about building a student-run startup in Galway" class="rounded-2xl" loading="lazy" /><figcaption>Telling the story — building Vano in the open.</figcaption></figure>

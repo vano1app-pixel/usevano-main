@@ -14,11 +14,11 @@ export const FAQS = [
   },
   {
     q: 'How does payment work?',
-    a: 'You pay by card only after a helper accepts your job. The price is agreed upfront and locked in — no surprise charges after.',
+    a: 'Booking is free — when a helper accepts, a small VANO booking fee by card confirms it. The job itself you pay your helper directly once it\'s done, by Revolut or cash — they keep 100%. The price is agreed upfront and locked in, no surprise charges after.',
   },
   {
     q: 'What if something gets broken or damaged?',
-    a: 'Accidents are rare, but covered: Vano Cover can repair, replace or refund accidental damage up to €250 per booking. Tell us within 24 hours with a photo — your helper\'s before-and-after job photos help too. See vanojobs.com/cover for the details.',
+    a: 'Accidents are rare, but you can cover them: add Vano Cover for €2 when you book and we can repair, replace or refund accidental damage up to €250 for that booking. Tell us within 24 hours with a photo — your helper\'s before-and-after job photos help too. See vanojobs.com/cover for the details.',
   },
   {
     q: 'How quickly can someone arrive?',

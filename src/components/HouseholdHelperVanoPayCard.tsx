@@ -6,25 +6,27 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { extractFnError } from '@/lib/fnError';
 
-// Household-helper version of VanoPaySetupCard. Lets a helper link their
-// bank account or Revolut (any IBAN works) via Stripe Connect Express so
-// they get paid automatically after each completed job.
+// LEGACY-ONLY since the direct-pay pivot (July 2026): new bookings are paid
+// by the customer to the helper directly (they keep 100% — the Revolut tag
+// in the profile sheet is the only "setup"), so this Stripe Connect card
+// only matters for money earned under the OLD escrow model. It renders
+// NOTHING unless the helper has legacy traces (any household_payouts rows,
+// or an existing stripe_account_id) — brand-new helpers never see it.
 //
-// Three states, driven by household_helpers.{stripe_account_id,
-// stripe_payouts_enabled} plus the sum of pending household_payouts:
+// For legacy helpers, three states driven by household_helpers.
+// {stripe_account_id, stripe_payouts_enabled} + the payout rows:
 //
-//   1. not_set_up  → "Set up payouts to get paid". If they've already
-//      earned money (held as pending), the copy leads with the amount.
+//   1. not_set_up  → "release your held earnings" (only shown when there
+//      IS held money — otherwise the card hides).
 //   2. pending     → account created but Stripe wants more / isn't
 //      payout-ready yet → "Finish payout setup".
-//   3. enabled     → "Payouts active — you're paid automatically after
-//      each job", with pending + paid totals.
+//   3. enabled     → payouts active, with pending + paid totals.
 //
-// Earnings are NEVER lost by skipping setup: payouts pile up as
+// Legacy earnings are NEVER lost by skipping setup: payouts pile up as
 // 'pending' and the release-household-payouts cron transfers them the
 // moment onboarding completes.
 
-type PayStatus = 'loading' | 'not_set_up' | 'pending' | 'enabled' | 'error';
+type PayStatus = 'loading' | 'hidden' | 'not_set_up' | 'pending' | 'enabled' | 'error';
 
 interface Props {
   // The helper's auth user id (= household_helpers.user_id). When
@@ -92,6 +94,13 @@ export function HouseholdHelperVanoPayCard({ userId: userIdProp, className }: Pr
       setPaidCents(payouts.filter((p) => p.status === 'transferred').reduce((s, p) => s + p.amount_cents, 0));
 
       const row = helperRes.data as { stripe_account_id?: string | null; stripe_payouts_enabled?: boolean | null } | null;
+      // Direct-pay: no legacy traces → nothing to manage here, hide entirely.
+      // (New helpers are paid directly by the customer; their get-paid setup
+      // is the Revolut tag in the profile, not Stripe onboarding.)
+      if (payouts.length === 0 && !row?.stripe_account_id) {
+        setStatus('hidden');
+        return;
+      }
       if (!row || !row.stripe_account_id) {
         setStatus('not_set_up');
       } else if (row.stripe_payouts_enabled) {
@@ -139,11 +148,13 @@ export function HouseholdHelperVanoPayCard({ userId: userIdProp, className }: Pr
 
   const euros = (cents: number) => `€${(cents / 100).toFixed(0)}`;
 
+  if (status === 'hidden') return null;
+
   return (
     <div className={cn('rounded-2xl border border-border/60 bg-background overflow-hidden', className)}>
       <div className="border-b border-border/50 px-4 py-3 flex items-center gap-2">
         <Banknote size={15} className="text-sage" />
-        <p className="text-sm font-semibold text-foreground">Get paid automatically</p>
+        <p className="text-sm font-semibold text-foreground">Earnings from older bookings</p>
         {status === 'enabled' ? (
           <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sage/10 text-sage border border-sage/20">
             <CheckCircle2 size={11} /> Active
@@ -168,7 +179,7 @@ export function HouseholdHelperVanoPayCard({ userId: userIdProp, className }: Pr
         ) : status === 'enabled' ? (
           <>
             <p className="text-sm text-foreground leading-relaxed">
-              Payouts active — you're paid automatically after each job. Money lands in your bank account or Revolut (any IBAN works) within 1–2 days. Powered by Stripe.
+              Payouts active — earnings from your older (pre-direct-pay) bookings land in your bank account or Revolut within 1–2 days. New jobs are paid to you directly by the customer. Powered by Stripe.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-sage-light border border-sage/20 p-3">
@@ -215,11 +226,11 @@ export function HouseholdHelperVanoPayCard({ userId: userIdProp, className }: Pr
           <>
             {pendingCents > 0 ? (
               <p className="text-sm text-foreground leading-relaxed">
-                You've earned <span className="font-bold">{euros(pendingCents)}</span> — add your bank account or Revolut (any IBAN works) to release it. From then on you're paid automatically after every job.
+                You've earned <span className="font-bold">{euros(pendingCents)}</span> from older bookings — add your bank account or Revolut (any IBAN works) to release it. It's held safely until you do. New jobs are paid to you directly by the customer.
               </p>
             ) : (
               <p className="text-sm text-foreground leading-relaxed">
-                Set up payouts to get paid automatically after each job. Link your bank account or Revolut (any IBAN works) — a one-time minute with Stripe. You can keep working before you set this up; your earnings are held safely until you do.
+                Finish Stripe setup to release any earnings from older bookings. New jobs don't need this — customers pay you directly and you keep 100%.
               </p>
             )}
             <button
@@ -228,7 +239,7 @@ export function HouseholdHelperVanoPayCard({ userId: userIdProp, className }: Pr
               disabled={redirecting}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-sage px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-sage-dark disabled:opacity-60"
             >
-              {redirecting ? <><Loader2 size={14} className="animate-spin" /> Opening Stripe…</> : <>Set up payouts to get paid <ExternalLink size={13} /></>}
+              {redirecting ? <><Loader2 size={14} className="animate-spin" /> Opening Stripe…</> : <>Release my held earnings <ExternalLink size={13} /></>}
             </button>
           </>
         )}
