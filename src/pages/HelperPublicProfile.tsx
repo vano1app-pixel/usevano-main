@@ -143,7 +143,10 @@ export const HelperPublicProfile: React.FC = () => {
 
   const firstName  = helper?.name.split(' ')[0] ?? '';
   const rating     = helper ? (helper.average_rating ?? helper.rating_avg) : null;
-  const cats       = helper?.categories ?? [];
+  // Only tags with a KNOWN label render — a retired slug (plumbing,
+  // midnight-lift) or legacy junk must never appear on a customer-facing
+  // profile as a service Vano doesn't offer.
+  const cats       = (helper?.categories ?? []).filter(s => HELPER_CATEGORY_LABELS[s] || skillLabel(s));
   const slots      = AVAILABILITY_SLOTS.filter(s => helper?.availability?.includes(s.id));
   const written    = reviews.filter(r => r.comment && r.comment.trim().length > 0);
   // Tasks-done counts up once the profile loads
@@ -311,7 +314,7 @@ export const HelperPublicProfile: React.FC = () => {
                 <div className="flex flex-wrap gap-2">
                   {cats.map(slug => (
                     <span key={slug} className="text-xs font-medium bg-secondary text-foreground/80 rounded-full px-3 py-1.5">
-                      {HELPER_CATEGORY_LABELS[slug] ?? skillLabel(slug) ?? slug}
+                      {HELPER_CATEGORY_LABELS[slug] ?? skillLabel(slug)}
                     </span>
                   ))}
                 </div>

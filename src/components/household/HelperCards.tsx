@@ -22,7 +22,9 @@ interface HelperRow {
 }
 
 function Card({ h }: { h: HelperRow }) {
-  const cats = (h.categories ?? []).slice(0, 3);
+  // Known labels only — a retired or legacy tag must never render on the
+  // homepage as a service Vano doesn't offer (same rule as the profile page).
+  const cats = (h.categories ?? []).filter(s => CATEGORY_LABELS[s] || skillLabel(s)).slice(0, 3);
   const firstName = h.name.split(' ')[0];
   // Fade the photo in once it loads (no pop). Covers cached images too — they
   // may be `complete` before onLoad ever fires.
@@ -87,7 +89,7 @@ function Card({ h }: { h: HelperRow }) {
             <div className="flex flex-wrap gap-1 mt-auto">
               {cats.map(slug => (
                 <span key={slug} className="text-[10px] font-medium bg-secondary text-foreground/70 rounded-full px-2 py-0.5">
-                  {CATEGORY_LABELS[slug] ?? skillLabel(slug) ?? slug}
+                  {CATEGORY_LABELS[slug] ?? skillLabel(slug)}
                 </span>
               ))}
             </div>

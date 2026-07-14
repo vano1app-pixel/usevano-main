@@ -142,14 +142,20 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['house move', 'full move', 'relocate', 'moving house', 'flat move', 'house removal'], example: 'help moving to a new place' },
   { key: 'furniture',  emoji: '🛋️', label: 'Furniture shifting (two-person)', group: 'Moving & lifting', typicalHours: 1, marketHourlyCents: 2800,
     keywords: ['furniture', 'sofa', 'shift', 'rearrange', 'wardrobe move'], example: 'a second pair of hands to shift a sofa' },
+  // THE WASTE LINE (Irish law): transporting someone else's waste FOR REWARD
+  // needs a waste-collection permit (Waste Management (Collection Permit)
+  // Regs) — so these jobs are LABOUR ONLY. The helper loads, sorts and
+  // carries; the CUSTOMER drives / arranges the skip or council collection.
+  // Labels and examples below are worded to set that expectation — keep it
+  // that way, and never add a "we take it away" style job.
   { key: 'tiprun',     emoji: '🚛', label: 'Tip / dump run help', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 3000,
-    keywords: ['dump', 'tip run', 'rubbish', 'junk', 'haul', 'disposal', 'skip', 'clear out'], example: 'help load and sort a dump run' },
+    keywords: ['dump', 'tip run', 'rubbish', 'junk', 'haul', 'disposal', 'skip', 'clear out'], example: 'help load and sort for a dump run — you drive' },
   { key: 'packing',    emoji: '🗃️', label: 'Packing & boxing', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2500,
     keywords: ['packing', 'pack', 'wrap', 'box up', 'bubble wrap', 'pack up'], example: 'pack up the kitchen' },
   { key: 'storage',    emoji: '🔐', label: 'Storage unit help', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2800,
     keywords: ['storage unit', 'storage', 'lock up', 'self storage', 'into storage'], example: 'move boxes into a storage unit' },
-  { key: 'mattress',   emoji: '🛏️', label: 'Mattress / bed removal', group: 'Moving & lifting', typicalHours: 1, marketHourlyCents: 2800,
-    keywords: ['mattress', 'old mattress', 'dispose mattress', 'bed removal', 'take the bed'], example: 'take away an old mattress' },
+  { key: 'mattress',   emoji: '🛏️', label: 'Mattress / bed carry-out', group: 'Moving & lifting', typicalHours: 1, marketHourlyCents: 2800,
+    keywords: ['mattress', 'old mattress', 'dispose mattress', 'bed removal', 'take the bed'], example: 'carry an old mattress out for collection' },
   // REMOVED (injury risk): appliance moving (60–80kg white goods) and
   // piano / heavy item moves — specialist lifting, not student work.
   { key: 'studentmove', emoji: '🎓', label: 'Student / college move', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2800,

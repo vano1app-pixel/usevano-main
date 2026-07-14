@@ -149,6 +149,13 @@ const HelperTerms = () => (
               needing Garda vetting (children, vulnerable adults), qualified trades (electrics,
               gas, plumbing), work at height, or driving passengers.
             </li>
+            <li>
+              <strong>You&apos;re the labour, not the transport:</strong> never carry passengers,
+              pets or a customer&apos;s waste in your own vehicle for a job — lifts need PSV
+              licensing and carrying waste for payment needs a waste-collection permit. On dump
+              runs and clear-outs you load, sort and carry; the customer drives or arranges the
+              skip/collection.
+            </li>
           </ul>
         </section>
 
