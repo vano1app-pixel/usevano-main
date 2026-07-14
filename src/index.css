@@ -420,6 +420,24 @@
   animation: page-enter-fade 150ms ease-out both;
 }
 
+/* List rows cascade up one-by-one as a sheet page lands (the booking wizard).
+   Set --cascade-i to the row's position. Pure CSS so it runs off the main
+   thread even while the sheet itself is animating. */
+@keyframes cascade-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.cascade-in {
+  opacity: 0;
+  animation: cascade-rise 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--cascade-i, 0) * 38ms);
+}
+/* The global reduced-motion block below collapses the duration but not the
+   stagger delay — zero it too so rows appear together, instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .cascade-in { animation-delay: 0ms; }
+}
+
 /* Reduced motion — honour the OS setting site-wide: neutralise continuous
    and transition animation for anyone who asks for it. framer-motion is gated
    separately via <MotionConfig reducedMotion="user"> in App.tsx (covers the

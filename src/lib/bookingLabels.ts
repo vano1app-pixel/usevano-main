@@ -52,3 +52,21 @@ export function formatBookingDate(scheduledDate: string | null): string {
   if (isNaN(parsed.getTime())) return scheduledDate;
   return parsed.toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' });
 }
+
+/** Category emoji — the same tiles the customer tapped to book, so a booking
+ *  is recognisable at a glance everywhere it's listed. '✨' is the custom /
+ *  unknown fallback (matches the "Anything else" tile). */
+export const CATEGORY_EMOJI: Record<string, string> = {
+  shopping: '🧺', 'grocery-shopping': '🛒',
+  'dog-walk': '🐕', 'dog-walking': '🐕',
+  garden: '🌿', 'lawn-mowing': '🌿',
+  moving: '📦', 'moving-help': '📦',
+  cleaning: '🧹', 'outdoor-cleaning': '🧽',
+  tutoring: '📚', 'tutoring-grinds': '📚',
+  'furniture-assembly': '🔧', 'tech-help': '💻',
+  'wait-delivery': '📬', handyman: '🔨', plumbing: '🔧',
+};
+
+export function categoryEmoji(category: string): string {
+  return CATEGORY_EMOJI[category] ?? '✨';
+}

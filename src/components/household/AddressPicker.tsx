@@ -196,7 +196,13 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
           </button>
         </motion.div>
       ) : (
-        <>
+        /* Eases back in when "Change" re-opens the controls — the confirmed
+           row swapping to a taller block shouldn't snap. */
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        >
           {/* Use my location — the one-tap fast path, styled as such: solid,
               full-weight, with press feedback. Typing is the fallback below. */}
           <button
@@ -242,7 +248,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
               <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />
             )}
           </div>
-        </>
+        </motion.div>
       )}
 
       {/* Suggestions dropdown */}
