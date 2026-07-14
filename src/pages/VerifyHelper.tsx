@@ -437,7 +437,7 @@ const VerifyHelper: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    <p className="text-sm text-muted-foreground leading-relaxed">A 2-minute photo of your ID plus a quick selfie, secured by Stripe. Free — we never see your documents.</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">A 2-minute photo of your ID plus a quick selfie, secured by Stripe. Free — we never see your documents. <span className="font-semibold text-foreground">This is the step that unlocks your first job:</span> customers are promised every helper is ID-verified, so offers only go to verified helpers.</p>
                     {/* Server requires step 1 first (the email check proves the
                         caller owns this account before an ID can be attached to
                         it) — mirror that here so the button isn't a dead end. */}

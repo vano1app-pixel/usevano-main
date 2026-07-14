@@ -309,6 +309,10 @@ async function sendGapRecruitNudges(opts: {
       .eq('city', city)
       .eq('status', 'approved')
       .eq('is_available', true)
+      // Only ID-verified helpers can receive jobs (the first-job gate), so
+      // don't recruit someone into a category they couldn't be offered anyway
+      // — the onboarding nudge cron chases the ID check itself.
+      .eq('id_verified', true)
       .not('phone', 'is', null)
       .or(`categories.is.null,categories.not.cs.{${category}}`)
       .or(`gap_nudged_at.is.null,gap_nudged_at.lt.${cooldownCutoff}`)
@@ -467,7 +471,12 @@ serve(async (req) => {
         .select('id, name, phone, email, user_id')
         .eq('city', city)
         .eq('status', 'approved')
-        .eq('is_available', true);
+        .eq('is_available', true)
+        // THE FIRST-JOB GATE: only helpers who passed the free Stripe
+        // Identity check receive offers. This is what makes the marketing
+        // claim "every helper is ID-verified before their first job" TRUE —
+        // it keys on id_verified alone (free), never the paid tick.
+        .eq('id_verified', true);
       if (!isCatchAll) cityQuery = cityQuery.contains('categories', [category]);
       // ✓-Verified helpers get first dibs (the badge's tangible perk — the
       // €2/month tick has to buy something real), then fair rotation by
@@ -493,7 +502,8 @@ serve(async (req) => {
         .from('household_helpers')
         .select('id, name, phone, email, user_id')
         .eq('status', 'approved')
-        .eq('is_available', true);
+        .eq('is_available', true)
+        .eq('id_verified', true); // first-job gate — same as the city query
       if (!isCatchAll) allQuery = allQuery.contains('categories', [category]);
       const { data: allHelpers, error: allErr } = await allQuery
         .order('vano_verified', { ascending: false })

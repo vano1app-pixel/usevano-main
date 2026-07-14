@@ -366,8 +366,10 @@ export const HelperPublicProfile: React.FC = () => {
                 {helper.id_verified
                   ? `${firstName} has passed photo-ID and selfie verification with Stripe.
                      Not happy with a task? You don't pay.`
-                  : `Booked through VANO you're covered — track your helper live, and if
+                  : `Book through VANO and you're protected — track your helper live, and if
                      you're not happy with a task, you don't pay.`}
+                {' '}Accidental damage is covered up to €250 by{' '}
+                <Link to="/cover" className="font-semibold underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</Link>.
               </p>
               <Link
                 to="/home#category-grid"

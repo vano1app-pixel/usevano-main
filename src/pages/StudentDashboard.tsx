@@ -320,6 +320,16 @@ const StudentDashboard = () => {
 
   const acceptJob = async (jobId: string) => {
     if (!userId) return;
+    // First-job ID gate (mirrors dispatch + accept-job server checks):
+    // customers are promised every helper is ID-verified before their first
+    // job, so unverified helpers are routed to the free check instead.
+    // `=== false` on purpose — null just means the row hasn't loaded, and the
+    // server gates are the real enforcement.
+    if (helperIdVerified === false) {
+      toast({ title: 'Verify your ID first', description: 'A free 2-minute ID check unlocks your first job.' });
+      navigate('/verify-helper');
+      return;
+    }
     setAccepting(jobId);
     // Use .select('id') so we can detect a race — if data is empty, someone else got there first
     const { data: claimed, error } = await hdb
@@ -684,7 +694,7 @@ const StudentDashboard = () => {
               </span>
               <span className="block text-xs text-muted-foreground mt-0.5">
                 {!helperEmailVerified || !helperIdVerified
-                  ? 'Confirm your student email and verify your ID (both free), then €2/month keeps the blue tick on your name — verified helpers get offered jobs first.'
+                  ? 'Verify your ID (free, and required before your first job) and confirm your student email, then €2/month keeps the blue tick on your name — verified helpers get offered jobs first.'
                   : 'Checks done ✓ — activate the €2/month plan to switch your blue tick on. Cancel anytime.'}
               </span>
             </span>
@@ -857,7 +867,7 @@ const StudentDashboard = () => {
                         >
                           {accepting === job.id ? (
                             <Loader2 size={16} className="animate-spin" />
-                          ) : 'Accept job'}
+                          ) : helperIdVerified === false ? 'Verify your ID to accept' : 'Accept job'}
                         </button>
                       </motion.div>
                     ))}

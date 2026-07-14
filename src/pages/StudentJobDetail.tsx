@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
-import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound, ShieldCheck, Camera } from 'lucide-react';
+import { uploadJobPhoto } from '@/lib/jobPhotos';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -69,6 +70,10 @@ interface Booking {
   job_ends_at: string | null;
   // Set when the helper taps "I've finished" — asks the customer to confirm.
   helper_finished_at: string | null;
+  // Before/after job photos (uploaded via the job-photo function). Evidence
+  // for Vano Cover/disputes + the customer's shareable before/after card.
+  arrival_photo_url: string | null;
+  finish_photo_url: string | null;
 }
 
 interface ChatMessage {
@@ -190,6 +195,11 @@ const StudentJobDetail = () => {
   const [releaseConfirm, setReleaseConfirm] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  // First-job ID gate: false = definitely unverified (accept is replaced by a
+  // verify CTA). null = unknown (row still loading / fetch hiccup) — the
+  // server is the real gate (dispatch + accept-job both filter id_verified),
+  // this state only drives honest UI.
+  const [helperIdVerified, setHelperIdVerified] = useState<boolean | null>(null);
   // Arrival-code handshake
   const [reaching, setReaching] = useState(false);
   const [arrivalCode, setArrivalCode] = useState('');
@@ -201,6 +211,9 @@ const StudentJobDetail = () => {
   // Timed-job countdown (display only — the customer marks the job done)
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
+  // Before/after job photos — which slot is mid-upload (fail-soft: an upload
+  // error never blocks the job flow, it just toasts and lets them retry).
+  const [photoUploading, setPhotoUploading] = useState<'arrival' | 'finish' | null>(null);
   // Set when the browser refuses geolocation while on_way — the customer's
   // live map silently shows nothing, so the helper deserves to know.
   const [locationDenied, setLocationDenied] = useState(false);
@@ -231,13 +244,16 @@ const StudentJobDetail = () => {
       if (!uid) return; // redirect handled by the effect above
       if (!cancelled) setUserId(uid);
 
-      const [bookingRes, msgRes] = await Promise.all([
+      const [bookingRes, msgRes, helperRes] = await Promise.all([
         // Explicit columns — never select arrival_code, so the customer's code
         // can't be read out of the helper's app and the handshake stays honest.
         hdb.from('household_bookings')
-          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, paid_at, booking_data, arrival_verified_at, job_ends_at, helper_finished_at')
+          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, paid_at, booking_data, arrival_verified_at, job_ends_at, helper_finished_at, arrival_photo_url, finish_photo_url')
           .eq('id', bookingId).maybeSingle(),
         hdb.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
+        // First-job gate: only ID-verified helpers may accept (matches the
+        // dispatch filter + accept-job's server check).
+        hdb.from('household_helpers').select('id_verified').eq('user_id', uid).maybeSingle(),
       ]);
 
       if (cancelled) return;
@@ -248,6 +264,7 @@ const StudentJobDetail = () => {
         if (b.status === 'on_way') startLocationWatch(bookingId);
       }
       if (msgRes.data) setMessages(msgRes.data as ChatMessage[]);
+      if (helperRes.data) setHelperIdVerified(!!(helperRes.data as { id_verified: boolean | null }).id_verified);
       setLoading(false);
     };
     void load();
@@ -360,6 +377,13 @@ const StudentJobDetail = () => {
   // dashboard: only one helper can flip pending → accepted.
   const claimJob = async () => {
     if (!booking || !bookingId || !userId || claiming) return;
+    // First-job ID gate (mirrors accept-job's server check): the button is
+    // already swapped for a verify CTA when unverified, this is belt+braces.
+    if (helperIdVerified === false) {
+      toast({ title: 'Verify your ID first', description: 'A free 2-minute ID check unlocks your first job.', variant: 'destructive' });
+      navigate('/verify-helper');
+      return;
+    }
     setClaiming(true);
     const { data: claimed, error } = await hdb
       .from('household_bookings')
@@ -378,7 +402,7 @@ const StudentJobDetail = () => {
       // — never select('*'): the row carries the customer's secret arrival_code
       // and this runs in the (losing) helper's browser.
       const { data: fresh } = await hdb.from('household_bookings')
-        .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, paid_at, booking_data, arrival_verified_at, job_ends_at, helper_finished_at')
+        .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, paid_at, booking_data, arrival_verified_at, job_ends_at, helper_finished_at, arrival_photo_url, finish_photo_url')
         .eq('id', bookingId).maybeSingle();
       if (fresh) setBooking(fresh as Booking);
       setClaiming(false);
@@ -477,6 +501,22 @@ const StudentJobDetail = () => {
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [booking?.status, booking?.job_ends_at]);
+
+  // Before/after job photos: resize + upload (fail-soft), then reflect the
+  // fresh URL locally. Evidence for Vano Cover/disputes AND the customer's
+  // shareable before/after card — worth the extra tap, never worth blocking on.
+  const handleJobPhoto = async (kind: 'arrival' | 'finish', file: File | undefined) => {
+    if (!file || !bookingId || photoUploading) return;
+    setPhotoUploading(kind);
+    const url = await uploadJobPhoto(bookingId, kind, file);
+    setPhotoUploading(null);
+    if (url) {
+      setBooking((b) => b ? { ...b, [kind === 'arrival' ? 'arrival_photo_url' : 'finish_photo_url']: url } : b);
+      toast({ title: kind === 'arrival' ? 'Before photo saved' : 'After photo saved', description: 'It protects you if anything about the job is ever questioned.' });
+    } else {
+      toast({ title: "Photo didn't upload", description: 'No harm done — you can try again any time from this screen.', variant: 'destructive' });
+    }
+  };
 
   // "I've finished" — flags the job done and asks the customer to confirm.
   // Does NOT pay the helper; the customer still has to mark complete.
@@ -778,17 +818,37 @@ const StudentJobDetail = () => {
             <p className="text-xs text-muted-foreground mb-4">
               This job is still open — first to accept gets it.
             </p>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => void claimJob()}
-              disabled={claiming}
-              className="w-full h-14 rounded-full bg-sage text-white font-semibold text-base flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
-            >
-              {claiming ? <Loader2 size={18} className="animate-spin" /> : <><Zap size={18} />Accept this job</>}
-            </motion.button>
-            <p className="text-center text-[11px] text-muted-foreground mt-2">
-              Accepting asks the customer to pay and confirms you as their helper
-            </p>
+            {helperIdVerified === false ? (
+              /* First-job ID gate — customers are promised every helper is
+                 ID-verified before their first job, so the accept button only
+                 renders for verified helpers. */
+              <>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => navigate('/verify-helper')}
+                  className="w-full h-14 rounded-full bg-sage text-white font-semibold text-base flex items-center justify-center gap-2 hover:bg-sage-dark transition-[background-color] duration-150"
+                >
+                  <ShieldCheck size={18} />Verify your ID to accept jobs
+                </motion.button>
+                <p className="text-center text-[11px] text-muted-foreground mt-2">
+                  One free 2-minute check before your first job — customers are told every helper is ID-verified
+                </p>
+              </>
+            ) : (
+              <>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => void claimJob()}
+                  disabled={claiming}
+                  className="w-full h-14 rounded-full bg-sage text-white font-semibold text-base flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+                >
+                  {claiming ? <Loader2 size={18} className="animate-spin" /> : <><Zap size={18} />Accept this job</>}
+                </motion.button>
+                <p className="text-center text-[11px] text-muted-foreground mt-2">
+                  Accepting asks the customer to pay and confirms you as their helper
+                </p>
+              </>
+            )}
           </motion.div>
         )}
 
@@ -1033,6 +1093,63 @@ const StudentJobDetail = () => {
               </>
             )}
           </motion.div>
+        )}
+
+        {/* Before/after job photos — the evidence layer. A "before" shot once
+            you're at the job, an "after" shot when finished. Protects the
+            helper in disputes/Vano Cover claims, and the customer gets a
+            shareable before/after card. Entirely fail-soft and optional. */}
+        {mine && ['arrived', 'in_progress', 'completed'].includes(booking.status) && (
+          <div className="rounded-2xl border border-border/60 bg-background p-4 mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Camera size={15} className="text-sage flex-shrink-0" />
+              <p className="text-sm font-bold text-foreground">Job photos</p>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+              A quick before + after of the work area (no people in shot). They protect you if anything is ever questioned — and customers love the reveal.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {([['arrival', 'Before', booking.arrival_photo_url], ['finish', 'After', booking.finish_photo_url]] as const).map(([kind, label, url]) => {
+                // "Before" stops being offerable once the job is over; "After"
+                // unlocks when they flag finished (or the customer completes).
+                const offerable = kind === 'arrival'
+                  ? booking.status !== 'completed'
+                  : !!booking.helper_finished_at || booking.status === 'completed';
+                return (
+                  <div key={kind}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">{label}</p>
+                    {url ? (
+                      <div className="relative">
+                        <img src={url} alt={`${label} photo`} className="w-full aspect-[4/3] object-cover rounded-xl border border-border/60" />
+                        <label className="absolute bottom-1.5 right-1.5 h-7 px-2.5 rounded-full bg-black/55 text-white text-[10px] font-semibold flex items-center gap-1 cursor-pointer">
+                          {photoUploading === kind ? <Loader2 size={11} className="animate-spin" /> : <><Camera size={11} />Retake</>}
+                          <input type="file" accept="image/*" capture="environment" className="hidden" disabled={photoUploading !== null}
+                            onChange={(e) => { void handleJobPhoto(kind, e.target.files?.[0]); e.target.value = ''; }} />
+                        </label>
+                      </div>
+                    ) : offerable ? (
+                      <label className={cn(
+                        'w-full aspect-[4/3] rounded-xl border-2 border-dashed border-sage/40 bg-sage-light/50 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-sage-dark',
+                        photoUploading !== null && 'opacity-50 pointer-events-none',
+                      )}>
+                        {photoUploading === kind
+                          ? <Loader2 size={18} className="animate-spin" />
+                          : <><Camera size={18} /><span className="text-[11px] font-semibold">Add {label.toLowerCase()} photo</span></>}
+                        <input type="file" accept="image/*" capture="environment" className="hidden" disabled={photoUploading !== null}
+                          onChange={(e) => { void handleJobPhoto(kind, e.target.files?.[0]); e.target.value = ''; }} />
+                      </label>
+                    ) : (
+                      <div className="w-full aspect-[4/3] rounded-xl border border-border/50 bg-secondary/30 flex items-center justify-center px-3">
+                        <span className="text-[10.5px] text-muted-foreground text-center leading-snug">
+                          {kind === 'finish' ? 'Unlocks when you tap "I\'ve finished"' : 'Job\'s over — no before photo taken'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {/* Status action button */}

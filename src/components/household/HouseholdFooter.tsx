@@ -22,6 +22,8 @@ const NAV_LINKS = [
   { label: 'LinkedIn',       href: 'https://www.linkedin.com/in/ayush-puri-4b88b8357', external: true },
   { label: 'WhatsApp',       href: 'https://wa.me/353899817111',                     external: true  },
   { label: 'Terms',          href: '/terms',                                         external: false },
+  { label: 'Vano Cover',     href: '/cover',                                         external: false },
+  { label: 'Helper terms',   href: '/helper-terms',                                  external: false },
   { label: 'Privacy',        href: '/privacy',                                       external: false },
 ];
 

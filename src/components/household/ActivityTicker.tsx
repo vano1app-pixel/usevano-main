@@ -31,21 +31,11 @@ const SERVICE_LABEL: Record<string, string> = {
   custom:     'Home help', // quick-search bookings land as `custom` — never show the raw slug
 };
 
-// Seeds use non-round offsets so they don't feel generated.
-// fetchedAt is set at module load so the ages advance in real time.
-const NOW = Date.now();
-const SEEDS: TickerItem[] = [
-  { emoji: '🧹', service: 'Cleaning',    area: 'Salthill',      baseMinsAgo: 6,   fetchedAt: NOW },
-  { emoji: '🐕', service: 'Dog walk',    area: 'Knocknacarra',  baseMinsAgo: 19,  fetchedAt: NOW },
-  { emoji: '🌿', service: 'Garden',      area: 'Renmore',       baseMinsAgo: 38,  fetchedAt: NOW },
-  { emoji: '📦', service: 'Moving help', area: "Taylor's Hill", baseMinsAgo: 67,  fetchedAt: NOW },
-  { emoji: '🛒', service: 'Shopping',    area: 'Shantalla',     baseMinsAgo: 94,  fetchedAt: NOW },
-  // No tutoring seed — tutoring is online/adults-only now, so an area-tagged
-  // in-person framing would misrepresent the service.
-  { emoji: '🧺', service: 'Laundry',     area: 'Westside',      baseMinsAgo: 121, fetchedAt: NOW },
-  { emoji: '🧹', service: 'Cleaning',    area: 'Rahoon',        baseMinsAgo: 148, fetchedAt: NOW },
-  { emoji: '🐕', service: 'Dog walk',    area: 'Salthill',      baseMinsAgo: 173, fetchedAt: NOW },
-];
+// NO seed/invented activity — ever (same rule as ReviewCarousel). "Cleaning
+// booked in Salthill · 6 min ago" is a factual claim; showing invented
+// bookings as recent activity is fake social proof (a misleading commercial
+// practice), so the ticker renders ONLY rows from the real-activity RPC and
+// stays hidden until enough genuine bookings exist.
 
 function currentMins(item: TickerItem, nowMs: number): number {
   const elapsed = Math.floor((nowMs - item.fetchedAt) / 60000);
@@ -59,7 +49,7 @@ function fmtMins(m: number): string {
 }
 
 export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) => {
-  const [items,  setItems]  = useState<TickerItem[]>(SEEDS);
+  const [items,  setItems]  = useState<TickerItem[]>([]);
   const [paused, setPaused] = useState(false);
   // Tick every minute so displayed ages advance in real time
   const [nowMs,  setNowMs]  = useState(() => Date.now());
@@ -90,10 +80,13 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
           setItems(real);
         }
       } catch {
-        // DB unavailable — seeds age correctly on their own
+        // DB unavailable — the ticker simply stays hidden
       }
     })();
   }, []);
+
+  // Nothing genuine to show yet — show nothing. Never pad with fiction.
+  if (items.length === 0) return null;
 
   const doubled = [...items, ...items];
 

@@ -180,6 +180,37 @@ serve(async (req) => {
     // Best-effort web push to the customer's browser — never blocks the flow.
     void sendHouseholdPush(booking_id, 'accepted');
 
+    // Get helper details — household_helpers first, profiles fallback.
+    // Resolved BEFORE the payment blocks so the Stripe line items can name the
+    // helper: the receipt is part of the contract moment ("you're paying Seán,
+    // an independent provider, via VANO"), not just the emails.
+    let helperFirstName = 'Your helper';
+    let helperId: string | null = null;
+    let helperPhoto: string | null = null;
+    let helperRating: number | null = null;
+    let helperJobs = 0;
+    const { data: helper } = await supabase
+      .from('household_helpers')
+      .select('id, name, photo_url, average_rating, accepted_count')
+      .eq('user_id', studentUserId)
+      .maybeSingle() as { data: { id?: string; name?: string; photo_url?: string | null; average_rating?: number | null; accepted_count?: number } | null };
+    if (helper?.name) {
+      helperFirstName = helper.name.split(' ')[0];
+      helperId     = helper.id ?? null;
+      helperPhoto  = helper.photo_url || null;
+      helperRating = helper.average_rating ?? null;
+      helperJobs   = helper.accepted_count ?? 0;
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('user_id', studentUserId)
+        .maybeSingle() as { data: { display_name?: string } | null };
+      if (profile?.display_name) helperFirstName = profile.display_name.split(' ')[0];
+    }
+    // True when we resolved a real first name (not the generic fallback).
+    const helperNamed = helperFirstName !== 'Your helper';
+
     // ── Pay-after-accept: create the Stripe Checkout session now ──────────────────
     // A helper is confirmed, so this is the moment the customer pays.
     // Idempotent: reuse the session created on a previous acceptance
@@ -250,7 +281,9 @@ serve(async (req) => {
                   off_session: 'true',
                   confirm: 'true',
                   'metadata[household_booking_id]': booking_id,
-                  description: `VANO — ${CATEGORY_LABELS[booking.category as string] ?? 'Household help'} (card on file)`,
+                  // The charge description is contract-moment copy too: the
+                  // work is the helper's, VANO is the platform arranging it.
+                  description: `${CATEGORY_LABELS[booking.category as string] ?? 'Household help'}${helperNamed ? ` with ${helperFirstName} (independent helper)` : ''} — arranged via VANO (card on file)`,
                 }),
               });
               if (piResp.ok) {
@@ -310,13 +343,19 @@ serve(async (req) => {
         mode: 'payment',
         'line_items[0][price_data][currency]': 'eur',
         'line_items[0][price_data][unit_amount]': String(priceCents),
-        'line_items[0][price_data][product_data][name]': `VANO — ${CATEGORY_LABELS[booking.category as string] ?? 'Household help'}`,
-        'line_items[0][price_data][product_data][description]': 'Your helper is confirmed — this payment secures the booking',
+        // The receipt is where the marketplace structure has to be visible:
+        // the job line belongs to the named independent helper, the platform
+        // fee line belongs to VANO. (Previously both lines read "VANO — …",
+        // which told the customer VANO was the service provider.)
+        'line_items[0][price_data][product_data][name]':
+          `${CATEGORY_LABELS[booking.category as string] ?? 'Household help'}${helperNamed ? ` — with ${helperFirstName}` : ''}`,
+        'line_items[0][price_data][product_data][description]':
+          `Carried out by ${helperNamed ? `${helperFirstName}, an independent helper` : 'an independent helper'} — booked, paid and supported via VANO. This payment secures the booking.`,
         'line_items[0][quantity]': '1',
         ...(serviceFeeCents > 0 ? {
           'line_items[1][price_data][currency]': 'eur',
           'line_items[1][price_data][unit_amount]': String(serviceFeeCents),
-          'line_items[1][price_data][product_data][name]': 'VANO service fee',
+          'line_items[1][price_data][product_data][name]': 'VANO platform fee',
           'line_items[1][quantity]': '1',
         } : {}),
         'payment_intent_data[capture_method]': 'automatic',
@@ -378,32 +417,6 @@ serve(async (req) => {
     // Quick-book customers often leave no email — keep going so the admin
     // email below still fires (it carries the pay link to WhatsApp onward).
     const hasCustomerEmail = !!booking?.customer_email;
-
-    // Get helper details — household_helpers first, profiles fallback
-    let helperFirstName = 'Your helper';
-    let helperId: string | null = null;
-    let helperPhoto: string | null = null;
-    let helperRating: number | null = null;
-    let helperJobs = 0;
-    const { data: helper } = await supabase
-      .from('household_helpers')
-      .select('id, name, photo_url, average_rating, accepted_count')
-      .eq('user_id', studentUserId)
-      .maybeSingle() as { data: { id?: string; name?: string; photo_url?: string | null; average_rating?: number | null; accepted_count?: number } | null };
-    if (helper?.name) {
-      helperFirstName = helper.name.split(' ')[0];
-      helperId     = helper.id ?? null;
-      helperPhoto  = helper.photo_url || null;
-      helperRating = helper.average_rating ?? null;
-      helperJobs   = helper.accepted_count ?? 0;
-    } else {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('user_id', studentUserId)
-        .maybeSingle() as { data: { display_name?: string } | null };
-      if (profile?.display_name) helperFirstName = profile.display_name.split(' ')[0];
-    }
 
     // SMS the customer the pay link — most quick-book customers leave only a
     // phone number, so this is the primary channel for the trust moment.
@@ -479,6 +492,7 @@ serve(async (req) => {
       ${discountLine}
       <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">${helperFirstName} is holding your slot — pay securely by card to lock it in. No cash needed on the day.</p>
       <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Confirm &amp; pay €${(totalCents / 100).toFixed(2)} →</a>
+      <p style="margin:12px 0 0;color:#9ca3af;font-size:11px;line-height:1.5;">By paying you agree to VANO's <a href="${siteUrl}/terms" style="color:#9ca3af;">Terms</a> — the work is carried out by ${helperFirstName}, an independent provider, with <a href="${siteUrl}/cover" style="color:#9ca3af;">Vano Cover</a> up to €250 for accidental damage.</p>
     </div>` : ''}
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
       You'll get another message when they're on their way — including a <strong>live map</strong> so you can track exactly where they are.

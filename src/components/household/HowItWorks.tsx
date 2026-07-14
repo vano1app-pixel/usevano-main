@@ -4,9 +4,11 @@ import { motion, type Variants } from 'framer-motion';
 /**
  * How it works — three honest steps on a clean white band, explaining the
  * (genuinely simple) process before any social proof is asked for. The
- * ReviewCarousel lives further down the page: real household_ratings replace
- * its seed testimonials as they come in, and only real ones carry the
- * "Verified booking" badge.
+ * ReviewCarousel lives further down the page and shows ONLY real
+ * household_ratings (no seed testimonials — deleted July 2026), each with
+ * the "Verified booking" badge.
+ * Step 3's "ID-verified student" is literally enforced: dispatch and
+ * accept-job only give jobs to id_verified helpers (the first-job gate).
  * Plain by design — white background, black type — but it springs to life
  * on scroll so it never reads as a static block.
  */

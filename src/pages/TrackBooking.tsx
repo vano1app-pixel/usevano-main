@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
+import { BeforeAfterCard } from '@/components/household/BeforeAfterCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
@@ -52,6 +53,9 @@ interface Booking {
   job_ends_at: string | null;
   /** Set when the helper taps "I've finished" — surfaces the confirm card early */
   helper_finished_at: string | null;
+  /** Before/after job photos taken by the helper (evidence + the share card) */
+  arrival_photo_url: string | null;
+  finish_photo_url: string | null;
   /** Capability token for rating — minted at completion, delivered only to the
    *  customer (the anon RPC withholds it from the assigned helper). */
   rating_token: string | null;
@@ -1055,6 +1059,15 @@ const TrackBooking = () => {
             <p className="text-center text-[11px] text-muted-foreground mt-2">
               Card, Apple Pay or Google Pay · secured by Stripe · money back guarantee
             </p>
+            {/* Contract moment #2 — payment is where the deal is struck, so the
+                independent-provider terms ride with the pay button too. */}
+            <p className="text-center text-[10.5px] text-muted-foreground/80 mt-1.5">
+              By paying you agree to VANO's{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+              {' '}— the work is carried out by {helperName ? helperName : 'your helper'}, an independent provider, with{' '}
+              <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+              {' '}up to €250 for accidental damage.
+            </p>
           </motion.div>
         )}
 
@@ -1633,11 +1646,15 @@ const TrackBooking = () => {
                 </button>
               ) : (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
-                  <p className="text-[11px] text-muted-foreground mb-2">Tell us what went wrong — you’re covered by our money-back guarantee.</p>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Tell us what went wrong — you’re covered by our money-back guarantee, and accidental damage is covered up to €250 by{' '}
+                    <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+                    {' '}(photos help).
+                  </p>
                   <textarea
                     value={reportReason}
                     onChange={(e) => setReportReason(e.target.value.slice(0, 400))}
-                    placeholder="e.g. the helper didn’t show, or the job wasn’t done right…"
+                    placeholder="e.g. the helper didn’t show, something got damaged, or the job wasn’t done right…"
                     rows={2}
                     className="w-full p-3 rounded-xl border border-border/60 bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring mb-2"
                   />
@@ -1663,6 +1680,17 @@ const TrackBooking = () => {
             </div>
           </motion.div>
         )}
+
+        {/* Before/after job photos — the helper's evidence shots, rendered as
+            the customer's reveal. On a completed job with both photos it grows
+            a share button that carries the €5 referral link. */}
+        <BeforeAfterCard
+          className="mt-4"
+          arrivalUrl={booking.arrival_photo_url}
+          finishUrl={booking.finish_photo_url}
+          helperName={helperName}
+          completed={isCompleted}
+        />
 
         {/* The just-finished customer is the highest-intent sharer — the €5
             referral rides directly under the completion card (named after

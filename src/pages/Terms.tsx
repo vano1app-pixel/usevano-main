@@ -11,7 +11,7 @@ import {
   TEAM_INSTAGRAM_HANDLE,
 } from '@/lib/contact';
 
-const LAST_UPDATED = '15 June 2026';
+const LAST_UPDATED = '14 July 2026';
 
 const Terms = () => (
   <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -142,15 +142,19 @@ const Terms = () => (
           <h2 className="text-lg font-semibold text-foreground mb-3">7. Working as a Helper</h2>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              Helpers join by paying a recurring membership fee — currently{' '}
-              <strong>&euro;4.99 per month</strong> — to be listed and to receive bookings. The
-              current amount is always shown before you pay. You can cancel your membership at any
+              Joining as a Helper is <strong>free</strong>. Before their first job every Helper must
+              pass a free identity check — bookings are only offered to ID-verified Helpers. An
+              optional <strong>&euro;2 per month</strong> &quot;Verified&quot; plan adds the blue
+              tick to a Helper&apos;s profile once the free checks pass; it can be cancelled at any
               time, which stops future charges.
             </li>
             <li>
               Helpers are independent and responsible for the way they carry out each job, for their
               own conduct, and for their own tax and any other obligations arising from the income
-              they earn.
+              they earn. Helpers also agree to the{' '}
+              <Link to="/helper-terms" className="text-primary hover:underline underline-offset-4">
+                Helper Agreement &amp; Code of Conduct
+              </Link>.
             </li>
             <li>
               Where VANO holds a Customer&apos;s payment until a job is complete, the payment is
@@ -172,6 +176,17 @@ const Terms = () => (
               <strong>Satisfaction guarantee:</strong> if you are not happy with a completed job, tell
               us within 24 hours. We will make it right — either by arranging for the job to be
               re-done or by giving you a refund.
+            </li>
+            <li>
+              <strong>Vano Cover:</strong> if a Helper accidentally damages your property during a
+              booking paid through VANO, we may cover the damage up to &euro;250 under our
+              discretionary{' '}
+              <Link to="/cover" className="text-primary hover:underline underline-offset-4">
+                Vano Cover guarantee
+              </Link>
+              . Vano Cover is a goodwill guarantee provided by VANO, not an insurance product, and
+              the conditions on the Vano Cover page apply. It sits on top of — and never limits —
+              your statutory rights.
             </li>
             <li>House Autopilot subscriptions can be cancelled at any time to stop future billing.</li>
             <li>

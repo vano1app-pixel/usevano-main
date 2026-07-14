@@ -7,11 +7,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // duplicate phone/email submissions update in place rather than creating
 // a second row).
 //
-// FREE-TO-JOIN: applying puts the helper live immediately (status 'approved',
-// available). The ✓ Verified blue tick is earned separately on /verify-helper:
-// student-email OTP + Stripe Identity check (both free) + the €2/month
-// verified plan — vano_verified in the DB. Verified helpers are offered jobs
-// first, so the tick is the carrot; joining costs nothing.
+// FREE-TO-JOIN, VERIFY-BEFORE-FIRST-JOB: applying still inserts the helper as
+// status 'approved' + available (no payment, no manual review), but since the
+// July 2026 first-job ID gate, dispatch and accept-job only offer/accept jobs
+// for id_verified helpers — the free Stripe Identity check on /verify-helper
+// (where the join form redirects on submit) is what actually goes live. This
+// keeps the marketing claim "every helper is ID-verified before their first
+// job" true. The ✓ Verified blue tick remains separate: student-email OTP
+// (free) + the €2/month verified plan on top of the ID check — vano_verified
+// in the DB. Verified helpers are offered jobs first, so the tick is the
+// carrot; joining costs nothing.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

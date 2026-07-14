@@ -193,3 +193,10 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.household-helper-connect-link]
     verify_jwt = false
+
+# --- Before/after job photos -------------------------------------------------
+# JWT is verified INSIDE the function (must be the booking's assigned helper),
+# same model as household-arrival; keep the gateway check off so the pinned
+# per-function auth story stays consistent.
+  [functions.job-photo]
+    verify_jwt = false

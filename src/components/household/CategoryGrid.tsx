@@ -892,6 +892,15 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
             <motion.p variants={listItem} className="text-center text-[11px] text-muted-foreground">
               No payment now — you're charged only when a helper accepts, and they're paid only once you confirm it's done. Card, Apple Pay or Google Pay · money-back guarantee
             </motion.p>
+            {/* Contract moment: the Terms (incl. "your helper is an independent
+                provider, VANO is the platform") must be incorporated at the
+                point of sale, not just linked in the footer. */}
+            <motion.p variants={listItem} className="text-center text-[10.5px] text-muted-foreground/80">
+              By booking you agree to VANO's{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+              {' '}— your helper is an independent provider, and accidental damage is covered by{' '}
+              <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>.
+            </motion.p>
           </motion.form>
         </div>
 

@@ -57,6 +57,7 @@ const Privacy = () => (
             <li><strong>Payment &amp; payout data</strong> — bookings are paid by card and processed by our payment provider, <strong>Stripe</strong>; Helper payouts are made through Stripe Connect. We do not store your full card details.</li>
             <li><strong>Communications</strong> — messages you send through the platform, and the SMS, email and push notifications we send about your bookings (including your push token, if you opt in).</li>
             <li><strong>Ratings &amp; reviews</strong> — feedback you leave after a job.</li>
+            <li><strong>Job photos</strong> — a &quot;before&quot; and &quot;after&quot; photo of the work area which the Helper may take during a booking (never of people). They are kept with the booking record and used as evidence for our guarantees and any dispute; the Customer can also choose to share them.</li>
             <li><strong>Usage &amp; device data</strong> — pages visited, features used, device and browser type, and IP address, collected automatically for analytics and security.</li>
           </ul>
         </section>

@@ -826,12 +826,13 @@ export const JoinAsHelper: React.FC = () => {
                     <div className="rounded-2xl border border-sage/30 bg-sage-light p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <BadgeCheck className="w-5 h-5 text-sage flex-shrink-0" />
-                        <p className="text-sm font-bold text-foreground">Submit this and you're live — free</p>
+                        <p className="text-sm font-bold text-foreground">Submit this, verify your ID, and you're earning — free</p>
                       </div>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Jobs can reach you straight away. Then earn the ✓ Verified blue tick: confirm your
-                        college email and do a 2-minute ID check (both free) — €2/month keeps the tick on
-                        your name, and verified helpers are offered jobs first. Cancel anytime.
+                        One quick step after you submit: a free 2-minute ID check — customers are told
+                        every VANO helper is ID-verified, so jobs only go to verified helpers. Then the
+                        ✓ Verified blue tick: confirm your college email (free) and €2/month keeps the
+                        tick on your name — verified helpers are offered jobs first. Cancel anytime.
                       </p>
                     </div>
 
@@ -842,7 +843,8 @@ export const JoinAsHelper: React.FC = () => {
                       I'm 18 or over, have the right to work in Ireland, consent to photo-ID + selfie
                       verification, and agree to VANO's{' '}
                       <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-sage-dark underline underline-offset-2">terms</a>{' '}
-                      and helper code of conduct.
+                      and{' '}
+                      <a href="/helper-terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-sage-dark underline underline-offset-2">helper code of conduct</a>.
                     </Consent>
 
                     {/* Optional referral / partner code (e.g. from a student union) */}
@@ -901,7 +903,7 @@ export const JoinAsHelper: React.FC = () => {
             </div>
 
             <p className="text-center text-xs text-muted-foreground">
-              Joining is free and you're live the moment you submit — the ✓ Verified tick customers look for comes after.{' '}
+              Joining is free — one free 2-minute ID check after you submit and you can take your first job.{' '}
               <a href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi VANO, I'm a student and I'd like to start doing household jobs.")}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">
                 Prefer to text us?
               </a>
@@ -965,7 +967,7 @@ export const JoinAsHelper: React.FC = () => {
           <h2 className="text-2xl font-semibold text-foreground mb-6">From sign-up to your first job</h2>
           <ol className="space-y-5">
             {[
-              { n: '1', title: 'Join free & get verified', body: "Your details and a photo and you're live. Then confirm your college email and do a quick ID check to unlock the ✓ tick (€2/month, cancel anytime)." },
+              { n: '1', title: 'Join free & verify your ID', body: "Your details, a photo, and a free 2-minute ID check — then jobs can reach you. Confirming your college email unlocks the ✓ tick (€2/month, cancel anytime)." },
               { n: '2', title: 'Get matched to jobs', body: "When a job near you comes in, we'll text you first. Accept or pass — totally your call." },
               { n: '3', title: 'Do the job, get paid', body: 'Show up, do great work, and get paid straight to your account after each job.' },
             ].map(({ n, title, body }) => (
