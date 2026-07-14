@@ -13,51 +13,12 @@ interface Review {
   verified?: boolean;
 }
 
-// Seed testimonials shown while the platform builds up real ratings. These
-// deliberately do NOT carry the "Verified booking" badge — only ratings
-// fetched from household_ratings (one per paid booking) earn that.
-const SEED_REVIEWS: Review[] = [
-  {
-    text:  "Cian picked up my shopping from Dunnes in the rain and had everything sorted in an hour. Brilliant.",
-    name:  'Sarah M.',   area: 'Salthill',      color: 'bg-violet-100 text-violet-700', stars: 5,
-  },
-  {
-    text:  "The lads who helped us move were fast, careful with the furniture, and great craic. Saved us a fortune.",
-    name:  'Michael O.', area: 'Knocknacarra',  color: 'bg-sky-100 text-sky-700',       stars: 5,
-  },
-  {
-    text:  "Emma walks my dog Biscuit every Tuesday. He goes mad when he sees her coming. Absolutely delighted.",
-    name:  'Áine K.',    area: 'Renmore',       color: 'bg-emerald-100 text-emerald-700', stars: 5,
-  },
-  {
-    text:  "I set this up for my mother and she says it's the best thing since sliced bread. Someone every week for the garden.",
-    name:  'Margaret F.', area: 'Salthill',     color: 'bg-amber-100 text-amber-700',   stars: 5,
-  },
-  {
-    text:  "Really handy service. Lad came to clean for 2 hours, did a great job. Would've been 5 stars but he was 10 minutes late.",
-    name:  'Declan R.',  area: 'Oranmore',      color: 'bg-rose-100 text-rose-700',     stars: 4,
-  },
-  {
-    text:  "Booked a dog walker same morning and someone was here by noon. Dog was happy, I was happy. Simple as.",
-    name:  'Sinéad B.',  area: 'Westside',      color: 'bg-teal-100 text-teal-700',     stars: 5,
-  },
-  {
-    text:  "Used it for garden tidying before a party. Two hours, looks brilliant. Very affordable for what you get.",
-    name:  'Pádraig M.', area: 'Barna',         color: 'bg-lime-100 text-lime-700',     stars: 5,
-  },
-  {
-    text:  "Cleaned the whole house top to bottom. Not bad at all — a couple of small spots missed but overall happy.",
-    name:  'Orla C.',    area: 'Moycullen',     color: 'bg-orange-100 text-orange-700', stars: 4,
-  },
-  {
-    text:  "Got someone to help shift furniture into a new house. Showed up on time, worked hard, no complaints.",
-    name:  'Tomás F.',   area: 'Tuam',          color: 'bg-indigo-100 text-indigo-700', stars: 5,
-  },
-  {
-    text:  "Student came and built all the flat-pack for the spare room in one go. Would've taken me a week.",
-    name:  'Nuala D.',   area: 'Galway City',   color: 'bg-pink-100 text-pink-700',     stars: 5,
-  },
-];
+// NO seed/invented testimonials — ever. The section renders ONLY ratings
+// pulled from household_ratings (one per paid booking) and stays hidden until
+// the first real one lands. Publishing made-up quotes under a "Real customers"
+// heading is a blacklisted commercial practice (fake reviews, Consumer Rights
+// Act 2022 / UCPD) — if the section looks empty, the fix is more happy
+// customers, not fiction.
 
 const REAL_COLORS = [
   'bg-emerald-100 text-emerald-700',
@@ -79,10 +40,10 @@ function relativeTime(iso: string): string {
   return `${months} month${months === 1 ? '' : 's'} ago`;
 }
 
-/** Real ratings replace the seeds as they come in: once we have six genuine
- *  reviews the section is 100% verified customer voice. */
+/** Genuine ratings only — the hook starts empty and the section stays hidden
+ *  until the first verified review arrives. */
 function useReviews(): Review[] {
-  const [reviews, setReviews] = useState<Review[]>(SEED_REVIEWS);
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,8 +72,7 @@ function useReviews(): Review[] {
             stars:    r.rating,
             verified: true,
           }));
-        if (real.length === 0) return;
-        setReviews(real.length >= 6 ? real : [...real, ...SEED_REVIEWS.slice(0, 8 - real.length)]);
+        if (real.length > 0) setReviews(real);
       });
     return () => { cancelled = true; };
   }, []);
@@ -211,9 +171,11 @@ export const ReviewCarousel: React.FC = () => {
   const [index, setIndex] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Restart the rotation whenever the list changes (real reviews arriving)
+  // Restart the rotation whenever the list changes (real reviews arriving).
+  // No reviews yet → no timer (and the section renders nothing below).
   useEffect(() => {
     setIndex(0);
+    if (reviews.length === 0) return;
     timer.current = setInterval(() => {
       setIndex(i => (i + 1) % reviews.length);
     }, INTERVAL);
@@ -227,6 +189,9 @@ export const ReviewCarousel: React.FC = () => {
       setIndex(j => (j + 1) % reviews.length);
     }, INTERVAL);
   }
+
+  // Nothing genuine to show yet — show nothing. Never pad with fiction.
+  if (reviews.length === 0) return null;
 
   const review = reviews[index] ?? reviews[0];
 

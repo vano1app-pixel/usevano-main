@@ -199,8 +199,18 @@ serve(async (req) => {
       // Chase only the FREE checks here (email + ID). The €2/month plan step
       // is explained once they're on /verify-helper — SMS-nudging people to
       // start a subscription is a fast way to feel spammy.
-      await sendSms(h.phone as string | null, `VANO: you're live 🎉 One thing — do your 2 free verification checks (~3 min) to unlock the ✓ tick, and you'll be offered jobs FIRST 👉 ${verifyUrl}`);
-      await email(h.email as string | null, `You're live on VANO — unlock your ✓ Verified tick`, `Hi ${first}, you're live on VANO 🎉 Do the two free checks — confirm your student email and the 2-minute ID check — to unlock your ✓ Verified tick (€2/month once the checks pass, cancel anytime). Customers see the tick on your name and verified helpers are offered jobs first. Start here: ${verifyUrl}`);
+      //
+      // Two different situations, two different messages: a helper missing the
+      // ID check isn't receiving jobs AT ALL (the first-job gate in dispatch),
+      // so that message is "unlock your first job", not "nice-to-have tick".
+      const needsId = h.id_verified === false || h.id_verified === null;
+      if (needsId) {
+        await sendSms(h.phone as string | null, `VANO: one step before your first job — the free 2-min ID check. Jobs only go to ID-verified helpers, so until it's done offers skip you 👉 ${verifyUrl}`);
+        await email(h.email as string | null, `Verify your ID to start getting VANO jobs`, `Hi ${first}, you're approved on VANO — but jobs only go to ID-verified helpers, so offers are skipping you until you do the free 2-minute ID check. Verify here and you're in the queue: ${verifyUrl} (Confirming your student email too unlocks the ✓ Verified tick — €2/month once both checks pass, cancel anytime.)`);
+      } else {
+        await sendSms(h.phone as string | null, `VANO: you're live 🎉 One thing — confirm your student email (free, ~1 min) to unlock the ✓ tick, and you'll be offered jobs FIRST 👉 ${verifyUrl}`);
+        await email(h.email as string | null, `You're live on VANO — unlock your ✓ Verified tick`, `Hi ${first}, you're live on VANO 🎉 Confirm your student email (free) to finish your checks and unlock your ✓ Verified tick (€2/month once the checks pass, cancel anytime). Customers see the tick on your name and verified helpers are offered jobs first. Start here: ${verifyUrl}`);
+      }
       await supabase.from('household_helpers')
         .update({ application_nudged_at: new Date(now).toISOString(), application_nudge_count: count + 1 })
         .eq('id', h.id as string);

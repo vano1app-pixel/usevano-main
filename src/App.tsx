@@ -36,6 +36,8 @@ const HouseholdAdmin = lazyWithRetry(() => import("./pages/HouseholdAdmin"));
 const Auth = lazyWithRetry(() => import("./pages/Auth"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
 const Terms = lazyWithRetry(() => import("./pages/Terms"));
+const Cover = lazyWithRetry(() => import("./pages/Cover"));
+const HelperTerms = lazyWithRetry(() => import("./pages/HelperTerms"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const ServiceLanding = lazyWithRetry(() => import("./pages/ServiceLanding"));
 const BlogIndex = lazyWithRetry(() => import("./pages/BlogIndex"));
@@ -134,6 +136,10 @@ const App = () => {
             <Route path="/auth" element={<P><Auth /></P>} />
             <Route path="/privacy" element={<P><Privacy /></P>} />
             <Route path="/terms" element={<P><Terms /></P>} />
+            {/* Vano Cover (damage guarantee) + the Helper Agreement & Code of
+                Conduct the join consent references — legal surface, like /terms. */}
+            <Route path="/cover" element={<P><Cover /></P>} />
+            <Route path="/helper-terms" element={<P><HelperTerms /></P>} />
             {/* Per-service SEO landing pages (/cleaning-galway…). Slugs only —
                 the copy stays in the lazy ServiceLanding chunk. */}
             {SERVICE_LANDING_SLUGS.map((slug) => (

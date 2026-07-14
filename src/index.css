@@ -355,41 +355,11 @@
       0 30px 60px -18px hsl(var(--shadow-color) / 0.16);
   }
 
-  /* The hero search bar. Rests as a floating surface; on focus a warm gold
-     halo blooms (the brand's one accent) while the edge-highlight stays —
-     transform/box-shadow only, so it animates on the GPU. */
-  .search-shell {
-    box-shadow:
-      inset 0 1px 0 0 hsl(0 0% 100% / 0.7),
-      0 2px 4px -1px hsl(var(--shadow-color) / 0.05),
-      0 12px 24px -8px hsl(var(--shadow-color) / 0.12),
-      0 30px 60px -18px hsl(var(--shadow-color) / 0.16);
-    transition: box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .search-shell {
-    position: relative;
-  }
-  .search-shell:focus-within {
-    box-shadow:
-      inset 0 1px 0 0 hsl(0 0% 100% / 0.8),
-      0 0 0 3px hsl(var(--gold) / 0.4),
-      0 16px 36px -12px hsl(var(--gold) / 0.3),
-      0 30px 60px -18px hsl(var(--shadow-color) / 0.18);
-  }
+  /* (The hero search bar's .search-shell / .search-spotlight styles were
+     removed with the search bar itself — July 2026, tap-tiles-only hero.) */
 
-  /* Cursor spotlight — a soft warm light that tracks the pointer across the
-     white search bar (desktop pointers only; --mx/--my set on mousemove). */
-  .search-spotlight {
-    background: radial-gradient(200px circle at var(--mx, 50%) var(--my, 50%), hsl(43 92% 60% / 0.16), transparent 72%);
-    opacity: 0;
-    transition: opacity 280ms ease;
-  }
-  @media (hover: hover) and (pointer: fine) {
-    .search-shell:hover .search-spotlight { opacity: 1; }
-  }
-
-  /* Gold fill with a soft inner top-light, for the search "go" button — a
-     small jewel of the brand accent against the white shell. */
+  /* Gold fill with a soft inner top-light — a small jewel of the brand accent
+     against a white surface (referral cards, booking lookup buttons). */
   .btn-gold {
     background-image: linear-gradient(to bottom, hsl(43 95% 66%), hsl(43 90% 56%));
     box-shadow:

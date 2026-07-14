@@ -82,7 +82,9 @@ export const SKILL_GROUPS: SkillGroup[] = [
     ],
   },
   {
-    id: 'dog-walk', emoji: '🐕', label: 'Dog walk', defaultOn: true,
+    // Label matches the customer tile ("Pets" since July 2026) — the slug
+    // stays 'dog-walk' because dispatch matches on it and helper rows carry it.
+    id: 'dog-walk', emoji: '🐾', label: 'Pets', defaultOn: true,
     subs: [
       { id: 'pet-sitting', label: 'Pet sitting' },
       { id: 'pet-feeding', label: 'Feeding visits' },

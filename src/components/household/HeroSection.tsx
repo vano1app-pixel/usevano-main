@@ -8,12 +8,17 @@ import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ReviewBadges } from './ReviewBadges';
 import { HelperFacePile } from './HelperFacePile';
 import { ScrollCue } from './ScrollCue';
+import { teamWhatsAppHref } from '@/lib/contact';
+import { track } from '@/lib/track';
 
 /**
- * Hero = one job: get the search bar tapped. Minimal + warm build — one calm
+ * Hero = one job: get a tile tapped. Minimal + warm build — one calm
  * social-proof row (Trustpilot + live presence as matching glass chips), a warm
- * heading, the white search bar glowing at centre under an amber halo, and one
- * gentle reassurance line beneath. Nothing loud, nothing stacked.
+ * heading, the six tap tiles glowing at centre under an amber halo
+ * (CategoryGrid renders them + the wizard booking sheet), one gentle
+ * reassurance line, and the WhatsApp door beneath. Tap-ONLY because the first
+ * real bookings came from tiles + WhatsApp — the search bar brought none, so
+ * it's gone; "Anything else" opens the sheet's describe-it page instead.
  */
 
 export const HeroSection: React.FC = () => {
@@ -128,14 +133,30 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-5 sm:mt-6 max-w-md mx-auto text-xs sm:text-[13px] leading-relaxed text-white/55 text-pretty"
+          className="mt-5 sm:mt-6 max-w-md mx-auto text-[13px] sm:text-sm leading-relaxed text-white/70 text-pretty"
         >
           You see them first
-          <span className="text-white/25 px-1.5">·</span>
+          <span className="text-white/35 px-1.5">·</span>
           pay after they accept
-          <span className="text-white/25 px-1.5">·</span>
+          <span className="text-white/35 px-1.5">·</span>
           money-back guarantee
         </motion.p>
+
+        {/* The WhatsApp door — it converted real customers, so it earns a spot
+            on the hero, quiet but visible. A person books it for you. */}
+        <motion.a
+          href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need a hand with ')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => track('hero_whatsapp_tap')}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-2 text-[13px] font-semibold text-[#7fe0a5] hover:bg-[#25D366]/20 transition-colors"
+        >
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
+          Or book on WhatsApp — a person sorts it in minutes
+        </motion.a>
       </div>
 
       <ScrollCue tone="light" delay={1.2} />

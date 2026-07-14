@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, ArrowLeft, Clock, Phone, MapPin } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, ArrowLeft, Clock, Phone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -14,8 +14,9 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
-import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, STARTER_CUSTOM_JOBS, type CustomJob } from '@/lib/customJobs';
+import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
+import { track } from '@/lib/track';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -41,9 +42,13 @@ const CATEGORIES: Category[] = [
     description: 'Your helper collects your laundry, washes, dries and folds it, and brings it back to your door — fresh and sorted.',
   },
   {
-    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',
-    hint: 'On-lead · collected & returned safely',
-    description: 'Collected from your door, walked on-lead, returned home safely.',
+    // Renamed "Dog walk" → "Pets" (July 2026): the sub-service step underneath
+    // exposes the vetted pet jobs (wash & brush, sitting/feeding, puppy visits,
+    // small pets & hens). The slug stays 'dog-walk' — walks book this category
+    // at its flat prices; the other pet jobs book as 'custom' at €18/hr.
+    emoji: '🐾', label: 'Pets',  slug: 'dog-walk',
+    hint: 'Walks, washes, sitting & feeding',
+    description: 'Dog walks (collected & returned safely), washes, and pet sitting visits.',
     sizeLabel: 'How long?', sizes: ['30 min', '1 hour'],
   },
   {
@@ -70,31 +75,130 @@ const CATEGORIES: Category[] = [
   // catalogue (src/lib/customJobs.ts), not as a quick-book tile.
 ];
 
-// The front door is now ONE centered search bar: type → matching jobs drop down
-// → pick one → see the VANO-vs-market price. The CATEGORIES above still power
-// the booking sheet for returning customers ("book your usual"), deep links and
-// the vano:select-category event — they're just no longer the way IN. Everything
-// prices through the canonical custom rate (€18/hr, src/lib/customJobs.ts).
+// The front door is TAP-ONLY (July 2026): the first real bookings came through
+// the tap tiles + WhatsApp, and the search bar brought none — so the search
+// bar is GONE. The 6 tiles open the booking sheet, whose first wizard page is
+// a sub-service picker ("What kind of cleaning?") sourced EXCLUSIVELY from the
+// legally-vetted custom-jobs catalogue (src/lib/customJobs.ts — trades,
+// heights, Garda-vetting work, driving and clipper-grooming are already
+// excluded there, so the wizard can never offer a job Vano can't stand over).
+// The "Anything else ✨" tile opens the same sheet on a describe-it page —
+// popular jobs tappable, typing only for the long tail. Every step is tracked
+// (hero_tile_tap / hero_sub_pick / hero_search_open / hero_usual_tap).
+// Custom picks still price through the canonical €18/hr rate.
 
-// How long the job takes — drives the custom hourly price + the comparison.
+// How long the job takes — drives the hourly price for custom sub-services.
 const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
 // Short visit jobs (dog walk, bins, key-drop…) can be booked sub-hour, from €12.
 const SHORT_DURATIONS = ['30 min', '45 min', '1 hour', '2 hours'];
 
-// Rotating placeholder examples — the box hints what you can ask for, so a blank
-// field never leaves a first-timer wondering what to type.
-const HINTS = [
-  'mow the lawn',
-  'online tutoring',
-  'clean the house',
-  'walk the dog',
-  'tidy the garden',
-  'build flat-pack furniture',
-  'paint the spare room',
-  'help move a sofa',
-  'an hour of ironing',
-  'clean the oven',
-];
+// The "Anything else" tile's entry — opens the sheet on the describe-it page.
+const CUSTOM_TILE: Category = {
+  emoji: '✨', label: 'Anything else', slug: 'custom',
+  hint: 'An ID-verified student, matched to your job',
+  description: '',
+};
+
+// ─── Sub-services (wizard page 1) ─────────────────────────────────────────
+// Each tile's "What kind of …?" options. kind:'core' books the tile's own
+// category (flat/dog-walk/cleaning prices + its dispatch pool); kind:'custom'
+// books the named catalogue job as a 'custom' booking (€18/hr, dispatches to
+// all approved helpers) with the job label riding through note + extra_label —
+// that's the "better info" win: dispatch texts and the helper's job screen
+// show exactly what was asked for. jobKeys MUST exist in customJobs.ts — the
+// catalogue is the single source of labels/emoji/hours AND the legal screen.
+type SubService =
+  | { kind: 'core'; label: string; emoji: string; size?: string }
+  | { kind: 'custom'; jobKey: string };
+
+const SUB_SERVICES: Record<string, { featured: SubService[]; more: SubService[] }> = {
+  cleaning: {
+    featured: [
+      { kind: 'core', label: 'Standard clean', emoji: '🧹' },
+      { kind: 'custom', jobKey: 'deepclean' },
+      { kind: 'custom', jobKey: 'oven' },
+      { kind: 'custom', jobKey: 'windows' },
+      { kind: 'custom', jobKey: 'tenancy' },
+      { kind: 'custom', jobKey: 'afterbuild' },
+    ],
+    more: [
+      { kind: 'custom', jobKey: 'carpetclean' },
+      { kind: 'custom', jobKey: 'bathroomclean' },
+      { kind: 'custom', jobKey: 'fridgeclean' },
+      { kind: 'custom', jobKey: 'mould' },
+      { kind: 'custom', jobKey: 'airbnb' },
+      { kind: 'custom', jobKey: 'garageclean' },
+      { kind: 'custom', jobKey: 'atticclear' },
+      { kind: 'custom', jobKey: 'binclean' },
+      { kind: 'custom', jobKey: 'conservatory' },
+      { kind: 'custom', jobKey: 'officeclean' },
+    ],
+  },
+  garden: {
+    featured: [
+      { kind: 'core', label: 'General garden tidy', emoji: '🌿' },
+      { kind: 'custom', jobKey: 'mowing' },
+      { kind: 'custom', jobKey: 'weeding' },
+      { kind: 'custom', jobKey: 'hedge' },
+      { kind: 'custom', jobKey: 'powerwash' },
+      { kind: 'custom', jobKey: 'clearance' },
+    ],
+    more: [
+      { kind: 'custom', jobKey: 'planting' },
+      { kind: 'custom', jobKey: 'leafclear' },
+      { kind: 'custom', jobKey: 'turfing' },
+      { kind: 'custom', jobKey: 'fencepaint' },
+      { kind: 'custom', jobKey: 'watering' },
+      { kind: 'custom', jobKey: 'snow' },
+      { kind: 'custom', jobKey: 'raisedbed' },
+      { kind: 'custom', jobKey: 'pondclean' },
+      { kind: 'custom', jobKey: 'greenhouse' },
+      { kind: 'custom', jobKey: 'compost' },
+      { kind: 'custom', jobKey: 'bbqclean' },
+    ],
+  },
+  moving: {
+    featured: [
+      { kind: 'core', label: 'General moving help', emoji: '📦' },
+      { kind: 'custom', jobKey: 'furniture' },
+      { kind: 'custom', jobKey: 'vanhelp' },
+      { kind: 'custom', jobKey: 'tiprun' },
+      { kind: 'custom', jobKey: 'packing' },
+      { kind: 'custom', jobKey: 'mattress' },
+    ],
+    more: [
+      { kind: 'custom', jobKey: 'housemove' },
+      { kind: 'custom', jobKey: 'studentmove' },
+      { kind: 'custom', jobKey: 'storage' },
+      { kind: 'custom', jobKey: 'officemove' },
+      { kind: 'custom', jobKey: 'deliveryhelp' },
+      { kind: 'custom', jobKey: 'dismantle' },
+      { kind: 'custom', jobKey: 'houseclearance' },
+    ],
+  },
+  'dog-walk': {
+    featured: [
+      { kind: 'core', label: 'Dog walk · 30 min', emoji: '🐕', size: '30 min' },
+      { kind: 'core', label: 'Dog walk · 1 hour', emoji: '🐕', size: '1 hour' },
+      { kind: 'custom', jobKey: 'doggroom' },
+      { kind: 'custom', jobKey: 'petsit' },
+      { kind: 'custom', jobKey: 'puppy' },
+    ],
+    more: [
+      { kind: 'custom', jobKey: 'littertray' },
+      { kind: 'custom', jobKey: 'smallpets' },
+      { kind: 'custom', jobKey: 'chickens' },
+    ],
+  },
+  shopping: {
+    featured: [
+      { kind: 'core', label: 'Wash, dry & fold', emoji: '🧺' },
+      { kind: 'custom', jobKey: 'ironing' },
+      { kind: 'custom', jobKey: 'dryclean' },
+    ],
+    more: [],
+  },
+};
 
 
 // Smart defaults — most common booking for each service
@@ -249,13 +353,40 @@ interface SheetProps {
   note?:        string;
   /** Resolved job label for a custom booking (e.g. "Painting & decorating"). */
   extraLabel?:  string;
+  /** Skip the sub-service wizard page — the entry already carries a choice
+   *  (usual rebook, podium tile with a size, deep link). */
+  direct?:      boolean;
 }
 
-const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLabel }) => {
+const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note: entryNote, extraLabel: entryExtraLabel, direct }) => {
   const navigate   = useNavigate();
   const timeSlots  = useMemo(() => getTimeSlots(), []);
   const remembered = useMemo(() => loadBookingMemory(), []);
   const referralCode = useMemo(() => getReferralCode(), []);
+
+  // ── Wizard page 1 ("What kind of …?" / describe-it) ──────────────────────
+  // `active` is the WORKING selection page 2 books: page 1 refines it (a
+  // custom sub-service swaps the category to slug 'custom' with the job's
+  // label riding through note + extraLabel — the same contract the old search
+  // flow used, so the form/checkout below is untouched).
+  const subServices = SUB_SERVICES[entryCat.slug];
+  const isDescribe = entryCat.slug === 'custom' && !entryExtraLabel;
+  const startOnPick = (isDescribe || !!subServices) && !initialSize && !entryExtraLabel && !direct;
+  const [step, setStep] = useState<'pick' | 'form'>(startOnPick ? 'pick' : 'form');
+  const [active, setActive] = useState<{ cat: Category; note?: string; extraLabel?: string }>(
+    { cat: entryCat, note: entryNote, extraLabel: entryExtraLabel },
+  );
+  const { cat, note, extraLabel } = active;
+  const [showMoreSubs, setShowMoreSubs] = useState(false);
+  // Describe-it page state — popular jobs when empty, catalogue matches while
+  // typing ("Something else" is always appended so free text can always book).
+  const [describeQuery, setDescribeQuery] = useState('');
+  const describeRows = useMemo<CustomJob[]>(() => {
+    if (!isDescribe || step !== 'pick') return [];
+    const rows = searchCustomJobs(describeQuery, 8);
+    return describeQuery.trim().length >= 2 ? rows : [...rows, customJobByKey('other')];
+  }, [isDescribe, step, describeQuery]);
+
   const [when,     setWhen]    = useState('Now');
   // When + duration collapse to a single "ASAP · change" line by default —
   // most people want it now, so we don't make them wade through time chips.
@@ -306,6 +437,83 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
     setPhone(''); setAddress(''); setCoords(null); setCity('Galway'); setCityAuto(false);
     setPrefilled(false);
   }
+
+  // Page 1 → page 2: commit a sub-service and slide to the form. Custom picks
+  // mirror the retired search flow's goBook contract exactly — slug 'custom',
+  // job label as note + extraLabel, duration defaulted from typicalHours (the
+  // singular '1 hour' matters: the server prices by EXACT label lookup) — and
+  // pass `sizes` so the form's existing "How long?" chips + live price handle
+  // the duration with zero new wiring.
+  function applyPick(sub: SubService) {
+    haptic(10);
+    if (sub.kind === 'core') {
+      track('hero_sub_pick', { category: entryCat.slug, sub: sub.label });
+      setActive({ cat: entryCat, note: undefined, extraLabel: undefined });
+      if (sub.size) setSize(sub.size);
+    } else {
+      const job = customJobByKey(sub.jobKey);
+      track('hero_sub_pick', { category: entryCat.slug, sub: job.key });
+      const short = isShortVisit(job.key);
+      const h = Math.min(8, Math.max(1, job.typicalHours));
+      const typed = describeQuery.trim();
+      setActive({
+        cat: {
+          emoji: job.emoji,
+          label: job.label,
+          slug: 'custom',
+          hint: 'An ID-verified student, matched to your job',
+          description: typed || job.label,
+          sizeLabel: 'How long?',
+          sizes: short ? SHORT_DURATIONS : DURATIONS,
+        },
+        // The customer's own words beat the catalogue label — they're what the
+        // helper needs to read ("better info" is the whole point of the wizard).
+        note: typed || job.label,
+        extraLabel: job.label,
+      });
+      setSize(short ? '30 min' : h === 1 ? '1 hour' : `${h} hours`);
+    }
+    setStep('form');
+  }
+
+  // Page-1 presentation bits. Questions are written per category (generic
+  // "what kind of pets?" reads wrong) and every row carries its honest price.
+  const PICK_TITLES: Record<string, string> = {
+    cleaning:   'What kind of clean?',
+    garden:     'What needs doing in the garden?',
+    moving:     'What are we moving?',
+    'dog-walk': 'What does your pet need?',
+    shopping:   'What kind of laundry help?',
+  };
+  const pickTitle = isDescribe ? 'What do you need done?' : (PICK_TITLES[entryCat.slug] ?? `What kind of ${entryCat.label.toLowerCase()}?`);
+  const visibleSubs: SubService[] = subServices
+    ? [...subServices.featured, ...(showMoreSubs ? subServices.more : [])]
+    : [];
+  // Row price: core rows use the category's real table (flat €15 laundry,
+  // €15/€20 walks, "from €18" hourly); custom rows are the flat truth — €18/hr
+  // (short-visit jobs can book 30 min from €12).
+  const subPriceLabel = (s: SubService): string => {
+    if (s.kind === 'custom') return isShortVisit(s.jobKey) ? 'from €12' : '€18/hr';
+    const cents = getPriceCents(entryCat.slug, s.size ?? entryCat.sizes?.[0] ?? '');
+    if (!cents) return '€18/hr';
+    return s.size || !entryCat.sizes ? fmt(cents) : `from ${fmt(cents)}`;
+  };
+  const renderSubRow = (key: string, emoji: string, label: string, hint: string | null, price: string, onPick: () => void) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onPick}
+      className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-white px-3.5 py-3.5 text-left hover:border-sage/60 hover:bg-sage-light/30 active:scale-[0.99] transition-[border-color,background-color,transform] duration-150"
+    >
+      <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-secondary/60 text-2xl leading-none" aria-hidden="true">{emoji}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-[15px] font-semibold text-foreground truncate">{label}</span>
+        {hint && <span className="block text-xs text-muted-foreground truncate">{hint}</span>}
+      </span>
+      <span className="text-[13px] font-bold text-sage-dark tabular-nums flex-shrink-0">{price}</span>
+      <span className="text-muted-foreground/40 text-lg leading-none flex-shrink-0" aria-hidden="true">›</span>
+    </button>
+  );
 
   // Lock body scroll while sheet is open without changing scroll position
   useEffect(() => {
@@ -387,8 +595,11 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
     return () => clearTimeout(t);
   }, [phone, address, coords, city]);
 
+  // Long catalogue labels ("Oven & kitchen clean") overflow the docked button
+  // — the job name is already in the header + summary line, so the CTA drops
+  // it rather than truncating mid-word.
   const ctaLabel = [
-    `Book ${cat.label}`,
+    cat.label.length <= 12 ? `Book ${cat.label}` : 'Book',
     size || null,
     priceLabel,
   ].filter(Boolean).join(' · ');
@@ -542,27 +753,44 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
             outside this scroll area, Uber-style, so price + Book never leave
             the screen (and stay put while the keyboard is up). */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-2" style={{ overscrollBehavior: 'contain' }}>
-          {/* Header */}
+          {/* Header — step-aware: page 1 asks the question, page 2 names the
+              picked job and (when the wizard ran) offers a way back. */}
           <div className="flex items-start justify-between mb-5">
-            <div>
-              <div className="flex items-center gap-2.5 mb-0.5">
-                <motion.span
-                  className="text-2xl leading-none"
-                  aria-hidden="true"
-                  initial={{ scale: 0, rotate: -25 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: 'spring', stiffness: 480, damping: 12, delay: 0.18 }}
+            <div className="flex items-start gap-1 min-w-0">
+              {startOnPick && step === 'form' && (
+                <button
+                  type="button"
+                  onClick={() => setStep('pick')}
+                  aria-label="Back to job types"
+                  className="w-9 h-9 -ml-2 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-foreground/8 active:scale-90 transition-[background-color,transform] duration-150"
                 >
-                  {cat.emoji}
-                </motion.span>
-                <h2 className="font-display text-xl font-bold text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
-                  {cat.label}
-                </h2>
-              </div>
-              <p className="text-sm text-muted-foreground ml-9">{cat.hint}</p>
-              {note && note.trim() && note.trim() !== cat.label && (
-                <p className="text-xs text-foreground/70 ml-9 mt-1">“{note.trim()}”</p>
+                  <ArrowLeft className="w-5 h-5 text-foreground/60" />
+                </button>
               )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5 mb-0.5">
+                  <motion.span
+                    className="text-2xl leading-none"
+                    aria-hidden="true"
+                    initial={{ scale: 0, rotate: -25 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: 'spring', stiffness: 480, damping: 12, delay: 0.18 }}
+                  >
+                    {step === 'pick' ? entryCat.emoji : cat.emoji}
+                  </motion.span>
+                  <h2 className="font-display text-xl font-bold text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
+                    {step === 'pick' ? pickTitle : cat.label}
+                  </h2>
+                </div>
+                <p className="text-sm text-muted-foreground ml-9">
+                  {step === 'pick'
+                    ? (isDescribe ? 'Tap a popular job, or type your own' : 'Tap one — it takes a second')
+                    : cat.hint}
+                </p>
+                {step === 'form' && note && note.trim() && note.trim() !== cat.label && (
+                  <p className="text-xs text-foreground/70 ml-9 mt-1">“{note.trim()}”</p>
+                )}
+              </div>
             </div>
             <button
               onClick={onClose}
@@ -575,6 +803,87 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
             </button>
           </div>
 
+          {/* Trust at the decision moment — one glanceable row, absorbed
+              without reading (the Airbnb trick): who's coming, what covers
+              you. The details live in /terms + /cover; this is the signal. */}
+          {step === 'form' && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5">
+              {[
+                'ID-verified student',
+                '€250 damage cover',
+                'Money-back guarantee',
+              ].map((t) => (
+                <span key={t} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-sage-dark">
+                  <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {step === 'pick' ? (
+            /* ── Wizard page 1: sub-service picker / describe-it ─────────── */
+            <motion.div
+              key="pick-page"
+              initial={{ opacity: 0, x: -18 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {isDescribe && (
+                <input
+                  type="text"
+                  value={describeQuery}
+                  onChange={(e) => setDescribeQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const first = describeRows[0];
+                      if (first) applyPick({ kind: 'custom', jobKey: first.key });
+                    }
+                  }}
+                  placeholder='e.g. "paint the fence" or "clean the oven"'
+                  autoComplete="off"
+                  aria-label="Describe what you need done"
+                  className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              )}
+              <div className="space-y-2" role="list" aria-label={pickTitle}>
+                {isDescribe
+                  ? describeRows.map((row) =>
+                      renderSubRow(
+                        row.key,
+                        row.emoji,
+                        row.label,
+                        row.key === 'other' ? 'Tell us exactly what you need' : row.group,
+                        isShortVisit(row.key) ? 'from €12' : '€18/hr',
+                        () => applyPick({ kind: 'custom', jobKey: row.key }),
+                      ))
+                  : visibleSubs.map((s) => {
+                      const job = s.kind === 'custom' ? customJobByKey(s.jobKey) : null;
+                      return renderSubRow(
+                        s.kind === 'custom' ? s.jobKey : s.label,
+                        job ? job.emoji : (s as { emoji: string }).emoji,
+                        job ? job.label : (s as { label: string }).label,
+                        s.kind === 'core' && !s.size ? entryCat.hint : null,
+                        subPriceLabel(s),
+                        () => applyPick(s),
+                      );
+                    })}
+              </div>
+              {!isDescribe && !!subServices?.more.length && !showMoreSubs && (
+                <button
+                  type="button"
+                  onClick={() => setShowMoreSubs(true)}
+                  className="mt-2.5 w-full h-11 rounded-2xl border border-dashed border-border text-sm font-semibold text-foreground/60 hover:text-foreground hover:border-sage/50 transition-colors"
+                >
+                  More options ↓
+                </button>
+              )}
+              <p className="text-center text-[13px] text-muted-foreground mt-4 leading-relaxed">
+                Fair prices, always — your helper earns above minimum wage on every job.
+              </p>
+            </motion.div>
+          ) : (
           <motion.form
             id="quick-book-form"
             onSubmit={handleBook}
@@ -631,7 +940,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 Time + duration below are pre-picked, so number + address is
                 all a new visitor has to type. */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
                 Your phone
                 <AnimatePresence>
                   {phoneValid && (
@@ -658,12 +967,12 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                   phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
                 )}
               />
-              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
+              <p className="text-xs leading-relaxed text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
             </motion.div>
 
             {/* Address — Eircode search or current location */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
                 Where?
                 <AnimatePresence>
                   {addressValid && (
@@ -691,7 +1000,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 placeholder="Address or Eircode…"
                 showMapPreview={false}
               />
-              <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
+              <p className="text-xs text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </motion.div>
             </>)}
 
@@ -723,7 +1032,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                     className="overflow-hidden"
                   >
                     <div className="pt-3">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {timeSlots.map(opt => (
                           <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
@@ -732,7 +1041,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                         ))}
                       </div>
                       {/* Book ahead — server grants 10% off scheduled bookings */}
-                      <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
+                      <p className="text-[11px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {TOMORROW_SLOTS.map(opt => (
                           <Chip key={opt} group="when-ahead" active={when === opt} onClick={() => setWhen(opt)}>
@@ -744,7 +1053,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                       {/* How long? — sensible default pre-selected */}
                       {cat.sizes && (
                         <div className="mt-4">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
                             {cat.sizeLabel ?? 'How long?'}
                           </p>
                           <div className="flex flex-wrap gap-2">
@@ -793,7 +1102,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
             ) : (
               <motion.div variants={listItem}>
                 <div className="flex items-center justify-between mb-2.5">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
                   <button type="button" onClick={() => setShowArea(false)} className="text-[11px] font-semibold text-sage-dark px-3 py-3 -mx-3 -my-3">Done</button>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -867,7 +1176,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 </p>
               )}
 
-              <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+              <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
                 A nearby helper usually replies in minutes
               </p>
@@ -889,20 +1198,32 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
               )}
             </motion.div>
 
-            <motion.p variants={listItem} className="text-center text-[11px] text-muted-foreground">
+            <motion.p variants={listItem} className="text-center text-[13px] leading-relaxed text-muted-foreground">
               No payment now — you're charged only when a helper accepts, and they're paid only once you confirm it's done. Card, Apple Pay or Google Pay · money-back guarantee
             </motion.p>
+            {/* Contract moment: the Terms (incl. "your helper is an independent
+                provider, VANO is the platform") must be incorporated at the
+                point of sale, not just linked in the footer. */}
+            <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
+              By booking you agree to VANO's{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+              {' '}— your helper is an independent provider, and accidental damage is covered by{' '}
+              <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>.
+            </motion.p>
           </motion.form>
+          )}
         </div>
 
         {/* Docked action bar — Uber-style: risk-reversal + Book never scroll
             away, always thumb-reachable, and stay on screen while the keyboard
-            is up. The button submits the form above via its form= attribute. */}
+            is up. The button submits the form above via its form= attribute.
+            Hidden on wizard page 1 — there's nothing to book yet. */}
+        {step === 'form' && (
         <div className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
           {/* Risk-reversal at the decision point — the single most reassuring
               fact (you don't pay until a helper accepts) rides with the CTA. */}
-          <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-semibold text-sage-dark">
-            <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+          <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-sage-dark">
+            <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             No payment until a helper accepts · money-back guarantee
           </p>
 
@@ -957,7 +1278,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
               the docked bar, with the typed details riding along. */}
           {submitFailed && (
             <>
-              <p className="text-center text-[11px] text-muted-foreground">
+              <p className="text-center text-xs leading-relaxed text-muted-foreground">
                 Our team can book it for you on WhatsApp in a couple of minutes — your details are ready to send.
               </p>
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
@@ -973,186 +1294,29 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
             </>
           )}
         </div>
+        )}
       </motion.div>
     </>
   );
 };
 
-// ─── Front door: type what you need ─────────────────────────────────────────
+// ─── Front door: tap tiles only ──────────────────────────────────────────────
+// The search bar, its dropdown, the floating price card and the mobile
+// full-screen takeover were REMOVED (July 2026) — zero bookings came through
+// them. Six tiles open the booking sheet; its wizard page 1 asks "what kind?"
+// (or describe-it for the Anything-else tile), page 2 is the form.
 
-type Selection = { cat: Category; size?: string; note?: string; extraLabel?: string };
+type Selection = { cat: Category; size?: string; note?: string; extraLabel?: string; direct?: boolean };
 
 export const CategoryGrid: React.FC = () => {
   const [selected, setSelected] = useState<Selection | null>(null);
 
-  // Search query + the job picked from the dropdown. Typing again clears the
-  // pick so the dropdown reopens; `open` controls the dropdown visibility.
-  const [query, setQuery] = useState('');
-  const [job, setJob] = useState<CustomJob | null>(null);
-  const [size, setSize] = useState('2 hours');
-  const [hintIdx, setHintIdx] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0); // highlighted dropdown row (keyboard nav)
-  const blurTimer = useRef<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Phones get a full-screen search takeover (Uber/Airbnb pattern) instead of
-  // the inline dropdown: the bar is a trigger, and search happens in a panel
-  // with the input pinned above the keyboard. Desktop keeps the inline
-  // dropdown + floating price card.
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639px)');
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  const [takeover, setTakeover] = useState(false);
-  const takeoverInputRef = useRef<HTMLInputElement>(null);
-
-  const openTakeover = useCallback(() => {
-    setTakeover(true);
-    setOpen(true);
-    setActiveIndex(0);
-  }, []);
-  // Closing also resets `open` so the hero bar returns to its idle state
-  // (gold pulse ring) rather than a half-engaged one.
-  const closeTakeover = useCallback(() => { setTakeover(false); setOpen(false); }, []);
-
-  // Lock the page + tuck the bottom nav away while the takeover is up (same
-  // body class the booking sheet uses); Escape closes it.
-  useEffect(() => {
-    if (!takeover) return;
-    // Lock ONLY the vertical axis. Setting `overflow: hidden` would clobber
-    // the stylesheet's `overflow-x: clip` and make the body a horizontal
-    // scroll container — then iOS pans it a few px when the input focuses,
-    // leaving a white strip down the right edge on return. overflow-y alone
-    // keeps overflow-x: clip intact, so the page can never pan sideways.
-    const prevOverflowY = document.body.style.overflowY;
-    document.body.style.overflowY = 'hidden';
-    document.body.classList.add('vano-modal-open');
-    return () => {
-      document.body.style.overflowY = prevOverflowY;
-      document.body.classList.remove('vano-modal-open');
-      // Belt-and-braces: if iOS did leave any horizontal offset while the
-      // keyboard was up, snap it back to 0 on close.
-      document.documentElement.scrollLeft = 0;
-      document.body.scrollLeft = 0;
-    };
-  }, [takeover]);
-
-  // Takeover Escape — its own effect so it can depend on `selected` without
-  // re-running the body-lock above. Escape closes the takeover ONLY when the
-  // booking sheet isn't open over it: both handlers live on window, so one
-  // keypress would otherwise fire both and drop the customer to the cold hero
-  // instead of back on their price card. The sheet owns the top layer while
-  // `selected` is set — let its own Escape handler win.
-  useEffect(() => {
-    if (!takeover || selected) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTakeover(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [takeover, selected]);
-
   const openSheet = useCallback(
-    (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string }) =>
-      setSelected({ cat, size: opts?.size, note: opts?.note, extraLabel: opts?.extraLabel }),
+    (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string; direct?: boolean }) =>
+      setSelected({ cat, size: opts?.size, note: opts?.note, extraLabel: opts?.extraLabel, direct: opts?.direct }),
     [],
   );
   const closeSheet = useCallback(() => setSelected(null), []);
-
-  // Rotate the placeholder hint while the box is empty — so a blank field always
-  // suggests something to type. Stops the moment they start typing.
-  useEffect(() => {
-    if (query) return;
-    const id = window.setInterval(() => setHintIdx((i) => (i + 1) % HINTS.length), 2600);
-    return () => window.clearInterval(id);
-  }, [query]);
-
-  // Typeahead suggestions for the dropdown, and the price for the picked job.
-  // Pricing is the canonical custom rate (€18/hr) so it can never go under min
-  // wage, with the picked job's typical market rate shown beside it.
-  const trimmed = query.trim();
-  const isSearching = trimmed.length >= 2;
-  // Before typing → a tight set of flagship starters, shown the instant the bar
-  // is focused. While typing → the scored matches for what they typed.
-  const suggestions = useMemo(
-    () => (isSearching ? searchCustomJobs(query, 6) : STARTER_CUSTOM_JOBS),
-    [query, isSearching],
-  );
-  // Group the matches under small service-area headers once a search spans more
-  // than one area, so a long "clean" result list scans instead of blurs.
-  const grouped = useMemo(() => {
-    if (!isSearching) return null;
-    const groups: { name: string; items: CustomJob[] }[] = [];
-    for (const j of suggestions) {
-      const name = j.key === 'other' ? 'More' : j.group;
-      let g = groups.find((x) => x.name === name);
-      if (!g) { g = { name, items: [] }; groups.push(g); }
-      g.items.push(j);
-    }
-    return groups;
-  }, [suggestions, isSearching]);
-  // Only bother with headers when there's enough to organise — a 2-row result
-  // doesn't need labelling.
-  const useGroupHeaders = !!grouped && grouped.length >= 2 && suggestions.length >= 4;
-  // The order rows actually render in — grouped order when headers show, raw
-  // order otherwise. Keyboard nav + the active index must follow this exactly.
-  const displayJobs = useMemo(
-    () => (useGroupHeaders && grouped ? grouped.flatMap((g) => g.items) : suggestions),
-    [useGroupHeaders, grouped, suggestions],
-  );
-  const shortVisit = isShortVisit(job?.key);
-  const durationOptions = shortVisit ? SHORT_DURATIONS : DURATIONS;
-  // Hours as a number, including sub-hour visits (0.5 / 0.75)
-  const hours = size === '30 min' ? 0.5 : size === '45 min' ? 0.75 : (Number(size.match(/^\d+/)?.[0]) || 0);
-  const vanoCents = getPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
-  const marketCents = (job?.marketHourlyCents ?? 0) * hours;
-  const saveCents = Math.max(0, marketCents - vanoCents);
-  // Sub-hour visits hit the €12 floor, so a pro-rated market rate would read as
-  // "more expensive" — show the Vano price alone for those, full comparison at 1h+.
-  const showComparison = hours >= 1 && marketCents > 0;
-
-  // Pick a job from the dropdown — fills the bar, sets a sensible default
-  // duration and reveals the price. ("Something else" keeps whatever they typed.)
-  const chooseJob = useCallback((j: CustomJob) => {
-    setJob(j);
-    if (j.key !== 'other') setQuery(j.label);
-    // Singular for 1 — the server prices by EXACT label lookup ('1 hour'), so
-    // "1 hours" made every typicalHours-1 job (mowing, TV setup, hanging…)
-    // fail checkout with "No price available" while the client showed €18.
-    const h = Math.min(8, Math.max(1, j.typicalHours));
-    setSize(isShortVisit(j.key) ? '30 min' : h === 1 ? '1 hour' : `${h} hours`);
-    setOpen(false);
-    if (blurTimer.current) window.clearTimeout(blurTimer.current);
-    // Drop the keyboard: the dropdown rows preventDefault on mousedown to keep
-    // focus while the list is up, which also meant a picked job left the
-    // keyboard open on phones — covering the price card that just appeared.
-    inputRef.current?.blur();
-    takeoverInputRef.current?.blur();
-    haptic(8);
-  }, []);
-
-  // Hand the picked job to the booking sheet (phone / address / when) as a
-  // custom booking — the ONE create-household-payment-checkout flow.
-  const goBook = useCallback(() => {
-    if (!job) return;
-    const label = job.label;
-    const note = query.trim() || label;
-    // No `sizes` on purpose — the duration was already chosen on the first page
-    // (the price card), so the sheet must not ask "How long?" again. The chosen
-    // size rides through as initialSize.
-    const customCat: Category = {
-      emoji: job.emoji,
-      label,
-      slug: 'custom',
-      hint: 'An ID-verified student, matched to your job',
-      description: note,
-    };
-    openSheet(customCat, { size, note, extraLabel: label });
-  }, [job, query, size, openSheet]);
 
   // One-tap rebook: last booked job from this device
   const usual = useMemo(() => {
@@ -1165,486 +1329,107 @@ export const CategoryGrid: React.FC = () => {
     return { cat, size: memSize, price: cents ? fmt(cents) : null };
   }, []);
 
-  // Support the vano:select-category custom event (e.g. a pricing page deep link).
+  // Support the vano:select-category custom event (PopularCategories podium,
+  // pricing-page deep links). An event that carries a size already made its
+  // choice — skip the wizard question; a bare slug gets page 1 like a tile tap.
   useEffect(() => {
     const handle = (e: Event) => {
       const { slug, size: evSize } = (e as CustomEvent<{ slug: string; size?: string }>).detail;
       const cat = CATEGORIES.find(c => c.slug === slug);
-      if (cat) openSheet(cat, { size: evSize });
+      if (cat) openSheet(cat, { size: evSize, direct: !!evSize });
     };
     window.addEventListener('vano:select-category', handle);
     return () => window.removeEventListener('vano:select-category', handle);
   }, [openSheet]);
 
-  // Keep the keyboard-highlighted row visible as ↑/↓ move past the fold of
-  // the scrollable dropdown.
-  useEffect(() => {
-    if (!open || job) return;
-    const key = displayJobs[activeIndex]?.key;
-    if (key) document.getElementById(`job-opt-${key}`)?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex, open, job, displayJobs]);
-
-  // One dropdown row — shared by the flat (starter) and grouped (search) lists,
-  // so keyboard highlight + tap behave identically either way. `i` is the row's
-  // position in displayJobs, which is what the keyboard nav highlights.
-  const renderRow = (s: CustomJob, i: number) => {
-    const isOther = s.key === 'other';
-    const active = i === activeIndex;
-    const sub = isOther
-      ? 'Tell us exactly what you need'
-      // When a group header already names the area, the per-row sub would just
-      // repeat it — show the example phrasing instead to earn its place.
-      : useGroupHeaders ? (s.example ?? s.group) : s.group;
-    return (
-      <li key={s.key} role="presentation">
-        <button
-          type="button"
-          id={`job-opt-${s.key}`}
-          role="option"
-          aria-selected={active}
-          onMouseDown={(e) => e.preventDefault()}
-          onMouseEnter={() => setActiveIndex(i)}
-          onClick={() => chooseJob(s)}
-          className={cn(
-            'group/row flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors',
-            active ? 'bg-secondary' : 'hover:bg-secondary/70',
-          )}
-        >
-          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-border/50 bg-white text-lg leading-none shadow-sm transition-transform duration-150 group-hover/row:scale-105" aria-hidden="true">{s.emoji}</span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-semibold text-foreground truncate">
-              {isOther ? `Book “${query.trim() || 'something else'}”` : s.label}
-            </span>
-            <span className="block text-[11px] text-muted-foreground truncate">{sub}</span>
-          </span>
-          {/* A ballpark price per row (typical hours × €18) answers "roughly
-              how much?" before the tap — worth more than a chevron. */}
-          {isOther ? (
-            <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
-          ) : (
-            <span className="flex-shrink-0 text-xs font-semibold text-foreground/55 tabular-nums">
-              {isShortVisit(s.key) ? 'from €12' : `~€${(VANO_HOURLY_CENTS * s.typicalHours) / 100}`}
-            </span>
-          )}
-        </button>
-      </li>
-    );
-  };
-
-  // ── Shared bodies ──────────────────────────────────────────────────────────
-  // The suggestion list and the price card render in two shells — the desktop
-  // inline dropdown/floating card and the mobile full-screen takeover — so
-  // their contents live here once and the two experiences can't drift.
-
-  const suggestionItems = (
-    <>
-      {/* Returning customer — last job, one tap to rebook, before typing */}
-      {!isSearching && usual && (
-        <li role="presentation">
-          <button
-            type="button"
-            role="option"
-            aria-selected={false}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => { openSheet(usual.cat, { size: usual.size }); setOpen(false); inputRef.current?.blur(); takeoverInputRef.current?.blur(); }}
-            className="flex w-full items-center gap-3 rounded-xl bg-sage/8 px-2.5 py-2 text-left transition-colors hover:bg-sage/15"
-          >
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-sage/25 bg-white text-lg leading-none shadow-sm" aria-hidden="true">{usual.cat.emoji}</span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-foreground truncate">
-                Your usual{usual.price ? ` · ${usual.price}` : ''}
-              </span>
-              <span className="block text-[11px] text-muted-foreground truncate">
-                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved
-              </span>
-            </span>
-            <span className="text-gold text-base font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
-          </button>
-        </li>
-      )}
-
-      {/* Popular starters get one quiet label so they read as a curated set */}
-      {!isSearching && (
-        <li role="presentation" className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
-          Popular
-        </li>
-      )}
-
-      {useGroupHeaders && grouped ? (() => {
-        let idx = -1;
-        return grouped.map((g) => (
-          <React.Fragment key={g.name}>
-            <li role="presentation" className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
-              {g.name}
-            </li>
-            {g.items.map((s) => { idx += 1; return renderRow(s, idx); })}
-          </React.Fragment>
-        ));
-      })() : (
-        suggestions.map((s, i) => renderRow(s, i))
-      )}
-    </>
-  );
-
-  const priceCardBody = job && (
-    <>
-      <div className="flex items-center justify-between gap-2 mb-2.5">
-        <span className="flex items-center gap-2 text-sm font-bold text-foreground min-w-0">
-          <span className="text-lg" aria-hidden="true">{job.emoji}</span>
-          <span className="truncate">{job.label}</span>
-        </span>
-        {/* An explicit way back — before this the only escapes were the ✕ or
-            knowing that typing resets, so the card felt like a dead end. */}
-        <button
-          type="button"
-          onClick={() => {
-            setJob(null); setOpen(true); setActiveIndex(0);
-            (isMobile ? takeoverInputRef : inputRef).current?.focus();
-          }}
-          className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
-        >
-          Change
-        </button>
-      </div>
-      {/* Duration — the same pill chips as the booking sheet, so "how long?"
-          looks and behaves identically everywhere it's asked */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1 mb-3" role="group" aria-label="How long">
-        {durationOptions.map((d) => (
-          <Chip key={d} group="front-duration" active={size === d} onClick={() => setSize(d)}>
-            {d}
-          </Chip>
-        ))}
-      </div>
-      {showComparison ? (
-        /* One calm panel: the VANO price is the hero, the market rate a quiet
-           strikethrough beside it. (Two side-by-side 3xl tiles competed for
-           attention and read as clutter.) */
-        <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3" aria-live="polite">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-left">
-              <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">Your price</p>
-              <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none origin-left">
-                {fmt(vanoCents)}
-              </motion.p>
-              <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr · fair rate</p>
-            </div>
-            <div className="text-right flex-shrink-0">
-              <p className="text-[10px] text-muted-foreground">Typical rate</p>
-              <p className="text-base font-semibold tabular-nums text-muted-foreground/55 line-through decoration-muted-foreground/40">
-                {fmt(marketCents)}
-              </p>
-              {saveCents > 0 && (
-                <motion.p
-                  key={saveCents}
-                  initial={{ scale: 0.7, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 18 }}
-                  className="mt-1 inline-flex rounded-full bg-sage text-white text-[10px] font-bold px-2 py-0.5 tabular-nums"
-                >
-                  Save {fmt(saveCents)}
-                </motion.p>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Short visit — single fair price (the €12 floor makes a pro-rated
-           market comparison misleading, so we don't show one). */
-        <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center" aria-live="polite">
-          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair flat price</p>
-          <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
-            {fmt(vanoCents)}
-          </motion.p>
-          <p className="mt-1 text-[10px] text-muted-foreground">Quick {size} visit</p>
-        </div>
-      )}
-      <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="mt-3">
-        <Button type="button" onClick={goBook} className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary shadow-primary-glow">
-          <Zap className="w-4 h-4" />
-          Book · {fmt(vanoCents)}
-        </Button>
-      </motion.div>
-      {/* One line of reassurance — the book-ahead discount is offered at the
-          "When?" step, so it doesn't need to shout here too. */}
-      <p className="mt-2 text-center text-[11px] text-muted-foreground">No payment until a helper accepts · money-back guarantee</p>
-    </>
-  );
-
   return (
     <>
       <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl scroll-mt-24">
-        {/* Big centered search bar — type, pick a job from the dropdown, see the price */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative"
-        >
-          {/* Idle "tap me" pulse — a soft gold halo breathes around the bar
-              until the visitor focuses it, so it reads as the thing to act on.
-              Stops the moment they engage (focus/type/pick); reduced-motion
-              users never see it move. */}
-          {!open && !job && !query.trim() && (
-            <motion.span
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-1 rounded-[1.4rem] ring-2 ring-gold/50"
-              initial={{ opacity: 0, scale: 1 }}
-              animate={{ opacity: [0, 0.6, 0], scale: [1, 1.035, 1] }}
-              transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 1.4, ease: 'easeInOut' }}
-            />
-          )}
-          <div
-            className="search-shell flex cursor-text items-center gap-3 overflow-hidden rounded-2xl bg-white px-5 h-16 sm:h-[72px] transition-shadow duration-200 hover:shadow-[0_16px_44px_-14px_rgba(0,0,0,0.3)]"
-            onClick={() => { if (isMobile) openTakeover(); else inputRef.current?.focus(); }}
-            onMouseMove={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
-              e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
-            }}
-          >
-            <span aria-hidden="true" className="search-spotlight pointer-events-none absolute inset-0" />
-            <Search className="relative z-10 w-6 h-6 text-foreground/70 flex-shrink-0" aria-hidden="true" />
-            <input
-              ref={inputRef}
-              id="custom-job-input"
-              type="text"
-              value={query}
-              // On phones the bar is only the DOOR to the full-screen search
-              // takeover — readOnly keeps the OS keyboard down and the
-              // pointerdown hands off before focus can land.
-              readOnly={isMobile}
-              onPointerDown={(e) => { if (isMobile) { e.preventDefault(); openTakeover(); } }}
-              onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); setActiveIndex(0); }}
-              onFocus={() => {
-                if (isMobile) { inputRef.current?.blur(); openTakeover(); return; }
-                // Focusing the bar always returns to searching — before this,
-                // a picked job left the bar unresponsive (the dropdown only
-                // renders while no job is picked), which read as broken.
-                if (job) setJob(null);
-                setOpen(true); setActiveIndex(0);
-              }}
-              onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 140); }}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, displayJobs.length - 1)); }
-                else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); }
-                else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  // Only ever act on what's visible: pick from an OPEN list,
-                  // book a picked job — never select from a closed dropdown.
-                  if (job) { goBook(); return; }
-                  if (open) { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }
-                  else setOpen(true);
-                }
-                else if (e.key === 'Escape') { setOpen(false); }
-              }}
-              placeholder={`Search for "${HINTS[hintIdx]}"…`}
-              autoComplete="off"
-              role="combobox"
-              aria-label="Search for what you need done"
-              aria-expanded={open && !job && displayJobs.length > 0}
-              aria-controls="job-suggestions"
-              aria-activedescendant={open && !job && displayJobs[activeIndex] ? `job-opt-${displayJobs[activeIndex].key}` : undefined}
-              aria-autocomplete="list"
-              className="relative z-10 flex-1 min-w-0 bg-transparent text-lg sm:text-xl text-foreground placeholder:text-foreground/55 focus:outline-none"
-            />
-            {query && (
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { setQuery(''); setJob(null); setActiveIndex(0); setOpen(true); inputRef.current?.focus(); }}
-                aria-label="Clear"
-                className="relative z-10 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                // Contextual, never surprising: book the picked job, pick the
-                // highlighted row of an OPEN list, otherwise just open the
-                // suggestions. (It used to silently pick the first starter
-                // even with the dropdown closed and nothing typed.)
-                if (isMobile) { if (job) goBook(); else openTakeover(); return; }
-                if (job) { goBook(); return; }
-                if (open && displayJobs.length > 0) { const pick = displayJobs[activeIndex] ?? displayJobs[0]; chooseJob(pick); return; }
-                inputRef.current?.focus();
-              }}
-              aria-label={job ? 'Book this job' : 'Search'}
-              className="btn-gold relative z-10 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
-            >
-              <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Desktop dropdown. Empty + focused → the popular starters (and
-              "your usual" for returning customers) so the bar is never a blank
-              dead-end. Typing → the scored matches, grouped under service-area
-              headers once the list is long enough to benefit. On phones the
-              full-screen takeover below renders this list instead. */}
-          {!isMobile && (
-            <AnimatePresence>
-              {open && !job && displayJobs.length > 0 && (
-                <motion.ul
-                  id="job-suggestions"
-                  role="listbox"
-                  aria-label="Job suggestions"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                  className="surface-float absolute left-0 right-0 top-full z-[60] mt-2 max-h-[22rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 text-left"
-                >
-                  {suggestionItems}
-                </motion.ul>
-              )}
-            </AnimatePresence>
-          )}
-
-          {/* Picked a job → the price card. Floats below the bar exactly like
-              the dropdown (absolute, no layout height): in normal flow its
-              height re-centered the justify-center hero, so the moment a job
-              was picked the whole hero — search bar included — jumped up
-              off-screen. On phones this lives inside the takeover instead. */}
-          {!isMobile && (
-            <AnimatePresence initial={false}>
-              {job && (
-                <motion.div
-                  key="price"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                  className="surface-float absolute left-0 right-0 top-full z-[60] mt-3 rounded-2xl border border-black/5 bg-white p-4 text-left"
-                >
-                  {priceCardBody}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          )}
-        </motion.div>
-
-        {/* Nothing sits directly under the bar anymore — the first-timer cue and
-            the "Prefer to chat?" line were removed so the search box is the one
-            clear thing to act on. Returning customers' "your usual" is in the
-            dropdown; WhatsApp is now a green button in the nav. */}
-      </div>
-
-      {/* ── Mobile full-screen search takeover (Uber/Airbnb pattern) ────────
-          The hero bar is just the door; searching happens here with the input
-          pinned above the keyboard and the whole screen for suggestions. The
-          booking sheet (z-70) opens over it, so closing the sheet lands the
-          customer back on their price card, not a cold hero.
-          PORTALED to <body>: the hero's framer wrapper is a transform, which
-          traps any z-index inside its stacking context — rendered in place,
-          the fixed nav (z-50) sat over the takeover and ate its taps. */}
-      {typeof document !== 'undefined' && createPortal(<AnimatePresence>
-        {isMobile && takeover && (
-          <motion.div
-            key="search-takeover"
-            initial={{ opacity: 0, y: 28 }}
+        {/* ── The tap tiles — the one front door ──────────────────────────────
+            One tap opens the booking sheet: page 1 "what kind?" (sub-services
+            from the vetted catalogue), page 2 phone/address/when → book. */}
+        {usual && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 28, transition: { duration: 0.18, ease: [0.32, 0.72, 0, 1] } }}
-            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-            className="fixed inset-0 z-[68] bg-cream flex flex-col"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Search for what you need done"
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, direct: true }); }}
+            className="tile-float mb-2.5 flex w-full items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            {/* Pinned search header — never scrolls, never under the keyboard */}
-            <div
-              className="flex-shrink-0 px-3 pb-3 bg-cream border-b border-border/40"
-              style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
-            >
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={closeTakeover}
-                  aria-label="Back"
-                  className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-foreground/70 hover:bg-secondary active:scale-90 transition-[background-color,transform] duration-150"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div className="search-shell flex flex-1 min-w-0 items-center gap-2.5 rounded-2xl bg-white pl-4 pr-1.5 h-12">
-                  <Search className="w-5 h-5 text-foreground/60 flex-shrink-0" aria-hidden="true" />
-                  <input
-                    ref={takeoverInputRef}
-                    type="text"
-                    value={query}
-                    // Keyboard up immediately when arriving to search; stays
-                    // down when reopening onto an already-picked job.
-                    autoFocus={!job}
-                    onChange={(e) => { setQuery(e.target.value); setJob(null); setActiveIndex(0); }}
-                    onKeyDown={(e) => {
-                      if (e.key !== 'Enter') return;
-                      e.preventDefault();
-                      if (job) { goBook(); return; }
-                      const pick = displayJobs[activeIndex] ?? displayJobs[0];
-                      if (pick) chooseJob(pick);
-                    }}
-                    placeholder={`Search for "${HINTS[hintIdx]}"…`}
-                    autoComplete="off"
-                    autoCapitalize="off"
-                    autoCorrect="off"
-                    enterKeyHint="search"
-                    role="combobox"
-                    aria-label="Search for what you need done"
-                    aria-expanded={!job && displayJobs.length > 0}
-                    aria-controls="job-suggestions-m"
-                    aria-autocomplete="list"
-                    className="flex-1 min-w-0 bg-transparent text-base text-foreground placeholder:text-foreground/50 focus:outline-none"
-                  />
-                  {query && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { setQuery(''); setJob(null); setActiveIndex(0); takeoverInputRef.current?.focus(); }}
-                      aria-label="Clear"
-                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Body — suggestions until a job is picked, then the price card */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-10" style={{ overscrollBehavior: 'contain' }}>
-              {job ? (
-                <motion.div
-                  key={`m-price-${job.key}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                  className="surface-float rounded-2xl border border-black/5 bg-white p-4 text-left"
-                >
-                  {priceCardBody}
-                </motion.div>
-              ) : (
-                <>
-                  <ul
-                    id="job-suggestions-m"
-                    role="listbox"
-                    aria-label="Job suggestions"
-                    className="surface-float rounded-2xl border border-black/5 bg-white p-1.5 text-left"
-                  >
-                    {suggestionItems}
-                  </ul>
-                  <p className="mt-4 text-center text-[11px] text-muted-foreground">
-                    €18/hour flat rate · no payment until a helper accepts
-                  </p>
-                </>
-              )}
-            </div>
-          </motion.div>
+            <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-bold text-foreground truncate">
+                Book your usual{usual.price ? ` · ${usual.price}` : ''}
+              </span>
+              <span className="block text-[11px] text-muted-foreground truncate">
+                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved — one tap
+              </span>
+            </span>
+            <span className="text-gold text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+          </motion.button>
         )}
-      </AnimatePresence>, document.body)}
+        <motion.div
+          role="group"
+          aria-label="Book a service in one tap"
+          className="grid grid-cols-3 gap-2 sm:gap-3"
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
+        >
+          {CATEGORIES.map((c) => {
+            const fromCents = getPriceCents(c.slug, c.sizes?.[0] ?? DEFAULT_SIZE[c.slug] ?? '');
+            return (
+              <motion.button
+                key={c.slug}
+                type="button"
+                variants={{ hidden: { opacity: 0, y: 12, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                whileHover={{ y: -4 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+                onClick={() => { haptic(10); track('hero_tile_tap', { category: c.slug }); openSheet(c); }}
+                aria-label={`Book ${c.label}${fromCents ? ` — from ${fmt(fromCents)}` : ''}`}
+                className="tile-float relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-black/5 bg-white px-1.5 py-4 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              >
+                {/* Cleaning wears the same "Most booked" crown as the podium */}
+                {c.slug === 'cleaning' && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gold px-2 py-0.5 text-[8.5px] font-bold uppercase tracking-wide text-navy whitespace-nowrap shadow-sm">
+                    Most booked
+                  </span>
+                )}
+                <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
+                <span className="mt-1.5 text-[13px] sm:text-base font-bold text-foreground leading-tight">{c.label}</span>
+                {fromCents != null && (
+                  <span className="text-[11px] sm:text-[13px] font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
+                )}
+                <span className="hidden sm:block text-[11px] text-muted-foreground leading-tight text-center mt-0.5 px-1">{c.hint}</span>
+              </motion.button>
+            );
+          })}
+          {/* The 6th tile — glassy on the navy, the door for the ~100-job
+              vetted catalogue: opens the sheet on its describe-it page. */}
+          <motion.button
+            type="button"
+            variants={{ hidden: { opacity: 0, y: 12, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1 } }}
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+            onClick={() => { haptic(10); track('hero_search_open'); openSheet(CUSTOM_TILE); }}
+            aria-label="Anything else — describe any job"
+            className="relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/20 bg-white/[0.08] px-1.5 py-4 sm:py-5 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          >
+            <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">✨</span>
+            <span className="mt-1.5 text-[13px] sm:text-base font-bold text-white leading-tight">Anything else</span>
+            <span className="text-[11px] sm:text-[13px] font-medium text-white/70 leading-none">just ask</span>
+            <span className="hidden sm:block text-[11px] text-white/55 leading-tight text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
+          </motion.button>
+        </motion.div>
+      </div>
 
       {/* Bottom sheet — a REAL portal to <body>. Rendered in place it sits in
           the hero's transform stacking context, where its z-70 can't beat the
-          root-level takeover (z-68) or the fixed nav (z-50). */}
+          fixed nav (z-50). */}
       {typeof document !== 'undefined' && createPortal(<AnimatePresence>
         {selected && (
           <Sheet
@@ -1652,6 +1437,7 @@ export const CategoryGrid: React.FC = () => {
             initialSize={selected.size}
             note={selected.note}
             extraLabel={selected.extraLabel}
+            direct={selected.direct}
             onClose={closeSheet}
           />
         )}

@@ -73,9 +73,9 @@ serve(async (req) => {
 
     const { data: helper } = await supabase
       .from('household_helpers')
-      .select('id, name, email, phone, city, status')
+      .select('id, name, email, phone, city, status, id_verified')
       .eq('id', helper_id)
-      .maybeSingle() as { data: { name: string; email: string | null; phone: string | null; city: string; status: string } | null };
+      .maybeSingle() as { data: { name: string; email: string | null; phone: string | null; city: string; status: string; id_verified: boolean | null } | null };
 
     if (!helper) return new Response(JSON.stringify({ error: 'not found' }), { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } });
     // Only notify when genuinely approved — prevents using this as a spam vector
@@ -86,8 +86,16 @@ serve(async (req) => {
     const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://vanojobs.com').replace(/\/$/, '');
     const firstName = helper.name.split(' ')[0];
     const dashUrl = `${siteUrl}/student-dashboard`;
+    const verifyUrl = `${siteUrl}/verify-helper?id=${helper_id}&name=${encodeURIComponent(firstName)}`;
 
-    const waText = `🎉 ${firstName}, you're approved on VANO! You can now pick up jobs in ${helper.city}. Open your dashboard, turn on job alerts and set yourself Available — jobs are first come, first served: ${dashUrl}\n\n💶 One important step: add your payout details in the Earnings tab so we can pay you — without it your earnings are held: ${dashUrl}?tab=earnings`;
+    // Approved ≠ receiving jobs: since the first-job ID gate, offers only go
+    // to id_verified helpers — so the FIRST ask is the free ID check, not
+    // "set yourself Available". Already-verified helpers (admin re-approval)
+    // get the original go-live message.
+    const idVerified = !!helper.id_verified;
+    const waText = idVerified
+      ? `🎉 ${firstName}, you're approved on VANO! You can now pick up jobs in ${helper.city}. Open your dashboard, turn on job alerts and set yourself Available — jobs are first come, first served: ${dashUrl}\n\n💶 One important step: add your payout details in the Earnings tab so we can pay you — without it your earnings are held: ${dashUrl}?tab=earnings`
+      : `🎉 ${firstName}, you're approved on VANO! One free step before your first job: verify your ID — it takes about 2 minutes, and customers are told every VANO helper is ID-verified, so jobs only go to verified helpers: ${verifyUrl}\n\nThen open your dashboard, turn on job alerts and set yourself Available — jobs are first come, first served: ${dashUrl}`;
     const waOk = await sendWhatsApp(helper.phone, waText);
 
     let emailOk = false;
@@ -110,22 +118,28 @@ serve(async (req) => {
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
       Your VANO helper application is <strong>approved</strong>. You can now pick up paid jobs in ${helper.city}.
     </p>
-    <p style="margin:0 0 6px;color:#111827;font-size:14px;font-weight:700;">Get your first job in 3 steps:</p>
+    <p style="margin:0 0 6px;color:#111827;font-size:14px;font-weight:700;">Get your first job:</p>
     <ol style="margin:0 0 18px;padding-left:20px;color:#374151;font-size:14px;line-height:1.9;">
+      ${idVerified ? '' : `<li><strong>Verify your ID</strong> (free, ~2 minutes) — jobs only go to ID-verified helpers</li>`}
       <li>Open your dashboard and set yourself <strong>Available</strong></li>
       <li>Turn on <strong>job alerts</strong> — jobs are first come, first served</li>
       <li>Add your <strong>payout details</strong> in the Earnings tab so you get paid</li>
       <li>When an offer lands, tap <strong>Accept</strong> fast 💨</li>
     </ol>
+    ${idVerified ? '' : `<div style="background:#eef4ef;border:1px solid #cfe0d3;border-radius:12px;padding:12px 16px;margin:0 0 14px;">
+      <p style="margin:0;color:#2f4f3a;font-size:13px;line-height:1.5;">🪪 <strong>The ID check comes first:</strong> customers are told every VANO helper is ID-verified before their first job, so offers only go out to verified helpers. It's free and takes about 2 minutes.</p>
+    </div>`}
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px 16px;margin:0 0 20px;">
       <p style="margin:0;color:#9a3412;font-size:13px;line-height:1.5;">💶 <strong>Don't skip payouts:</strong> until you add your bank details in the Earnings tab, anything you earn is held and can't be paid out.</p>
     </div>
-    <a href="${dashUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Open my dashboard →</a>
+    <a href="${idVerified ? dashUrl : verifyUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">${idVerified ? 'Open my dashboard →' : 'Verify my ID (free) →'}</a>
     <p style="margin:22px 0 0;color:#9ca3af;font-size:12px;">Questions? WhatsApp us any time: +353 89 981 7111</p>
   </div>
 </div>
 </body></html>`,
-          text: `You're approved on VANO, ${firstName}! Pick up paid jobs in ${helper.city}. 1) Open your dashboard and set yourself Available 2) Turn on job alerts 3) Accept fast — first come, first served. ${dashUrl} — Questions? WhatsApp +353 89 981 7111`,
+          text: idVerified
+            ? `You're approved on VANO, ${firstName}! Pick up paid jobs in ${helper.city}. 1) Open your dashboard and set yourself Available 2) Turn on job alerts 3) Accept fast — first come, first served. ${dashUrl} — Questions? WhatsApp +353 89 981 7111`
+            : `You're approved on VANO, ${firstName}! One free step before your first job: verify your ID (~2 minutes) — jobs only go to ID-verified helpers: ${verifyUrl} Then set yourself Available and turn on job alerts: ${dashUrl} — Questions? WhatsApp +353 89 981 7111`,
         }),
       });
       emailOk = resp.ok;

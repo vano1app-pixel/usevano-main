@@ -30,7 +30,7 @@ const TIME_BASED_HOURLY_RATES: Record<string, number> = {
   moving:   1800,
   custom:   1800, // "name any job" — same hourly floor, so it can't go sub-wage
   handyman: 2500,
-  plumbing: 3000,
+  // 'plumbing' retired July 2026 (liability triage) — see retiredCategories.test.ts
 };
 
 describe('household time-based rates pay above minimum wage', () => {

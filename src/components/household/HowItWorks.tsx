@@ -4,15 +4,17 @@ import { motion, type Variants } from 'framer-motion';
 /**
  * How it works — three honest steps on a clean white band, explaining the
  * (genuinely simple) process before any social proof is asked for. The
- * ReviewCarousel lives further down the page: real household_ratings replace
- * its seed testimonials as they come in, and only real ones carry the
- * "Verified booking" badge.
+ * ReviewCarousel lives further down the page and shows ONLY real
+ * household_ratings (no seed testimonials — deleted July 2026), each with
+ * the "Verified booking" badge.
+ * Step 3's "ID-verified student" is literally enforced: dispatch and
+ * accept-job only give jobs to id_verified helpers (the first-job gate).
  * Plain by design — white background, black type — but it springs to life
  * on scroll so it never reads as a static block.
  */
 
 const STEPS = [
-  { n: '1', title: 'Search what you need', lines: ['Type any job', 'See a fair price'] },
+  { n: '1', title: 'Tap what you need', lines: ['Pick a job — no typing', 'See a fair price'] },
   { n: '2', title: 'Book in seconds',      lines: ['Drop your number', 'Pay only when a helper accepts'] },
   { n: '3', title: 'An ID-verified student does it', lines: ['Shows up & does the job', "Paid only when you're happy"] },
 ];

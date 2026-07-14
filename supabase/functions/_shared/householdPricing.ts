@@ -22,9 +22,14 @@ export const VALID_CATEGORIES = [
   // Misc / errand slugs
   'post-office', 'pharmacy-run', 'furniture-assembly', 'tech-help', 'wait-delivery',
   // Extra home services
-  'handyman', 'plumbing',
-  // Midnight lift
-  'midnight-lift',
+  'handyman',
+  // RETIRED (July 2026, liability triage — do not re-add):
+  //  - 'plumbing'      → trade work; the safety screen promises "not qualified
+  //                      tradespeople" and free-text plumbing is blocked there.
+  //  - 'midnight-lift' → carrying passengers for reward needs an SPSV licence
+  //                      and hire-and-reward motor insurance a student's
+  //                      personal policy never includes.
+  // Labels for both live on in CATEGORY_LABELS so historical bookings render.
   // Airbnb Host monthly plans
   'airbnb-essential', 'airbnb-popular', 'airbnb-premium',
   // "Name any job" — priced by the hour at the standard €18/hr labour rate
@@ -148,11 +153,6 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
     return ({ '1 hour': 2500, '2 hours': 4500, '3 hours': 6500 })[sizeLabel] ?? null;
   }
 
-  // Plumbing help — hourly
-  if (category === 'plumbing') {
-    return ({ '1 hour': 3000, '2 hours': 5500 })[sizeLabel] ?? null;
-  }
-
   // Wait for delivery — duration tier
   if (category === 'wait-delivery') {
     const extra: Record<string, number> = { 'Up to 2 hours': 1000, 'Up to 4 hours': 1800 };
@@ -164,16 +164,6 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
   if (category === 'airbnb-essential') return 12900;
   if (category === 'airbnb-popular')   return 19900;
   if (category === 'airbnb-premium')   return 29900;
-
-  // Midnight lift — distance tier
-  if (category === 'midnight-lift') {
-    const map: Record<string, number> = {
-      'Nearby (under 3 km)': 1000,
-      'Mid-range (3–10 km)': 1500,
-      'Far (10 km+)':        2800,
-    };
-    return map[sizeLabel] ?? null;
-  }
 
   // Custom "name any job" — priced purely by booked time at the €18/hr labour
   // rate (the same hour labels the CategoryGrid sheet uses). Short visits
@@ -218,7 +208,9 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
   return null;
 }
 
-export const CATEGORY_LABELS: Record<Category, string> = {
+// Record<string, string> (not Record<Category, string>): retired slugs keep
+// their labels here so historical bookings still render everywhere.
+export const CATEGORY_LABELS: Record<string, string> = {
   shopping:             'Laundry',
   'grocery-shopping':   'Grocery shopping',
   'dog-walk':           'Dog walk',
@@ -236,8 +228,9 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   'furniture-assembly': 'Furniture assembly',
   'tech-help':          'Tech help',
   'wait-delivery':      'Wait for delivery',
-  'midnight-lift':      'Midnight Lift',
   handyman:             'Handyman',
+  // Retired categories — display-only, no longer bookable (see VALID_CATEGORIES)
+  'midnight-lift':      'Midnight Lift',
   plumbing:             'Plumbing help',
   'airbnb-essential':   'Airbnb Host Essential',
   'airbnb-popular':     'Airbnb Host Popular',
