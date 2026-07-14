@@ -14,43 +14,8 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
-  [functions.check-achievements]
-    verify_jwt = false
-  [functions.notify-matched-students]
-    verify_jwt = false
-  [functions.smart-match-jobs]
-    verify_jwt = false
-  [functions.ai-cover-letter]
-    verify_jwt = false
-  [functions.ai-job-description]
-    verify_jwt = false
-  [functions.ai-profile-coach]
-    verify_jwt = false
-  [functions.ai-pricing-advisor]
-    verify_jwt = false
-  [functions.ai-review-summary]
-    verify_jwt = false
-  # Stripe can't send a JWT — we verify the Stripe-Signature header instead
-  # inside the function. Do NOT flip this to true; it would break every webhook.
   [functions.stripe-webhook]
     verify_jwt = false
-  # Called by stripe-webhook with the service-role key. We still pass the
-  # service role JWT, but the row status check in the function is the real
-  # idempotency guard, so we skip JWT verification at the edge.
-  [functions.ai-find-freelancer]
-    verify_jwt = false
-  # Outreach email to a newly-scouted web freelancer. Called internally
-  # by ai-find-freelancer with the service-role key; the idempotent
-  # status='new' update inside the function prevents duplicate sends
-  # if this is ever invoked twice for the same scout.
-  [functions.notify-scouted-freelancer]
-    verify_jwt = false
-  # Returns public Vano Pay fee / amount bounds so the frontend modal
-  # preview stays in sync with the authoritative charge on the server.
-  # No secrets — safe to call pre-auth.
-  [functions.get-vano-pay-config]
-    verify_jwt = false
-  # CategoryGrid quick-booking flow — same anonymous pattern.
   [functions.create-household-payment-checkout]
     verify_jwt = false
   # "Name any job" AI brain: reads the CustomJobBuilder free-text box (Gemini)
@@ -92,18 +57,8 @@ project_id = "puomfwjtpvqedwxjxogh"
   # the helper's own stored session id). Applicant has no JWT yet.
   [functions.check-identity-status]
     verify_jwt = false
-  # €2 sign-up fee — opened and confirmed by the (account-less) applicant on
-  # the verify page, so no user JWT.
-  [functions.create-signup-payment]
-    verify_jwt = false
   [functions.confirm-signup-payment]
     verify_jwt = false
-  # HomePlans self-serve monthly subscriptions — same anonymous customer pattern.
-  [functions.create-plan-checkout]
-    verify_jwt = false
-  # Customer taps "mark done" on the tracking page to finish a one-off job.
-  # Anonymous customers (no account) must reach it; gated by booking status,
-  # same model as customer_cancel in cancel-household-booking.
   [functions.complete-household-job]
     verify_jwt = false
   # Nudges the customer to confirm a finished job (and escalates to an admin if

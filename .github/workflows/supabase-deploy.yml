@@ -81,6 +81,41 @@ jobs:
           fi
           echo "::endgroup::"
 
+          # --- Prune retired functions first ---
+          # The project has a hard cap on function count (hit at 100 — the
+          # 402 "Max number of functions reached" that blocked whatsapp-inbound
+          # for three runs). Delete every slug on the retired list BEFORE
+          # deploying so freed slots are available to new functions in the
+          # same run. `|| true` keeps this idempotent: already-deleted slugs
+          # just no-op on every subsequent run.
+          #
+          # July 2026 sweep — three groups:
+          #   • legacy freelancer-marketplace fleet (product deleted)
+          #   • Vano Pay escrow fleet (vano_payments table is empty)
+          #   • dashboard-created one-offs that never lived in the repo
+          RETIRED="
+            ai-cover-letter ai-job-description ai-pricing-advisor ai-profile-coach ai-review-summary
+            ai-find-freelancer ai-find-retry create-ai-find-checkout notify-scouted-freelancer
+            notify-hire-request notify-direct-hire expire-hire-requests
+            notify-community-listing-request send-listing-decision-email welcome-freelancer-published improve-community-bio
+            smart-match-jobs notify-matched-students check-achievements
+            vano-assistant weekly-digest notify-new-message notify-admin-message
+            create-vano-payment-checkout release-vano-payment refund-vano-payment
+            auto-release-held-payments remind-held-payments get-vano-pay-config
+            get-vano-pay-requirements create-stripe-connect-link
+            create-signup-payment create-plan-checkout
+            create-household-booking notify-household-arrived twilio-selftest
+            admin-stripe-settings admin-cancel-helper-memberships update-stripe-webhook-events
+          "
+          for slug in $RETIRED; do
+            if [ -d "supabase/functions/$slug" ]; then
+              echo "⚠️ $slug is on the retired list but still exists in the repo — NOT deleting"
+              continue
+            fi
+            echo "✂ pruning retired function $slug"
+            supabase functions delete "$slug" --project-ref "$clean_lc" || true
+          done
+
           # Iterate every directory under supabase/functions/ and deploy it.
           # The conventional _shared folder (if we add one for shared code)
           # is skipped — it isn't a function, just library code.
