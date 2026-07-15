@@ -14,6 +14,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS } from '@/lib/householdPricing';
+import { categoryIcon } from '@/lib/categoryIcons';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
@@ -98,6 +99,7 @@ const CUSTOM_TILE: Category = {
   hint: 'An ID-verified student, matched to your job',
   description: '',
 };
+const CustomTileIcon = categoryIcon('custom');
 
 // ─── Sub-services (wizard page 1) ─────────────────────────────────────────
 // Each tile's "What kind of …?" options. kind:'core' books the tile's own
@@ -1593,6 +1595,7 @@ export const CategoryGrid: React.FC = () => {
     const cents = getPriceCents(cat.slug, memSize ?? DEFAULT_SIZE[cat.slug] ?? '');
     return { cat, size: memSize, price: cents ? fmt(cents) : null };
   }, []);
+  const UsualIcon = categoryIcon(usual?.cat.slug ?? 'custom'); // always defined — only rendered when `usual` is
 
   // Support the vano:select-category custom event (PopularCategories podium,
   // pricing-page deep links). An event that carries a size already made its
@@ -1623,7 +1626,9 @@ export const CategoryGrid: React.FC = () => {
             onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, direct: true }); }}
             className="tile-float mb-2.5 flex w-full items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-sage-light" aria-hidden="true">
+              <UsualIcon className="h-5 w-5 text-sage-dark" strokeWidth={1.8} />
+            </span>
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-bold text-foreground truncate">
                 Book your usual{usual.price ? ` · ${usual.price}` : ''}
@@ -1645,6 +1650,7 @@ export const CategoryGrid: React.FC = () => {
         >
           {CATEGORIES.map((c) => {
             const fromCents = getPriceCents(c.slug, c.sizes?.[0] ?? DEFAULT_SIZE[c.slug] ?? '');
+            const Icon = categoryIcon(c.slug);
             return (
               <motion.button
                 key={c.slug}
@@ -1663,8 +1669,13 @@ export const CategoryGrid: React.FC = () => {
                     Most booked
                   </span>
                 )}
-                <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
-                <span className="mt-1.5 text-[13px] sm:text-base font-bold text-foreground leading-tight">{c.label}</span>
+                {/* Brand icon chip instead of OS emoji — one drawn set, sage on
+                    sage-light, so the six tiles read as one designed system.
+                    Mobile chip is sized to keep the hero's one-screen fit. */}
+                <span className="flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-sage-light" aria-hidden="true">
+                  <Icon className="h-5 w-5 sm:h-7 sm:w-7 text-sage-dark" strokeWidth={1.8} />
+                </span>
+                <span className="mt-1 sm:mt-1.5 text-[13px] sm:text-base font-bold text-foreground leading-tight">{c.label}</span>
                 {fromCents != null && (
                   <span className="text-[11px] sm:text-[13px] font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
                 )}
@@ -1684,8 +1695,10 @@ export const CategoryGrid: React.FC = () => {
             aria-label="Anything else — describe any job"
             className="relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/20 bg-white/[0.08] px-1.5 py-2.5 sm:py-5 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">✨</span>
-            <span className="mt-1.5 text-[13px] sm:text-base font-bold text-white leading-tight">Anything else</span>
+            <span className="flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-white/10" aria-hidden="true">
+              <CustomTileIcon className="h-5 w-5 sm:h-7 sm:w-7 text-white/85" strokeWidth={1.8} />
+            </span>
+            <span className="mt-1 sm:mt-1.5 text-[13px] sm:text-base font-bold text-white leading-tight">Anything else</span>
             <span className="text-[11px] sm:text-[13px] font-medium text-white/70 leading-none">just ask</span>
             <span className="hidden sm:block text-[11px] text-white/55 leading-tight text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
           </motion.button>
