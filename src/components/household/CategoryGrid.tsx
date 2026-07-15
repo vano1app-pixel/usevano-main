@@ -1655,7 +1655,7 @@ export const CategoryGrid: React.FC = () => {
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                 onClick={() => { haptic(10); track('hero_tile_tap', { category: c.slug }); openSheet(c); }}
                 aria-label={`Book ${c.label}${fromCents ? ` — from ${fmt(fromCents)}` : ''}`}
-                className="tile-float relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-black/5 bg-white px-1.5 py-4 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className="tile-float relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-black/5 bg-white px-1.5 py-2.5 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 {/* Cleaning wears the same "Most booked" crown as the podium */}
                 {c.slug === 'cleaning' && (
@@ -1682,7 +1682,7 @@ export const CategoryGrid: React.FC = () => {
             transition={{ type: 'spring', stiffness: 420, damping: 26 }}
             onClick={() => { haptic(10); track('hero_search_open'); openSheet(CUSTOM_TILE); }}
             aria-label="Anything else — describe any job"
-            className="relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/20 bg-white/[0.08] px-1.5 py-4 sm:py-5 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/20 bg-white/[0.08] px-1.5 py-2.5 sm:py-5 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">✨</span>
             <span className="mt-1.5 text-[13px] sm:text-base font-bold text-white leading-tight">Anything else</span>

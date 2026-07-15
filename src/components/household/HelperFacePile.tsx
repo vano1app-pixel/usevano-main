@@ -76,7 +76,7 @@ export const HelperFacePile: React.FC = () => {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.34, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="mt-5 flex justify-center"
+      className="mt-3 sm:mt-5 flex justify-center"
     >
       <a href="#helpers" className="group inline-flex items-center gap-3" aria-label="Meet the student helpers">
         <div className="flex -space-x-2.5">

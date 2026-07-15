@@ -32,7 +32,7 @@ export const HeroSection: React.FC = () => {
     : 'Same-day help in Galway';
 
   return (
-    <section id="book" data-snap className="relative bg-navy px-4 pt-16 pb-[18vh] sm:pb-[16vh] flex flex-col justify-center min-h-[100svh]">
+    <section id="book" data-snap className="relative bg-navy px-4 pt-14 sm:pt-16 pb-[11vh] sm:pb-[16vh] flex flex-col justify-center min-h-[100svh]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
         <motion.div
@@ -66,7 +66,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-8 sm:mb-10 flex flex-col items-center gap-2.5"
+          className="mb-3 sm:mb-10 flex flex-col items-center gap-2 sm:gap-2.5"
         >
           <ReviewBadges inline />
           {!helperReady ? (
@@ -92,7 +92,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="display-lg text-white text-balance tracking-tight text-[2rem] leading-[1.06] sm:text-[2.75rem] sm:leading-[1.04] mb-6 sm:mb-7"
+          className="display-lg text-white text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-[2.75rem] sm:leading-[1.04] mb-4 sm:mb-7"
         >
           Same-day help, from someone you{' '}
           <span className="relative inline-block">
@@ -133,7 +133,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-5 sm:mt-6 max-w-md mx-auto text-[13px] sm:text-sm leading-relaxed text-white/70 text-pretty"
+          className="mt-3 sm:mt-6 max-w-md mx-auto text-[13px] sm:text-sm leading-relaxed text-white/70 text-pretty"
         >
           You see them first
           <span className="text-white/35 px-1.5">·</span>
@@ -152,7 +152,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-2 text-[13px] font-semibold text-[#7fe0a5] hover:bg-[#25D366]/20 transition-colors"
+          className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-2 text-[13px] font-semibold text-[#7fe0a5] hover:bg-[#25D366]/20 transition-colors"
         >
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
           Or book on WhatsApp — a person sorts it in minutes
