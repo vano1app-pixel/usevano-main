@@ -39,13 +39,20 @@ export const HeroSection: React.FC = () => {
             ScrollCue): the navy hero melts down into the cream content that
             follows, so scrolling out of the hero isn't a hard colour cut. */}
         <div className="lg:hidden pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-cream" aria-hidden="true" />
-        {/* ONE static warm wash, top-left. The old pair of endlessly-pulsing
-            gradient orbs was the signature template-landing-page background —
-            a still wash keeps the warmth without the tell, and costs zero
-            main-thread work. */}
-        <div
-          className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full opacity-60"
-          style={{ background: 'radial-gradient(circle, hsl(43 90% 60% / 0.22) 0%, transparent 70%)' }}
+        <motion.div
+          className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full"
+          style={{ background: 'radial-gradient(circle, hsl(43 90% 60% / 0.35) 0%, transparent 70%)' }}
+          initial={{ opacity: 0.16, scale: 1 }}
+          animate={{ opacity: [0.16, 0.26, 0.16], scale: [1, 1.08, 1] }}
+          transition={{ duration: 9, ease: 'easeInOut', repeat: Infinity }}
+          aria-hidden="true"
+        />
+        <motion.div
+          className="pointer-events-none absolute -bottom-40 -right-32 w-[560px] h-[560px] rounded-full"
+          style={{ background: 'radial-gradient(circle, hsl(119 23% 55% / 0.28) 0%, transparent 70%)' }}
+          initial={{ opacity: 0.12, scale: 1.05 }}
+          animate={{ opacity: [0.12, 0.2, 0.12], scale: [1.05, 1, 1.05] }}
+          transition={{ duration: 11, ease: 'easeInOut', repeat: Infinity, delay: 1.5 }}
           aria-hidden="true"
         />
       </div>
