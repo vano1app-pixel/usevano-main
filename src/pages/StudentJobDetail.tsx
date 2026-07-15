@@ -205,6 +205,32 @@ const StudentJobDetail = () => {
   const [arrivalCode, setArrivalCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [codeError, setCodeError] = useState(false);
+  // Wrong-code count this visit — the first miss is almost always a typo, so
+  // the retry is the only affordance shown; the "get a fresh code" escape
+  // hatch appears from the second miss.
+  const [codeAttempts, setCodeAttempts] = useState(0);
+  // The 4-step "how it works" explainer teaches the FIRST job, then collapses
+  // to one line with a "How it works" toggle — a repeat helper knows the
+  // drill, and the lecture was sitting above their primary button. localStorage
+  // remembers which booking it was first shown on (so revisiting job #1 keeps
+  // it open; any later job starts collapsed).
+  const [howOpen, setHowOpen] = useState<boolean>(() => {
+    try {
+      const seenOn = localStorage.getItem('vano-job-explainer-first');
+      return !seenOn || seenOn === bookingId;
+    } catch { return true; }
+  });
+  // Stamp the first booking the explainer was shown on (raw state only — the
+  // derived `mine` lives below the early returns, out of hook reach).
+  useEffect(() => {
+    if (!bookingId || !booking || !userId) return;
+    if (booking.status !== 'accepted' || booking.student_id !== userId) return;
+    try {
+      if (!localStorage.getItem('vano-job-explainer-first')) {
+        localStorage.setItem('vano-job-explainer-first', bookingId);
+      }
+    } catch { /* private mode — the explainer simply stays open every time */ }
+  }, [bookingId, booking, userId]);
   // "Customer not available" — start the job without the arrival code.
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -464,9 +490,11 @@ const StudentJobDetail = () => {
       } else if (data?.locked) {
         // Too many wrong attempts — anti-brute-force lockout from the server.
         setCodeError(true);
+        setCodeAttempts((n) => n + 1);
         toast({ title: 'Too many attempts', description: 'Please wait a minute, then re-check the 4-digit code with the customer.', variant: 'destructive' });
       } else {
         setCodeError(true);
+        setCodeAttempts((n) => n + 1);
       }
     } catch (err) {
       toast({ title: 'Could not confirm code', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
@@ -934,6 +962,21 @@ const StudentJobDetail = () => {
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="rounded-2xl border border-sage/25 bg-sage-light p-5 mb-6"
           >
+            {!howOpen ? (
+              /* Repeat helpers know the drill — one line + a way back to the
+                 steps, so the primary button below is immediately in view. */
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-bold text-foreground text-sm">✅ This job is yours</p>
+                <button
+                  type="button"
+                  onClick={() => setHowOpen(true)}
+                  className="flex-shrink-0 text-xs font-semibold text-sage-dark underline underline-offset-2"
+                >
+                  How it works
+                </button>
+              </div>
+            ) : (
+            <>
             <p className="font-bold text-foreground text-sm mb-3">✅ This job is yours — here's how it works</p>
             <ol className="space-y-2.5">
               {(directPay
@@ -960,6 +1003,8 @@ const StudentJobDetail = () => {
               <Navigation size={12} className="text-sage flex-shrink-0 mt-0.5" />
               When you head out, you'll share live location so the customer can track you.
             </p>
+            </>
+            )}
           </motion.div>
         )}
 
@@ -1107,12 +1152,17 @@ const StudentJobDetail = () => {
             {codeError && (
               <>
                 <p className="text-xs text-destructive mt-2">That code didn't match — double-check with the customer.</p>
-                <button
-                  onClick={() => { setCodeError(false); setArrivalCode(''); void handleReached(); }}
-                  className="mt-1 text-xs text-sage underline underline-offset-2"
-                >
-                  Code not working? Get a fresh one for the customer
-                </button>
+                {/* Regenerate only from the SECOND miss — one wrong entry is
+                    nearly always a typo, and offering a reset immediately
+                    nudges people away from simply re-typing it right. */}
+                {codeAttempts >= 2 && (
+                  <button
+                    onClick={() => { setCodeError(false); setArrivalCode(''); void handleReached(); }}
+                    className="mt-1 text-xs text-sage underline underline-offset-2"
+                  >
+                    Code not working? Get a fresh one for the customer
+                  </button>
+                )}
               </>
             )}
             <motion.button
@@ -1164,8 +1214,11 @@ const StudentJobDetail = () => {
 
         {/* Job underway — timed jobs show a countdown (a guide, nothing auto-
             completes). The helper flags "I've finished"; the customer confirms
-            to release payment. */}
-        {mine && booking.status === 'in_progress' && (
+            to release payment. Direct-pay: once finished, this card yields
+            entirely to the gold "Did they pay you?" card below — two stacked
+            cards both describing "you're finished" made the money step easy
+            to miss. */}
+        {mine && booking.status === 'in_progress' && !(directPay && booking.helper_finished_at) && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1218,6 +1271,13 @@ const StudentJobDetail = () => {
             and blocks repeat offenders from booking. */}
         {mine && directPay && (booking.helper_finished_at || isComplete) && !isCancelled && paidToHelper !== true && (
           <div className="rounded-2xl border-2 border-gold/50 bg-amber-50/60 p-5 mb-6">
+            {/* Absorbs the old separate "Marked as finished" card — one card
+                now owns the whole finish-and-get-paid moment. */}
+            {booking.helper_finished_at && !isComplete && (
+              <p className="text-[11px] font-semibold text-sage-dark mb-1.5 flex items-center gap-1">
+                <CheckCircle2 size={12} className="flex-shrink-0" /> Marked as finished — we've nudged the customer to wrap up
+              </p>
+            )}
             <p className="text-sm font-bold text-foreground mb-1">
               Did {booking.customer_name && booking.customer_name !== 'Guest' ? booking.customer_name.split(' ')[0] : 'the customer'} pay you{earnCents ? ` €${(earnCents / 100).toFixed(2)}` : ''}?
             </p>
