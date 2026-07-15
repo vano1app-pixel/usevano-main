@@ -121,6 +121,17 @@ function formatDate(d: string | null): string {
   return parsed.toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
+// Great-circle distance in metres — drives the "I'm at the door" GPS-start
+// button (mirror of the server check in functions/household-arrival).
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 function googleMapsUrl(address: string, lat?: number | null, lng?: number | null) {
   const dest = (lat != null && lng != null) ? `${lat},${lng}` : encodeURIComponent(address);
   return `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
@@ -191,6 +202,11 @@ const StudentJobDetail = () => {
   const [advancing, setAdvancing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sharingLocation, setSharingLocation] = useState(false);
+  // GPS-verified arrival: true while the streamed position is within ~120m of
+  // the customer's address — unlocks the no-code "I'm at the door" start.
+  const [atDoor, setAtDoor] = useState(false);
+  const [gpsStarting, setGpsStarting] = useState(false);
+  const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [releaseConfirm, setReleaseConfirm] = useState(false);
   const [releasing, setReleasing] = useState(false);
@@ -363,10 +379,21 @@ const StudentJobDetail = () => {
     if (watchIdRef.current !== null || watchStartingRef.current) return; // already watching / starting
     watchStartingRef.current = true;
     setSharingLocation(true);
+    // Customer coords are fixed at booking time, so capturing them here is safe
+    // for the lifetime of the watch.
+    const custLat = booking?.customer_lat ?? null;
+    const custLng = booking?.customer_lng ?? null;
     try {
       // Native app uses @capacitor/geolocation; web uses the browser API.
       const id = await watchPosition(
         (pos) => {
+          // Proximity runs on EVERY tick (before the 15s stream throttle) so
+          // the "I'm at the door" button appears the moment they're close.
+          // setState with an unchanged boolean is a React no-op — no churn.
+          lastPosRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          if (custLat != null && custLng != null) {
+            setAtDoor(haversineMeters(pos.coords.latitude, pos.coords.longitude, custLat, custLng) <= 120);
+          }
           const now = Date.now();
           if (now - lastLocationPushRef.current < LOCATION_UPDATE_INTERVAL_MS) return;
           lastLocationPushRef.current = now;
@@ -467,6 +494,37 @@ const StudentJobDetail = () => {
       toast({ title: 'Could not mark arrival', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
     } finally {
       setReaching(false);
+    }
+  };
+
+  // GPS-verified start — no code ritual. The server re-checks the distance
+  // (and corroborates against the streamed track), flips the job to
+  // in_progress and tells the customer. Falls back to the code path on any
+  // miss, so this can only ever remove friction, never add it.
+  const handleGpsStart = async () => {
+    if (!bookingId || gpsStarting) return;
+    const pos = lastPosRef.current;
+    if (!pos) return;
+    setGpsStarting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('household-arrival', {
+        body: { booking_id: bookingId, action: 'start_gps', lat: pos.lat, lng: pos.lng },
+      });
+      if (error) throw error;
+      if (data?.started) {
+        stopLocationWatch();
+        setBooking((b) => b ? { ...b, status: 'in_progress', arrival_verified_at: new Date().toISOString(), job_ends_at: data.job_ends_at ?? null } : b);
+        microCelebrate();
+        toast({ title: 'Arrival confirmed — job started! ⏱️' });
+      } else {
+        // too_far / no coords on the booking — the code path always works.
+        setAtDoor(false);
+        toast({ title: "Couldn't confirm you're at the address", description: 'No harm — tap “I’ve reached” and use the customer’s 4-digit code instead.' });
+      }
+    } catch (err) {
+      toast({ title: 'Could not start by GPS', description: await extractFnError(null, err, 'Tap “I’ve reached” and use the 4-digit code instead.'), variant: 'destructive' });
+    } finally {
+      setGpsStarting(false);
     }
   };
 
@@ -1111,14 +1169,39 @@ const StudentJobDetail = () => {
             live-tracking step doesn't get skipped just because this button
             rendered first. Gated on payment so no one starts an unpaid job. */}
         {mine && !needsPayment && booking.status === 'on_way' && (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => void handleReached()}
-            disabled={reaching}
-            className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2 mb-6 hover:bg-primary/90 disabled:opacity-50 transition-[background-color,opacity] duration-150"
-          >
-            {reaching ? <Loader2 size={18} className="animate-spin" /> : <><MapPin size={18} />I've reached</>}
-          </motion.button>
+          atDoor ? (
+            /* GPS says they're at the address — one tap starts the job, no
+               code ritual. The code path stays one line below as the opt-out. */
+            <div className="mb-6">
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => void handleGpsStart()}
+                disabled={gpsStarting}
+                className="w-full h-14 rounded-full bg-sage text-white font-semibold text-base flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+              >
+                {gpsStarting ? <Loader2 size={18} className="animate-spin" /> : <><MapPin size={18} />I'm at the door — start the job</>}
+              </motion.button>
+              <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                Your location matches the address — no code needed
+              </p>
+              <button
+                onClick={() => void handleReached()}
+                disabled={reaching}
+                className="mt-1 w-full text-center text-xs text-muted-foreground underline underline-offset-2 py-1.5 disabled:opacity-50"
+              >
+                {reaching ? 'One sec…' : 'Customer wants to give you a code instead?'}
+              </button>
+            </div>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => void handleReached()}
+              disabled={reaching}
+              className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2 mb-6 hover:bg-primary/90 disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {reaching ? <Loader2 size={18} className="animate-spin" /> : <><MapPin size={18} />I've reached</>}
+            </motion.button>
+          )
         )}
 
         {/* Arrival code entry — the customer reads out the 4-digit code on their
