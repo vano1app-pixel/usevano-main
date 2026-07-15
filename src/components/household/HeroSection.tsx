@@ -35,6 +35,10 @@ export const HeroSection: React.FC = () => {
     <section id="book" data-snap className="relative bg-navy px-4 pt-14 sm:pt-16 pb-[11vh] sm:pb-[16vh] flex flex-col justify-center min-h-[100svh]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
+        {/* Soft seam (mobile only — desktop keeps the crisp edge for the
+            ScrollCue): the navy hero melts down into the cream content that
+            follows, so scrolling out of the hero isn't a hard colour cut. */}
+        <div className="lg:hidden pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-cream" aria-hidden="true" />
         <motion.div
           className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full"
           style={{ background: 'radial-gradient(circle, hsl(43 90% 60% / 0.35) 0%, transparent 70%)' }}

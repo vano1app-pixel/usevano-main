@@ -70,7 +70,7 @@ const HouseholdHome: React.FC = () => {
             testimonials were deleted — fake reviews are a blacklisted
             commercial practice) and renders nothing until the first real
             review lands, so it's safe to keep mounted from day one. */}
-        <ReviewCarousel />
+        <Reveal><ReviewCarousel /></Reveal>
         <Reveal><FAQSection /></Reveal>
         {/* The "Give €5, get €5" referral card lives on the Account tab and the
             post-booking tracking page now — not on the marketing home, where it
