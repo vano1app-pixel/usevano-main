@@ -19,7 +19,10 @@ export const CATEGORY_LABELS: Record<string, string> = {
 export const STATUS_LABEL: Record<string, { label: string; colour: string }> = {
   awaiting_payment: { label: 'Securing booking…', colour: 'text-amber-600' },
   pending:          { label: 'Finding helper…',  colour: 'text-blue-600' },
-  accepted:         { label: 'Helper on the way', colour: 'text-emerald-600' },
+  // 'Helper confirmed', NOT 'on the way' — accepted only means a helper said
+  // yes; on_way is the real travelling status. Two stages sharing one label
+  // made the list look stuck when the helper actually left.
+  accepted:         { label: 'Helper confirmed',  colour: 'text-emerald-600' },
   on_way:           { label: 'On the way',        colour: 'text-emerald-600' },
   arrived:          { label: 'Helper arrived',    colour: 'text-emerald-600' },
   in_progress:      { label: 'In progress',       colour: 'text-emerald-600' },

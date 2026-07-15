@@ -68,6 +68,7 @@ interface Booking {
   id: string; status: string; paid_at: string | null;
   customer_name: string | null; customer_email: string | null; customer_phone: string | null;
   category: string | null; student_id: string | null;
+  price_estimate_cents: number | null; booking_data: Record<string, unknown> | null;
 }
 
 serve(async (req) => {
@@ -86,21 +87,44 @@ serve(async (req) => {
   };
 
   // Ask the customer to confirm. Returns true if at least one channel went out.
+  // DIRECT-PAY: this is the settle-up moment — the customer owes the HELPER
+  // (not Vano), so the message leads with the one-tap prefilled Revolut link
+  // at the exact second the helper says they're done. The old "releases their
+  // payment" copy was escrow-era and untrue under direct-pay.
   const remindCustomer = async (b: Booking): Promise<boolean> => {
     const helper = await helperFirstName(b.student_id);
     const cat = CATEGORY_LABELS[b.category ?? 'other'] ?? 'job';
-    const custName = b.customer_name || 'there';
+    const custName = b.customer_name && b.customer_name !== 'Guest' ? b.customer_name : 'there';
     const trackUrl = `${siteUrl}/track/${b.id}`;
     let ok = false;
 
+    // Same tag-shape rules as capture-household-payment's completion email:
+    // accepts @tag / bare tag / pasted revolut.me URL; builds the request-link
+    // shape revolut.me/<tag>/<amount> so the app opens with recipient AND
+    // amount pre-filled.
+    const bd = (b.booking_data ?? {}) as Record<string, unknown>;
+    const directPay = bd.direct_pay === true;
+    const priceCents = b.price_estimate_cents ?? 0;
+    const amt = (priceCents / 100).toFixed(2).replace(/\.00$/, '');
+    const rawHandle = String(bd.helper_payment_handle ?? '').trim();
+    const revTag = rawHandle.match(/^(?:https?:\/\/)?(?:www\.)?revolut\.me\/@?([a-z0-9_]{3,16})\/?(?:[?#].*)?$/i) ?? rawHandle.match(/^@?([a-z0-9_]{3,16})$/i);
+    const revolutUrl = directPay && priceCents > 0 && revTag ? `https://revolut.me/${revTag[1]}/${amt}` : null;
+
     if (resendKey && b.customer_email) {
+      const bodyLine = directPay
+        ? `<strong>${helper}</strong> has wrapped up your <strong>${cat}</strong>. Settle up directly — <strong>€${amt}</strong> by ${revolutUrl ? 'Revolut (one tap below)' : 'Revolut or cash'} — they keep 100%. Then confirm it's done.`
+        : `<strong>${helper}</strong> has wrapped up your <strong>${cat}</strong>. Tap below to confirm it's done — that's what releases their payment.`;
+      const buttons = directPay && revolutUrl
+        ? `<a href="${revolutUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Pay ${helper} €${amt} →</a>
+    <p style="margin:12px 0 0;font-size:13px;"><a href="${trackUrl}" style="color:#4a7c59;font-weight:600;">Paid already? Confirm it's done →</a></p>`
+        : `<a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">${directPay ? `Settle up &amp; confirm →` : `Confirm &amp; pay ${helper} →`}</a>`;
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#4a7c59;padding:32px 32px 24px;"><p style="margin:0;color:#fff;font-size:22px;font-weight:700;">Is your job all done?</p></div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;"><strong>${helper}</strong> has wrapped up your <strong>${cat}</strong>. Tap below to confirm it's done — that's what releases their payment.</p>
-    <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Confirm &amp; pay ${helper} →</a>
+    <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">${bodyLine}</p>
+    ${buttons}
     <p style="margin:20px 0 0;color:#6b7280;font-size:13px;line-height:1.5;">If we don't hear from you within 48 hours we'll confirm it automatically so ${helper} isn't left waiting — your money-back guarantee still applies either way.</p>
     <p style="margin:12px 0 0;color:#9ca3af;font-size:12px;">Not done yet, or a problem? WhatsApp us: +353 89 981 7111</p>
   </div>
@@ -108,11 +132,15 @@ serve(async (req) => {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to: [b.customer_email], subject: `Confirm your ${cat} is done — VANO`, html, text: `Hi ${custName}, ${helper} has finished your ${cat}. Confirm it's done to release their payment: ${trackUrl} — If we don't hear back within 48h we'll confirm automatically (money-back guarantee still applies). Problem? WhatsApp +353 89 981 7111` }),
+        body: JSON.stringify({ from, to: [b.customer_email], subject: directPay ? `All done — settle up with ${helper} (€${amt})` : `Confirm your ${cat} is done — VANO`, html, text: directPay
+          ? `Hi ${custName}, ${helper} has finished your ${cat} 🎉 Settle up directly — €${amt}${revolutUrl ? `, one tap: ${revolutUrl}` : ' (Revolut or cash)'} — they keep 100%. Then confirm it's done: ${trackUrl} (auto-confirms in 48h — money-back guarantee still applies)`
+          : `Hi ${custName}, ${helper} has finished your ${cat}. Confirm it's done to release their payment: ${trackUrl} — If we don't hear back within 48h we'll confirm automatically (money-back guarantee still applies). Problem? WhatsApp +353 89 981 7111` }),
       });
       ok = res.ok || ok;
     }
-    const sms = await sendSms(b.customer_phone, `VANO: ${helper} has finished your ${cat}. Confirm it's done to release their payment: ${trackUrl} (auto-confirms in 48h if we don't hear back — money-back guarantee still applies)`);
+    const sms = await sendSms(b.customer_phone, directPay
+      ? `VANO: ${helper} has finished your ${cat} 🎉 Settle up — pay ${helper} €${amt}${revolutUrl ? ` in one tap: ${revolutUrl}` : ' (Revolut or cash)'} then confirm here: ${trackUrl}`
+      : `VANO: ${helper} has finished your ${cat}. Confirm it's done to release their payment: ${trackUrl} (auto-confirms in 48h if we don't hear back — money-back guarantee still applies)`);
     return ok || sms;
   };
 
@@ -136,7 +164,7 @@ serve(async (req) => {
     return res.ok;
   };
 
-  const cols = 'id, status, paid_at, customer_name, customer_email, customer_phone, category, student_id';
+  const cols = 'id, status, paid_at, customer_name, customer_email, customer_phone, category, student_id, price_estimate_cents, booking_data';
 
   try {
     const body = await req.json().catch(() => ({}));

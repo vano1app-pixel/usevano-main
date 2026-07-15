@@ -121,6 +121,17 @@ function formatDate(d: string | null): string {
   return parsed.toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
+// Great-circle distance in metres — drives the "I'm at the door" GPS-start
+// button (mirror of the server check in functions/household-arrival).
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 function googleMapsUrl(address: string, lat?: number | null, lng?: number | null) {
   const dest = (lat != null && lng != null) ? `${lat},${lng}` : encodeURIComponent(address);
   return `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
@@ -191,6 +202,11 @@ const StudentJobDetail = () => {
   const [advancing, setAdvancing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sharingLocation, setSharingLocation] = useState(false);
+  // GPS-verified arrival: true while the streamed position is within ~120m of
+  // the customer's address — unlocks the no-code "I'm at the door" start.
+  const [atDoor, setAtDoor] = useState(false);
+  const [gpsStarting, setGpsStarting] = useState(false);
+  const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [releaseConfirm, setReleaseConfirm] = useState(false);
   const [releasing, setReleasing] = useState(false);
@@ -205,6 +221,32 @@ const StudentJobDetail = () => {
   const [arrivalCode, setArrivalCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [codeError, setCodeError] = useState(false);
+  // Wrong-code count this visit — the first miss is almost always a typo, so
+  // the retry is the only affordance shown; the "get a fresh code" escape
+  // hatch appears from the second miss.
+  const [codeAttempts, setCodeAttempts] = useState(0);
+  // The 4-step "how it works" explainer teaches the FIRST job, then collapses
+  // to one line with a "How it works" toggle — a repeat helper knows the
+  // drill, and the lecture was sitting above their primary button. localStorage
+  // remembers which booking it was first shown on (so revisiting job #1 keeps
+  // it open; any later job starts collapsed).
+  const [howOpen, setHowOpen] = useState<boolean>(() => {
+    try {
+      const seenOn = localStorage.getItem('vano-job-explainer-first');
+      return !seenOn || seenOn === bookingId;
+    } catch { return true; }
+  });
+  // Stamp the first booking the explainer was shown on (raw state only — the
+  // derived `mine` lives below the early returns, out of hook reach).
+  useEffect(() => {
+    if (!bookingId || !booking || !userId) return;
+    if (booking.status !== 'accepted' || booking.student_id !== userId) return;
+    try {
+      if (!localStorage.getItem('vano-job-explainer-first')) {
+        localStorage.setItem('vano-job-explainer-first', bookingId);
+      }
+    } catch { /* private mode — the explainer simply stays open every time */ }
+  }, [bookingId, booking, userId]);
   // "Customer not available" — start the job without the arrival code.
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -337,10 +379,21 @@ const StudentJobDetail = () => {
     if (watchIdRef.current !== null || watchStartingRef.current) return; // already watching / starting
     watchStartingRef.current = true;
     setSharingLocation(true);
+    // Customer coords are fixed at booking time, so capturing them here is safe
+    // for the lifetime of the watch.
+    const custLat = booking?.customer_lat ?? null;
+    const custLng = booking?.customer_lng ?? null;
     try {
       // Native app uses @capacitor/geolocation; web uses the browser API.
       const id = await watchPosition(
         (pos) => {
+          // Proximity runs on EVERY tick (before the 15s stream throttle) so
+          // the "I'm at the door" button appears the moment they're close.
+          // setState with an unchanged boolean is a React no-op — no churn.
+          lastPosRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          if (custLat != null && custLng != null) {
+            setAtDoor(haversineMeters(pos.coords.latitude, pos.coords.longitude, custLat, custLng) <= 120);
+          }
           const now = Date.now();
           if (now - lastLocationPushRef.current < LOCATION_UPDATE_INTERVAL_MS) return;
           lastLocationPushRef.current = now;
@@ -444,6 +497,37 @@ const StudentJobDetail = () => {
     }
   };
 
+  // GPS-verified start — no code ritual. The server re-checks the distance
+  // (and corroborates against the streamed track), flips the job to
+  // in_progress and tells the customer. Falls back to the code path on any
+  // miss, so this can only ever remove friction, never add it.
+  const handleGpsStart = async () => {
+    if (!bookingId || gpsStarting) return;
+    const pos = lastPosRef.current;
+    if (!pos) return;
+    setGpsStarting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('household-arrival', {
+        body: { booking_id: bookingId, action: 'start_gps', lat: pos.lat, lng: pos.lng },
+      });
+      if (error) throw error;
+      if (data?.started) {
+        stopLocationWatch();
+        setBooking((b) => b ? { ...b, status: 'in_progress', arrival_verified_at: new Date().toISOString(), job_ends_at: data.job_ends_at ?? null } : b);
+        microCelebrate();
+        toast({ title: 'Arrival confirmed — job started! ⏱️' });
+      } else {
+        // too_far / no coords on the booking — the code path always works.
+        setAtDoor(false);
+        toast({ title: "Couldn't confirm you're at the address", description: 'No harm — tap “I’ve reached” and use the customer’s 4-digit code instead.' });
+      }
+    } catch (err) {
+      toast({ title: 'Could not start by GPS', description: await extractFnError(null, err, 'Tap “I’ve reached” and use the 4-digit code instead.'), variant: 'destructive' });
+    } finally {
+      setGpsStarting(false);
+    }
+  };
+
   // Helper types the code the customer reads out. A match starts the job.
   const handleVerifyCode = async () => {
     if (!bookingId || verifying || arrivalCode.length !== 4) return;
@@ -464,9 +548,11 @@ const StudentJobDetail = () => {
       } else if (data?.locked) {
         // Too many wrong attempts — anti-brute-force lockout from the server.
         setCodeError(true);
+        setCodeAttempts((n) => n + 1);
         toast({ title: 'Too many attempts', description: 'Please wait a minute, then re-check the 4-digit code with the customer.', variant: 'destructive' });
       } else {
         setCodeError(true);
+        setCodeAttempts((n) => n + 1);
       }
     } catch (err) {
       toast({ title: 'Could not confirm code', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
@@ -819,7 +905,10 @@ const StudentJobDetail = () => {
                 <MapAutoResize />
               </MapContainer>
             </div>
-            {mine && !isComplete && !isCancelled && (
+            {/* Directions pills only while actually travelling — at 'accepted'
+                the one primary is "I'm on my way" (which opens directions
+                itself), so showing Maps/Waze early just competes with it. */}
+            {mine && ['on_way', 'arrived'].includes(booking.status) && (
               <div className="mt-2 flex gap-2">
                 <a
                   href={googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
@@ -931,6 +1020,21 @@ const StudentJobDetail = () => {
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="rounded-2xl border border-sage/25 bg-sage-light p-5 mb-6"
           >
+            {!howOpen ? (
+              /* Repeat helpers know the drill — one line + a way back to the
+                 steps, so the primary button below is immediately in view. */
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-bold text-foreground text-sm">✅ This job is yours</p>
+                <button
+                  type="button"
+                  onClick={() => setHowOpen(true)}
+                  className="flex-shrink-0 text-xs font-semibold text-sage-dark underline underline-offset-2"
+                >
+                  How it works
+                </button>
+              </div>
+            ) : (
+            <>
             <p className="font-bold text-foreground text-sm mb-3">✅ This job is yours — here's how it works</p>
             <ol className="space-y-2.5">
               {(directPay
@@ -957,6 +1061,8 @@ const StudentJobDetail = () => {
               <Navigation size={12} className="text-sage flex-shrink-0 mt-0.5" />
               When you head out, you'll share live location so the customer can track you.
             </p>
+            </>
+            )}
           </motion.div>
         )}
 
@@ -1013,20 +1119,89 @@ const StudentJobDetail = () => {
           </div>
         )}
 
+        {/* Status action button — the ONE thing to do right now, so it sits
+            directly under the job card/explainer instead of below the photo
+            grid (where first-timers had to scroll to find it). Gated on
+            payment: while the fee is unpaid the amber banner above says
+            "you can't start yet", so an active On-my-way button here would
+            contradict it (and send a helper travelling to a job that may
+            auto-release if the customer never pays). */}
+        {mine && !isComplete && !isCancelled && next && !needsPayment && (
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => void advanceStatus()}
+            disabled={advancing}
+            className={cn(
+              'w-full h-14 rounded-full font-semibold text-base flex items-center justify-center gap-2 mb-6',
+              'transition-[background-color,opacity] duration-150',
+              'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50',
+            )}
+          >
+            {advancing ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              next.label
+            )}
+          </motion.button>
+        )}
+
+        {/* Why "on my way" matters + the already-on-site shortcut. The primary
+            button above starts live GPS sharing — that's what powers the
+            customer's watch-them-approach map, so it leads and this follows. */}
+        {mine && !needsPayment && booking.status === 'accepted' && (
+          <div className="-mt-3 mb-6">
+            <p className="text-center text-[11px] text-muted-foreground mb-2">
+              Starts live tracking — the customer watches you approach on their map
+            </p>
+            <button
+              onClick={() => void handleReached()}
+              disabled={reaching}
+              className="w-full h-11 rounded-full border border-border bg-background text-sm font-semibold text-foreground/80 flex items-center justify-center gap-2 hover:bg-secondary/60 disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {reaching ? <Loader2 size={15} className="animate-spin" /> : <><MapPin size={15} />Already at the door? I've reached</>}
+            </button>
+          </div>
+        )}
+
         {/* I've reached — generates the customer's arrival code. Primary only
             once the helper is on the way; at 'accepted' it appears as a quiet
             shortcut BELOW "I'm on my way" (see the status button), so the
             live-tracking step doesn't get skipped just because this button
             rendered first. Gated on payment so no one starts an unpaid job. */}
         {mine && !needsPayment && booking.status === 'on_way' && (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => void handleReached()}
-            disabled={reaching}
-            className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2 mb-6 hover:bg-primary/90 disabled:opacity-50 transition-[background-color,opacity] duration-150"
-          >
-            {reaching ? <Loader2 size={18} className="animate-spin" /> : <><MapPin size={18} />I've reached</>}
-          </motion.button>
+          atDoor ? (
+            /* GPS says they're at the address — one tap starts the job, no
+               code ritual. The code path stays one line below as the opt-out. */
+            <div className="mb-6">
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => void handleGpsStart()}
+                disabled={gpsStarting}
+                className="w-full h-14 rounded-full bg-sage text-white font-semibold text-base flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+              >
+                {gpsStarting ? <Loader2 size={18} className="animate-spin" /> : <><MapPin size={18} />I'm at the door — start the job</>}
+              </motion.button>
+              <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                Your location matches the address — no code needed
+              </p>
+              <button
+                onClick={() => void handleReached()}
+                disabled={reaching}
+                className="mt-1 w-full text-center text-xs text-muted-foreground underline underline-offset-2 py-1.5 disabled:opacity-50"
+              >
+                {reaching ? 'One sec…' : 'Customer wants to give you a code instead?'}
+              </button>
+            </div>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => void handleReached()}
+              disabled={reaching}
+              className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2 mb-6 hover:bg-primary/90 disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {reaching ? <Loader2 size={18} className="animate-spin" /> : <><MapPin size={18} />I've reached</>}
+            </motion.button>
+          )
         )}
 
         {/* Arrival code entry — the customer reads out the 4-digit code on their
@@ -1060,12 +1235,17 @@ const StudentJobDetail = () => {
             {codeError && (
               <>
                 <p className="text-xs text-destructive mt-2">That code didn't match — double-check with the customer.</p>
-                <button
-                  onClick={() => { setCodeError(false); setArrivalCode(''); void handleReached(); }}
-                  className="mt-1 text-xs text-sage underline underline-offset-2"
-                >
-                  Code not working? Get a fresh one for the customer
-                </button>
+                {/* Regenerate only from the SECOND miss — one wrong entry is
+                    nearly always a typo, and offering a reset immediately
+                    nudges people away from simply re-typing it right. */}
+                {codeAttempts >= 2 && (
+                  <button
+                    onClick={() => { setCodeError(false); setArrivalCode(''); void handleReached(); }}
+                    className="mt-1 text-xs text-sage underline underline-offset-2"
+                  >
+                    Code not working? Get a fresh one for the customer
+                  </button>
+                )}
               </>
             )}
             <motion.button
@@ -1117,8 +1297,11 @@ const StudentJobDetail = () => {
 
         {/* Job underway — timed jobs show a countdown (a guide, nothing auto-
             completes). The helper flags "I've finished"; the customer confirms
-            to release payment. */}
-        {mine && booking.status === 'in_progress' && (
+            to release payment. Direct-pay: once finished, this card yields
+            entirely to the gold "Did they pay you?" card below — two stacked
+            cards both describing "you're finished" made the money step easy
+            to miss. */}
+        {mine && booking.status === 'in_progress' && !(directPay && booking.helper_finished_at) && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1171,6 +1354,13 @@ const StudentJobDetail = () => {
             and blocks repeat offenders from booking. */}
         {mine && directPay && (booking.helper_finished_at || isComplete) && !isCancelled && paidToHelper !== true && (
           <div className="rounded-2xl border-2 border-gold/50 bg-amber-50/60 p-5 mb-6">
+            {/* Absorbs the old separate "Marked as finished" card — one card
+                now owns the whole finish-and-get-paid moment. */}
+            {booking.helper_finished_at && !isComplete && (
+              <p className="text-[11px] font-semibold text-sage-dark mb-1.5 flex items-center gap-1">
+                <CheckCircle2 size={12} className="flex-shrink-0" /> Marked as finished — we've nudged the customer to wrap up
+              </p>
+            )}
             <p className="text-sm font-bold text-foreground mb-1">
               Did {booking.customer_name && booking.customer_name !== 'Guest' ? booking.customer_name.split(' ')[0] : 'the customer'} pay you{earnCents ? ` €${(earnCents / 100).toFixed(2)}` : ''}?
             </p>
@@ -1278,44 +1468,6 @@ const StudentJobDetail = () => {
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* Status action button */}
-        {mine && !isComplete && !isCancelled && next && (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => void advanceStatus()}
-            disabled={advancing}
-            className={cn(
-              'w-full h-14 rounded-full font-semibold text-base flex items-center justify-center gap-2 mb-6',
-              'transition-[background-color,opacity] duration-150',
-              'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50',
-            )}
-          >
-            {advancing ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              next.label
-            )}
-          </motion.button>
-        )}
-
-        {/* Why "on my way" matters + the already-on-site shortcut. The primary
-            button above starts live GPS sharing — that's what powers the
-            customer's watch-them-approach map, so it leads and this follows. */}
-        {mine && !needsPayment && booking.status === 'accepted' && (
-          <div className="-mt-3 mb-6">
-            <p className="text-center text-[11px] text-muted-foreground mb-2">
-              Starts live tracking — the customer watches you approach on their map
-            </p>
-            <button
-              onClick={() => void handleReached()}
-              disabled={reaching}
-              className="w-full h-11 rounded-full border border-border bg-background text-sm font-semibold text-foreground/80 flex items-center justify-center gap-2 hover:bg-secondary/60 disabled:opacity-50 transition-[background-color,opacity] duration-150"
-            >
-              {reaching ? <Loader2 size={15} className="animate-spin" /> : <><MapPin size={15} />Already at the door? I've reached</>}
-            </button>
           </div>
         )}
 

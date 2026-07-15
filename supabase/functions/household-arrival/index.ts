@@ -53,6 +53,16 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
   if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
   return null;
 }
+// Great-circle distance in metres — used by the GPS-verified arrival path.
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 async function sendPocketMessage(to: string | null | undefined, body: string): Promise<boolean> {
   const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
@@ -111,7 +121,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
     const action = (body?.action === 'verify' || body?.action === 'finished' || body?.action === 'start_without_code'
-      || body?.action === 'confirm_paid' || body?.action === 'report_unpaid')
+      || body?.action === 'confirm_paid' || body?.action === 'report_unpaid' || body?.action === 'start_gps')
       ? body.action : 'request';
     const code = typeof body?.code === 'string' ? body.code.trim() : '';
     if (!bookingId) return bad(400, 'booking_id required');
@@ -120,9 +130,9 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, paid_at, price_estimate_cents, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name, customer_phone')
+      .select('id, student_id, status, paid_at, price_estimate_cents, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name, customer_phone, customer_lat, customer_lng, worker_lat, worker_lng')
       .eq('id', bookingId)
-      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; paid_at: string | null; price_estimate_cents: number | null; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null; customer_phone: string | null } | null; error: unknown };
+      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; paid_at: string | null; price_estimate_cents: number | null; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null; customer_phone: string | null; customer_lat: number | null; customer_lng: number | null; worker_lat: number | null; worker_lng: number | null } | null; error: unknown };
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
@@ -134,7 +144,7 @@ serve(async (req) => {
     // sit unpaid forever. Block every forward-moving arrival action until paid.
     // ('finished' is allowed through — a paid job that somehow reached here
     // should still be completable; the checks above already require assignment.)
-    const advancingActions = ['request', 'verify', 'start_without_code'];
+    const advancingActions = ['request', 'verify', 'start_without_code', 'start_gps'];
     if (advancingActions.includes(action) && ((booking.price_estimate_cents ?? 0) > 0) && !booking.paid_at) {
       return bad(409, 'This job can be started once the customer has paid.');
     }
@@ -278,6 +288,60 @@ serve(async (req) => {
       }
 
       return json(200, { ok: true, paid });
+    }
+
+    if (action === 'start_gps') {
+      // GPS-verified arrival — the invisible-friction path. The helper's phone
+      // says they're at the door; the server checks that claim against the
+      // customer's coords AND corroborates with the position streamed during
+      // on_way. Match → the job starts with no code ritual. The 4-digit code
+      // stays as the fallback (GPS denied, no fix, coords missing, too far).
+      // Direct-pay made this safe to offer as the default: completion moves no
+      // money any more, so the code was guarding ceremony, not cash.
+      if (booking.arrival_verified_at) return json(200, { ok: true, started: true, status: 'in_progress', job_ends_at: null });
+      if (!['on_way', 'arrived'].includes(booking.status)) {
+        return bad(409, `Can only GPS-start once on the way (status: ${booking.status})`);
+      }
+      const lat = Number(body?.lat), lng = Number(body?.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return bad(400, 'lat/lng required');
+      if (booking.customer_lat == null || booking.customer_lng == null) {
+        return json(200, { ok: true, started: false, no_customer_coords: true });
+      }
+      // 150m: generous urban-GPS buffer, still unmistakably "at the address".
+      const distM = haversineMeters(lat, lng, booking.customer_lat, booking.customer_lng);
+      if (distM > 150) return json(200, { ok: true, started: false, too_far: true, distance_m: Math.round(distM) });
+      // The same phone should not claim the door while its live stream says
+      // elsewhere (stream updates every ~15s on the way).
+      if (booking.worker_lat != null && booking.worker_lng != null) {
+        const streamedM = haversineMeters(booking.worker_lat, booking.worker_lng, booking.customer_lat, booking.customer_lng);
+        if (streamedM > 500) return json(200, { ok: true, started: false, too_far: true, distance_m: Math.round(streamedM) });
+      }
+
+      const nowMs = Date.now();
+      const mins = isTimedCategory(booking.category) ? bookedDurationMinutes(booking.category, booking.booking_data) : null;
+      const jobEndsAt = mins ? new Date(nowMs + mins * 60_000).toISOString() : null;
+
+      const { error: gpsErr } = await supabase
+        .from('household_bookings')
+        .update({ arrival_verified_at: new Date(nowMs).toISOString(), arrived_at: new Date(nowMs).toISOString(), status: 'in_progress', job_ends_at: jobEndsAt, arrival_attempts: 0 })
+        .eq('id', bookingId)
+        .eq('student_id', callerId)
+        .in('status', ['on_way', 'arrived']);
+      if (gpsErr) { console.error('[household-arrival] start_gps update failed', gpsErr); return bad(500, 'Could not start job'); }
+
+      await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'in_progress', note: 'Arrival confirmed by GPS — job started, no code needed.' });
+      try { await supabase.rpc('merge_booking_data', { p_id: bookingId, p_patch: { arrival_method: 'gps' } }); } catch { /* display-only — never blocks */ }
+
+      // Tell the customer their helper is there and the job's underway — with
+      // the tracking link so a surprised customer can see (or report) it.
+      void sendHouseholdPush(bookingId, 'arrived');
+      const gpsSiteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+      void sendPocketMessage(
+        booking.customer_phone,
+        `👋 Your VANO helper has arrived — their location matched your address, so the job has started. Follow along or flag anything here: ${gpsSiteUrl}/track/${bookingId}`,
+      );
+
+      return json(200, { ok: true, started: true, status: 'in_progress', job_ends_at: jobEndsAt });
     }
 
     if (action === 'start_without_code') {

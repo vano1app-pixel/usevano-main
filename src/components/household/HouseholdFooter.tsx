@@ -36,8 +36,11 @@ const FOOTER_LINK =
 
 export const HouseholdFooter: React.FC = () => {
   return (
-    <footer className="bg-navy text-white px-4 pt-12 pb-28 md:pb-12">
-      <div className="max-w-6xl mx-auto">
+    <footer className="relative bg-navy text-white px-4 pt-12 pb-28 md:pb-12">
+      {/* Soft seam — the cream content above melts down into the navy footer
+          instead of a hard colour cut, matching the PopularCategories band. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-cream to-transparent" aria-hidden="true" />
+      <div className="relative max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8 mb-10">
           <Link to="/home" className="inline-block">
             <img src={logo} alt="VANO" className="h-7 w-auto" style={{ filter: 'brightness(0) invert(1)' }} />

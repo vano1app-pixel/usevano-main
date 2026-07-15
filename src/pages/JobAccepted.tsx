@@ -21,15 +21,23 @@ interface View {
   cta: { label: string; to: (job: string) => string };
   tone: 'success' | 'neutral' | 'warning';
   icon: typeof CheckCircle2;
+  /** Shown as a numbered "what happens next" list — first-time helpers land
+   *  here straight from an SMS with zero context, so spell the flow out. */
+  steps?: string[];
 }
 
 const VIEWS: Record<Status, View> = {
   claimed: {
     title: "You've got the job! 🎉",
-    body: (cat, city) => `You've claimed the ${cat}${city ? ` in ${city}` : ''}. We've let the customer know — open the app for the address and details.`,
+    body: (cat, city) => `The ${cat}${city ? ` in ${city}` : ''} is yours — we've told the customer.`,
     cta: { label: 'Open the job', to: (job) => `/student-job/${job}` },
     tone: 'success',
     icon: CheckCircle2,
+    steps: [
+      'Open the job — the address and details are inside',
+      'Tap “On my way” when you head out, so the customer can see you coming',
+      'At the door, the customer gives you a 4-digit code to start',
+    ],
   },
   mine: {
     title: "This one's already yours ✅",
@@ -116,6 +124,19 @@ const JobAccepted = () => {
         </span>
         <h1 className="text-xl font-bold tracking-tight text-foreground">{view.title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{view.body(cat, city)}</p>
+
+        {view.steps && (
+          <ol className="mt-5 space-y-2.5 rounded-xl bg-white/60 border border-sage/20 p-4 text-left">
+            {view.steps.map((s, i) => (
+              <li key={s} className="flex items-start gap-2.5">
+                <span className="mt-px flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-sage text-[11px] font-bold text-white tabular-nums">
+                  {i + 1}
+                </span>
+                <span className="text-[13px] leading-relaxed text-foreground/80">{s}</span>
+              </li>
+            ))}
+          </ol>
+        )}
 
         <button
           type="button"

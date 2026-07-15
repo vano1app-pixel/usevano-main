@@ -723,6 +723,56 @@ serve(async (req) => {
       // booking, the sale now depends on them reopening the track page — make
       // the admin alert unmissable so a human WhatsApps the link right away.
       const payLinkUndelivered = !!payUrl && !booking.paid_at && !smsSent && !emailedOk;
+
+      // One glanceable status chip instead of a dense prose line — green when
+      // the money story is settled, amber while the customer still owes the
+      // fee, so the inbox answers "do I need to do anything?" at a glance.
+      const chip = directPay
+        ? (booking.paid_at
+            ? { bg: '#ecfdf5', border: '#a7f3d0', color: '#065f46',
+                label: feeFree ? '✓ Fee waived — loyalty/referral'
+                  : feeCaptured ? `✓ Fee captured — €${(totalCents / 100).toFixed(2)}`
+                  : `✓ Fee paid — €${(totalCents / 100).toFixed(2)}` }
+            : { bg: '#fffbeb', border: '#fde68a', color: '#92400e',
+                label: `⏳ Fee unpaid — €${(totalCents / 100).toFixed(2)} pay link sent${captureFailedHoldId ? ' (hold capture failed)' : ''}` })
+        : (booking.paid_at
+            ? { bg: '#ecfdf5', border: '#a7f3d0', color: '#065f46', label: `✓ Paid — €${(totalCents / 100).toFixed(2)}` }
+            : { bg: '#fffbeb', border: '#fde68a', color: '#92400e', label: `⏳ Unpaid — €${(totalCents / 100).toFixed(2)} requested` });
+
+      const detailRow = (label: string, value: string) => `
+      <tr>
+        <td style="padding:7px 0;color:#9ca3af;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;width:88px;vertical-align:top;">${label}</td>
+        <td style="padding:7px 0;color:#111827;font-size:14px;line-height:1.5;">${value}</td>
+      </tr>`;
+
+      const adminHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:${payLinkUndelivered ? '#b91c1c' : '#151c28'};padding:24px 28px 20px;">
+    <p style="margin:0 0 4px;color:rgba(255,255,255,0.65);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;">${payLinkUndelivered ? 'Action needed' : 'Job claimed'}</p>
+    <p style="margin:0;color:#fff;font-size:21px;font-weight:800;line-height:1.2;">${payLinkUndelivered ? `🚨 Customer never got the pay link` : `${helperFirstName} took the ${catLabel}`}</p>
+  </div>
+  <div style="padding:22px 28px 26px;">
+    ${payLinkUndelivered ? `
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px 16px;margin:0 0 18px;">
+      <p style="margin:0 0 8px;color:#991b1b;font-size:13px;line-height:1.6;font-weight:600;">No email on file and the SMS/WhatsApp didn't go out — the customer has NOT received the pay link. WhatsApp it to them now:</p>
+      <p style="margin:0;font-size:13px;word-break:break-all;"><a href="${payUrl}" style="color:#b91c1c;font-weight:600;">${payUrl}</a></p>
+    </div>` : ''}
+    <p style="margin:0 0 16px;"><span style="display:inline-block;background:${chip.bg};border:1px solid ${chip.border};color:${chip.color};font-size:13px;font-weight:700;padding:6px 12px;border-radius:100px;">${chip.label}</span></p>
+    <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6;margin:0 0 18px;">
+      ${detailRow('Helper', `<strong>${helperFirstName}</strong>${ratingBits ? ` &nbsp;<span style="color:#6b7280;font-size:13px;">${ratingBits}</span>` : ''}${profileUrl ? ` &nbsp;<a href="${profileUrl}" style="color:#4a7c59;font-size:13px;font-weight:600;">profile →</a>` : ''}`)}
+      ${detailRow('Job', `${catLabel}${whenLine ? ` · ${whenLine}` : ''}`)}
+      ${detailRow('Customer', `${custName}${booking.customer_phone ? ` · <a href="tel:${booking.customer_phone}" style="color:#111827;">${booking.customer_phone}</a>` : ''}${booking.customer_email ? `<br/><span style="color:#6b7280;font-size:13px;">${booking.customer_email}</span>` : ''}`)}
+      ${directPay ? detailRow('Helper gets', `${jobStr} — paid directly by the customer${helperPaymentHandle ? ` (Revolut ${helperPaymentHandle})` : ''}`) : ''}
+      ${appliedDiscountCents > 0 ? detailRow('Discount', `−€${(appliedDiscountCents / 100).toFixed(2)} referral`) : ''}
+      ${detailRow('Ref', ref)}
+    </table>
+    <a href="${trackUrl}" style="display:block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 24px;border-radius:100px;text-decoration:none;text-align:center;">Open live tracking →</a>
+    ${payUrl && !booking.paid_at && !payLinkUndelivered ? `
+    <p style="margin:14px 0 0;color:#6b7280;font-size:12px;line-height:1.6;">Pay link (WhatsApp it onward if the customer says nothing arrived):<br/><a href="${payUrl}" style="color:#4a7c59;word-break:break-all;">${payUrl}</a></p>` : ''}
+  </div>
+</div>
+</body></html>`;
+
       fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -732,6 +782,7 @@ serve(async (req) => {
           subject: payLinkUndelivered
             ? `🚨 ACTION NEEDED — customer never got their pay link (${catLabel}, €${(totalCents / 100).toFixed(2)})`
             : `✅ Job claimed — ${helperFirstName} on ${catLabel}${booking.paid_at ? '' : ' (payment requested)'}`,
+          html: adminHtml,
           text: [
             ...(payLinkUndelivered ? [
               `The customer has no email on file and the SMS/WhatsApp didn't go out — they have NOT received the pay link. WhatsApp it to them now:`,
