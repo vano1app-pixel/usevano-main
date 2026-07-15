@@ -819,7 +819,10 @@ const StudentJobDetail = () => {
                 <MapAutoResize />
               </MapContainer>
             </div>
-            {mine && !isComplete && !isCancelled && (
+            {/* Directions pills only while actually travelling — at 'accepted'
+                the one primary is "I'm on my way" (which opens directions
+                itself), so showing Maps/Waze early just competes with it. */}
+            {mine && ['on_way', 'arrived'].includes(booking.status) && (
               <div className="mt-2 flex gap-2">
                 <a
                   href={googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
@@ -1010,6 +1013,50 @@ const StudentJobDetail = () => {
               Waiting for the customer to pay. You'll be able to start the job once their payment lands — we've sent them the link and they can also pay from their tracking screen.
               {' '}If they don't pay soon you'll be automatically freed up for other jobs.
             </p>
+          </div>
+        )}
+
+        {/* Status action button — the ONE thing to do right now, so it sits
+            directly under the job card/explainer instead of below the photo
+            grid (where first-timers had to scroll to find it). Gated on
+            payment: while the fee is unpaid the amber banner above says
+            "you can't start yet", so an active On-my-way button here would
+            contradict it (and send a helper travelling to a job that may
+            auto-release if the customer never pays). */}
+        {mine && !isComplete && !isCancelled && next && !needsPayment && (
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => void advanceStatus()}
+            disabled={advancing}
+            className={cn(
+              'w-full h-14 rounded-full font-semibold text-base flex items-center justify-center gap-2 mb-6',
+              'transition-[background-color,opacity] duration-150',
+              'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50',
+            )}
+          >
+            {advancing ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              next.label
+            )}
+          </motion.button>
+        )}
+
+        {/* Why "on my way" matters + the already-on-site shortcut. The primary
+            button above starts live GPS sharing — that's what powers the
+            customer's watch-them-approach map, so it leads and this follows. */}
+        {mine && !needsPayment && booking.status === 'accepted' && (
+          <div className="-mt-3 mb-6">
+            <p className="text-center text-[11px] text-muted-foreground mb-2">
+              Starts live tracking — the customer watches you approach on their map
+            </p>
+            <button
+              onClick={() => void handleReached()}
+              disabled={reaching}
+              className="w-full h-11 rounded-full border border-border bg-background text-sm font-semibold text-foreground/80 flex items-center justify-center gap-2 hover:bg-secondary/60 disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {reaching ? <Loader2 size={15} className="animate-spin" /> : <><MapPin size={15} />Already at the door? I've reached</>}
+            </button>
           </div>
         )}
 
@@ -1278,44 +1325,6 @@ const StudentJobDetail = () => {
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* Status action button */}
-        {mine && !isComplete && !isCancelled && next && (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => void advanceStatus()}
-            disabled={advancing}
-            className={cn(
-              'w-full h-14 rounded-full font-semibold text-base flex items-center justify-center gap-2 mb-6',
-              'transition-[background-color,opacity] duration-150',
-              'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50',
-            )}
-          >
-            {advancing ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              next.label
-            )}
-          </motion.button>
-        )}
-
-        {/* Why "on my way" matters + the already-on-site shortcut. The primary
-            button above starts live GPS sharing — that's what powers the
-            customer's watch-them-approach map, so it leads and this follows. */}
-        {mine && !needsPayment && booking.status === 'accepted' && (
-          <div className="-mt-3 mb-6">
-            <p className="text-center text-[11px] text-muted-foreground mb-2">
-              Starts live tracking — the customer watches you approach on their map
-            </p>
-            <button
-              onClick={() => void handleReached()}
-              disabled={reaching}
-              className="w-full h-11 rounded-full border border-border bg-background text-sm font-semibold text-foreground/80 flex items-center justify-center gap-2 hover:bg-secondary/60 disabled:opacity-50 transition-[background-color,opacity] duration-150"
-            >
-              {reaching ? <Loader2 size={15} className="animate-spin" /> : <><MapPin size={15} />Already at the door? I've reached</>}
-            </button>
           </div>
         )}
 

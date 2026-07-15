@@ -980,8 +980,18 @@ const TrackBooking = () => {
     }
   };
 
+  // The stepper shows the furthest stage reached from EITHER source: the
+  // job_updates feed (helper taps) or booking.status itself. A fresh accepted
+  // booking often has no job_updates row yet — keying only off updates left
+  // the whole timeline un-ticked ("nothing has happened yet") on the same
+  // screen that says a helper is confirmed.
   const latestUpdateStatus = updates.at(-1)?.status ?? null;
-  const currentStepIndex = latestUpdateStatus ? STATUS_ORDER.indexOf(latestUpdateStatus) : -1;
+  const currentStepIndex = Math.max(
+    latestUpdateStatus ? STATUS_ORDER.indexOf(latestUpdateStatus) : -1,
+    // Widened: booking.status also holds pre-timeline states (pending,
+    // awaiting_payment, cancelled) that aren't steps — they indexOf to -1.
+    booking ? (STATUS_ORDER as readonly string[]).indexOf(booking.status) : -1,
+  );
 
   if (loading) {
     // Skeleton in the shape of the page (header line, status card, steps) —
@@ -1276,43 +1286,6 @@ const TrackBooking = () => {
           </motion.div>
         )}
 
-        {/* Get notified — once a helper is confirmed, offer browser push so the
-            customer doesn't have to keep the tab open. Anonymous-friendly
-            (keyed to booking_id). Graceful when unsupported or denied. */}
-        {booking.student_id && pushSupported && !isCompleted && !isCancelled
-          && pushState !== 'subscribed' && pushState !== 'denied' && !pushDismissed && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
-            className="mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-white px-4 py-3"
-          >
-            <div className="w-9 h-9 rounded-full bg-sage/15 flex items-center justify-center flex-shrink-0">
-              <Bell size={16} className="text-sage" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground leading-tight">Get notified</p>
-              <p className="text-xs text-muted-foreground leading-snug mt-0.5">
-                We'll ping you when {helperName ?? 'your helper'} is on the way and arrives.
-              </p>
-            </div>
-            <button
-              onClick={() => void enablePush()}
-              disabled={pushState === 'subscribing'}
-              className="flex-shrink-0 h-10 px-4 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-sage-dark active:scale-[0.97] disabled:opacity-50 transition-[background-color,opacity,transform] duration-150"
-            >
-              {pushState === 'subscribing' ? <Loader2 size={14} className="animate-spin" /> : 'Turn on'}
-            </button>
-            <button
-              onClick={() => setPushDismissed(true)}
-              aria-label="Dismiss"
-              className="flex-shrink-0 text-muted-foreground -mr-1"
-            >
-              <X size={15} />
-            </button>
-          </motion.div>
-        )}
-
         {/* Finish-securing card (AUTH-AT-BOOKING): the customer bounced off the
             Stripe card step — the booking is parked in awaiting_payment and
             nothing dispatches until the hold lands. The session URL on the row
@@ -1410,6 +1383,45 @@ const TrackBooking = () => {
                 </>
               ) : '.'}
             </p>
+          </motion.div>
+        )}
+
+        {/* Get notified — once a helper is confirmed, offer browser push so the
+            customer doesn't have to keep the tab open. Anonymous-friendly
+            (keyed to booking_id). Graceful when unsupported or denied.
+            Deliberately BELOW the pay card: securing the booking is the one
+            thing the customer must do — a notifications nag never outranks it. */}
+        {booking.student_id && pushSupported && !isCompleted && !isCancelled
+          && pushState !== 'subscribed' && pushState !== 'denied' && !pushDismissed && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-white px-4 py-3"
+          >
+            <div className="w-9 h-9 rounded-full bg-sage/15 flex items-center justify-center flex-shrink-0">
+              <Bell size={16} className="text-sage" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground leading-tight">Get notified</p>
+              <p className="text-xs text-muted-foreground leading-snug mt-0.5">
+                We'll ping you when {helperName ?? 'your helper'} is on the way and arrives.
+              </p>
+            </div>
+            <button
+              onClick={() => void enablePush()}
+              disabled={pushState === 'subscribing'}
+              className="flex-shrink-0 h-10 px-4 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-sage-dark active:scale-[0.97] disabled:opacity-50 transition-[background-color,opacity,transform] duration-150"
+            >
+              {pushState === 'subscribing' ? <Loader2 size={14} className="animate-spin" /> : 'Turn on'}
+            </button>
+            <button
+              onClick={() => setPushDismissed(true)}
+              aria-label="Dismiss"
+              className="flex-shrink-0 text-muted-foreground -mr-1"
+            >
+              <X size={15} />
+            </button>
           </motion.div>
         )}
 
