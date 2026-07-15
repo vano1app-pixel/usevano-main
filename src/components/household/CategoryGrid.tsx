@@ -440,6 +440,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Success beat: the booking landed — the button confirms it for a moment
   // before the tracking page takes over, so the handoff reads as one flow.
   const [bookedOk, setBookedOk] = useState(false);
+  // AUTH-AT-BOOKING: true while we hand off to the external Stripe card step —
+  // drives a "Securing…" beat so the full-page navigation reads as intentional.
+  const [securing, setSecuring] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
   // True only after the checkout call itself failed (not field validation) —
   // flips the WhatsApp fallback into the primary recovery action.
@@ -840,7 +843,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           return;
         }
       } catch { /* malformed URL — fall through to the hard redirect */ }
-      window.location.href = dest;
+      // External dest = the Stripe card step (AUTH-AT-BOOKING). Swap the
+      // button to a "Securing…" beat first so the full-page handoff reads as
+      // the next step of THIS flow, not a hijack mid-spinner.
+      setLoading(false);
+      setSecuring(true);
+      haptic(15);
+      window.setTimeout(() => { window.location.href = dest; }, 650);
     } catch (err: unknown) {
       submitLock.current = false; // allow a retry after a failure
       setLoading(false);
@@ -1320,7 +1329,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     <span className="text-muted-foreground">Paid to your helper directly — they keep 100%</span>
                   </p>
                   <p className="flex items-center justify-between text-[11px] mt-1 border-t border-foreground/8 pt-1.5">
-                    <span className="text-muted-foreground">VANO booking fee (card, when a helper accepts)</span>
+                    <span className="text-muted-foreground">VANO booking fee — charged only when a helper accepts</span>
                     <span className="font-semibold text-foreground tabular-nums">{fmt(computeVanoFeeCents(priceCents))}</span>
                   </p>
                 </div>
@@ -1375,7 +1384,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </motion.div>
 
             <motion.p variants={listItem} className="text-center text-[13px] leading-relaxed text-muted-foreground">
-              No payment now — a small VANO booking fee confirms it when a helper accepts, and you pay your helper directly (Revolut or cash) once the job's done. Money-back guarantee on the fee
+              Your card is only charged when a helper accepts — booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done. Money-back guarantee on the fee
             </motion.p>
             {/* Contract moment: the Terms (incl. "your helper is an independent
                 provider, VANO is the platform") must be incorporated at the
@@ -1411,7 +1420,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               Swaps to the success line during the booked beat. */}
           <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-sage-dark">
             <motion.span
-              key={bookedOk ? 'assure-booked' : 'assure-ready'}
+              key={bookedOk ? 'assure-booked' : securing ? 'assure-securing' : 'assure-ready'}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
@@ -1420,7 +1429,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               {bookedOk
                 ? 'Booked — taking you to live tracking…'
-                : 'No payment until a helper accepts · money-back guarantee'}
+                : securing
+                ? 'Opening the secure card step…'
+                : 'Only charged when a helper accepts · money-back guarantee'}
             </motion.span>
           </p>
 
@@ -1439,13 +1450,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             <Button
               type="submit"
               form="quick-book-form"
-              disabled={loading || bookedOk || !phone.trim()}
+              disabled={loading || bookedOk || securing || !phone.trim()}
               className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary disabled:opacity-100"
             >
               {/* Keyed on the state so ready → booking → booked crossfades
                   instead of the label snapping at the highest-anxiety moment. */}
               <motion.span
-                key={bookedOk ? 'cta-booked' : loading ? 'cta-loading' : 'cta-ready'}
+                key={bookedOk ? 'cta-booked' : securing ? 'cta-securing' : loading ? 'cta-loading' : 'cta-ready'}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
@@ -1462,6 +1473,18 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         <Check className="w-5 h-5" strokeWidth={3} />
                       </motion.span>
                       Booked
+                    </>
+                  : securing
+                  ? <>
+                      <motion.span
+                        className="inline-flex"
+                        initial={{ scale: 0.4, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                      >
+                        <ShieldCheck className="w-5 h-5" strokeWidth={2.5} />
+                      </motion.span>
+                      Securing your booking…
                     </>
                   : loading
                   ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>

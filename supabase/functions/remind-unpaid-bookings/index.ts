@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveMoneyAction, releaseBookingMoney } from "../_shared/bookingMoney.ts";
 
 // Cron: rescue accepted-but-unpaid household bookings.
 //
@@ -115,6 +116,58 @@ serve(async (_req) => {
   const repeatMin    = Number(Deno.env.get('PAY_REMINDER_REPEAT_MINUTES')) || 30;
   const timeoutHours = Number(Deno.env.get('PAY_TIMEOUT_HOURS'))           || 6;
   const now          = Date.now();
+
+  // ── Phase 0: abandoned auth checkouts (AUTH-AT-BOOKING) ──────────────────
+  // A booking born awaiting_payment whose customer never finished the card
+  // step. The Stripe session expires at 60 min and checkout.session.expired
+  // quiet-cancels the row; this sweep at 75 min is the missed-webhook
+  // backstop (both are CAS-guarded, so they can never double-fire). Quiet by
+  // design — the customer never completed checkout and the copy promised
+  // nothing; one soft email only when we have an address.
+  let abandoned_cancelled = 0;
+  {
+    const abandonCutoff = new Date(now - 75 * 60 * 1000).toISOString();
+    const { data: abandoned } = await supabase
+      .from('household_bookings')
+      .select('id, category, customer_name, customer_email, stripe_payment_intent_id, booking_data')
+      .eq('status', 'awaiting_payment')
+      .is('paid_at', null)
+      .lt('created_at', abandonCutoff)
+      .order('created_at', { ascending: true })
+      .limit(50) as { data: Array<{ id: string; category: string | null; customer_name: string | null; customer_email: string | null; stripe_payment_intent_id: string | null; booking_data: Record<string, unknown> | null }> | null };
+    for (const b of abandoned ?? []) {
+      // Only the auth flow's rows — legacy awaiting_payment relics (pre
+      // pay-after-accept links) are left exactly as they were.
+      if (b.booking_data?.fee_auth_required !== true) continue;
+      const { data: done } = await supabase
+        .from('household_bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', b.id)
+        .eq('status', 'awaiting_payment')
+        .is('paid_at', null)
+        .select('id')
+        .maybeSingle();
+      if (!done) continue; // authorized or already expired-cancelled mid-run
+      expireStripeSession(b.stripe_payment_intent_id);
+      void supabase.from('household_job_updates').insert({
+        booking_id: b.id, status: 'cancelled',
+        note: 'Checkout not completed — booking expired quietly. Nothing was charged.',
+      });
+      if (resendKey && b.customer_email) {
+        const abCat = CATEGORY_LABELS[String(b.category)] ?? 'job';
+        void fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from, to: [b.customer_email],
+            subject: `Your ${abCat} booking wasn't completed — nothing charged`,
+            text: `Hi ${b.customer_name && b.customer_name !== 'Guest' ? b.customer_name : 'there'}, the card step for your ${abCat} was never finished, so the booking expired. Nothing was charged. Book again any time: ${siteUrl} — or WhatsApp +353 89 981 7111.`,
+          }),
+        }).catch(() => {});
+      }
+      abandoned_cancelled++;
+    }
+  }
 
   // Only 'accepted' bookings: once a helper is en route (on_way/arrived/…) we
   // never auto-cancel from under them. paid_at IS NULL is the unpaid signal.
@@ -418,6 +471,9 @@ serve(async (_req) => {
 
     // Kill the stale pay link — the customer still holds it in email/SMS, and
     // paying it after release would stamp paid_at on a re-assigned booking.
+    // ⚠ AUTH-AT-BOOKING: cs_-ONLY on purpose. An uncaptured pi_ HOLD must
+    // SURVIVE a release — the booking goes back to pending and the NEXT
+    // acceptor's capture uses the same hold.
     expireStripeSession(b.stripe_payment_intent_id as string | null);
 
     // Expire open offers so re-dispatch isn't blocked by its idempotency check.
@@ -474,8 +530,30 @@ serve(async (_req) => {
       .select('id')
       .maybeSingle() as { data: { id: string } | null };
     if (!done) continue; // paid or progressed between query and now
-    // Kill the stale pay link so it can't be paid against a cancelled booking.
-    expireStripeSession(b.stripe_payment_intent_id);
+    // Release whatever Stripe artifact survives (shared rule): an open pay
+    // link is expired; an AUTH-AT-BOOKING hold that never met an accept is
+    // CANCELLED here rather than left dangling to Stripe's ~7-day auto-expiry.
+    {
+      const relAction = resolveMoneyAction(null, b.stripe_payment_intent_id);
+      const relKey = Deno.env.get('STRIPE_SECRET_KEY');
+      if (relKey && b.stripe_payment_intent_id && relAction !== 'none') {
+        const rel = await releaseBookingMoney({
+          stripeKey: relKey,
+          action: relAction,
+          stripeId: b.stripe_payment_intent_id,
+          idemSuffix: b.id,
+          apiBase: Deno.env.get('STRIPE_API_BASE') ?? undefined,
+        });
+        if (rel.ok && rel.action === 'cancel_pi') {
+          await supabase.rpc('merge_booking_data', {
+            p_id: b.id,
+            p_patch: { fee_auth_canceled_at: new Date().toISOString() },
+          }).then(() => {}, () => {});
+        } else if (!rel.ok) {
+          console.warn('[unpaid] 24h sweep money release failed', b.id, rel.action, rel.error);
+        }
+      }
+    }
     void supabase.from('household_job_updates').insert({
       booking_id: b.id, status: 'cancelled',
       note: 'Cancelled automatically — unpaid for over 24 hours.',
@@ -527,9 +605,9 @@ serve(async (_req) => {
     swept_cancelled++;
   }
 
-  console.log(`[unpaid] checked ${(bookings ?? []).length} accepted-unpaid · reminded ${reminded} · links regenerated ${generated} · timeout-cancelled ${cancelled} · released ${released} · swept-cancelled ${swept_cancelled}`);
+  console.log(`[unpaid] checked ${(bookings ?? []).length} accepted-unpaid · reminded ${reminded} · links regenerated ${generated} · timeout-cancelled ${cancelled} · released ${released} · swept-cancelled ${swept_cancelled} · abandoned-auth-cancelled ${abandoned_cancelled}`);
   return new Response(
-    JSON.stringify({ ok: true, checked: (bookings ?? []).length, reminded, generated, cancelled, released, swept_cancelled }),
+    JSON.stringify({ ok: true, checked: (bookings ?? []).length, reminded, generated, cancelled, released, swept_cancelled, abandoned_cancelled }),
     { headers: { 'Content-Type': 'application/json' } },
   );
 });

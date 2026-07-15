@@ -16,6 +16,13 @@ Customer WhatsApp message
     back into the SAME WhatsApp thread. Pay-after-accept, as always.
 ```
 
+**AUTH-AT-BOOKING (when `VANO_AUTH_AT_BOOKING=1`):** checkout instead returns
+the secure Stripe link immediately — the booked reply sends it as the one
+next action ("you're only CHARGED when a helper accepts"; the hold just
+reserves the fee), dispatch starts once the webhook confirms the hold, and
+accept captures it — no pay link needed on accept. `STATUS` knows the
+`awaiting_payment` state. Flag off = the flow above, unchanged.
+
 Home memory (`household_homes`, written by checkout on every booking, web or
 WhatsApp) makes the second booking one message: *"same again"* → confirm →
 booked. `STATUS` returns the latest booking's live state + track link.
@@ -44,7 +51,9 @@ booked. `STATUS` returns the latest booking's live state + track link.
 Text the number:
 - `hi` → welcome (+ "same again" nudge if you've booked before)
 - `clean my apartment for 2 hours` → address → name → quote → `yes` → booked,
-  track link comes back, pay link arrives when a helper accepts
+  track link comes back, pay link arrives when a helper accepts (with
+  auth-at-booking on: the secure card link comes back immediately instead,
+  and accept charges the reserved fee with no second link)
 - `same again` → one-tap repeat of your last booking
 - `status` / `cancel` / `help` / `stop` / `start`
 

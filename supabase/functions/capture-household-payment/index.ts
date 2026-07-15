@@ -263,6 +263,15 @@ serve(async (req) => {
       const stars = [1, 2, 3, 4, 5].map(n =>
         `<a href="${trackUrl}?rate=${n}" style="text-decoration:none;font-size:30px;line-height:1;color:#f5b301;padding:0 3px;">&#9733;</a>`
       ).join('');
+      // Revolut-first settle-up (owner's call): request-link shape with the
+      // amount appended so the customer's Revolut opens pre-filled. Same
+      // conservative tag shape as the tracking page's revolutTag helper — an
+      // IBAN or free text never linkifies. If the amount suffix is ever
+      // ignored the link still opens the helper's profile.
+      const rawHandle = String((booking.booking_data as Record<string, unknown> | null)?.helper_payment_handle ?? '').trim();
+      const revTagMatch = rawHandle.match(/^(?:https?:\/\/)?(?:www\.)?revolut\.me\/@?([a-z0-9_]{3,16})\/?(?:[?#].*)?$/i) ?? rawHandle.match(/^@?([a-z0-9_]{3,16})$/i);
+      const revAmount = (priceCents / 100).toFixed(2).replace(/\.00$/, '');
+      const revolutUrl = directPay && revTagMatch ? `https://revolut.me/${revTagMatch[1]}/${revAmount}` : null;
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#4a7c59;padding:32px 32px 24px;">
@@ -272,9 +281,11 @@ serve(async (req) => {
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
       <strong>${helperFirst}</strong> has completed your <strong>${catLabel}</strong>. ${directPay
-        ? `If you haven't already, settle up with ${helperFirst} directly — <strong>€${(priceCents / 100).toFixed(2)}</strong>${(booking.booking_data as Record<string, unknown> | null)?.helper_payment_handle ? ` (Revolut <strong>${(booking.booking_data as Record<string, unknown>).helper_payment_handle}</strong> or cash)` : ' (Revolut or cash)'} — they keep 100%.`
+        ? `If you haven't already, settle up with ${helperFirst} directly — <strong>€${(priceCents / 100).toFixed(2)}</strong>${revolutUrl ? '' : (booking.booking_data as Record<string, unknown> | null)?.helper_payment_handle ? ` (Revolut <strong>${(booking.booking_data as Record<string, unknown>).helper_payment_handle}</strong> or cash)` : ' (Revolut or cash)'} — they keep 100%.`
         : 'Payment was handled upfront — nothing more to do.'}
     </p>
+    ${revolutUrl ? `<a href="${revolutUrl}" style="display:block;background:#4a7c59;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 24px;border-radius:100px;text-align:center;margin:0 0 10px;">Pay ${helperFirst} &euro;${revAmount} in Revolut &rarr;</a>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:12px;text-align:center;">Opens Revolut with the amount ready &middot; or cash in hand is grand too</p>` : ''}
     <div style="background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;padding:20px;text-align:center;margin:0 0 24px;">
       <p style="margin:0 0 10px;color:#111827;font-size:15px;font-weight:700;">How was ${helperFirst}?</p>
       <p style="margin:0 0 4px;">${stars}</p>
@@ -296,7 +307,7 @@ serve(async (req) => {
           to:[custEmail],
           subject:`Your ${catLabel} is complete — how was ${helperFirst}?`,
           html,
-          text:`Hi ${custName}, ${helperFirst} has completed your ${catLabel}. ${directPay ? `If you haven't already, settle up with ${helperFirst} directly — €${(priceCents / 100).toFixed(2)} (Revolut or cash).` : 'Payment was handled upfront.'} How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
+          text:`Hi ${custName}, ${helperFirst} has completed your ${catLabel}. ${directPay ? `If you haven't already, settle up with ${helperFirst} directly — €${(priceCents / 100).toFixed(2)}${revolutUrl ? ` (pay in Revolut, amount ready: ${revolutUrl} — or cash)` : ' (Revolut or cash)'}.` : 'Payment was handled upfront.'} How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
         }),
       }).catch(()=>{});
     }

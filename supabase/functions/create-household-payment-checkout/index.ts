@@ -14,6 +14,9 @@ import { screenRequestText } from "../_shared/safetyScreen.ts";
 // Direct-pay fee maths (July 2026): Vano charges ONLY its booking fee (+ the
 // optional €2 Vano Cover); the customer pays the student directly.
 import { computeVanoFeeCents, VANO_COVER_CENTS, UNPAID_STRIKE_BLOCK_THRESHOLD } from "../_shared/vanoFees.ts";
+// Auth-at-booking: the far-future gate (card holds die ~7 days, so bookings
+// scheduled >5 days out keep pay-after-accept).
+import { isFarFuture } from "../_shared/bookingMoney.ts";
 
 // ── Inlined CORS ──────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
@@ -308,6 +311,24 @@ serve(async (req) => {
     // accepted then skips Stripe entirely and marks the booking confirmed.
     const feeDueCents = Math.max(0, feeAfterLoyalty - referralDiscountCents) + coverCents;
 
+    // ── AUTH-AT-BOOKING (behind VANO_AUTH_AT_BOOKING) ────────────────────
+    // Fee-carrying, near-term bookings are born `awaiting_payment` behind a
+    // manual-capture Stripe Checkout (Apple Pay/Google Pay/card): the fee is
+    // RESERVED on the card now and only CAPTURED when a helper accepts — so
+    // "no payment until a helper accepts" stays literally true while
+    // time-wasters filter out before dispatch. Excluded (→ classic born-
+    // pending pay-after-accept): fee-free bookings (nothing to hold),
+    // far-future ones (>5 days — card holds die at ~7), sub-minimum amounts
+    // (Stripe won't authorize < €0.50 — possible when a referral leaves a
+    // tiny fee remainder), and any run without a Stripe key.
+    const stripeKeyForAuth = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
+    const authPath =
+      Deno.env.get('VANO_AUTH_AT_BOOKING') === '1' &&
+      !!stripeKeyForAuth &&
+      feeDueCents >= 50 &&
+      !isMonthlyPlan &&
+      !isFarFuture(scheduledAt, Date.now());
+
     // booking_data is built once and (only for welcome referrals) updated in
     // place after the referral row insert supplies its id.
     const bookingData: Record<string, unknown> = {
@@ -335,6 +356,9 @@ serve(async (req) => {
         referral_kind: referralWelcome ? 'welcome' : 'redeem',
         ...(redeemRow ? { redeem_referral_id: redeemRow.id } : {}),
       } : {}),
+      // Auth-at-booking marker: this row was born awaiting_payment behind a
+      // manual-capture hold (distinguishes it from legacy awaiting_payment).
+      ...(authPath ? { fee_auth_required: true } : {}),
     };
 
     // Resolve the address once, and geocode server-side when the client didn't
@@ -372,7 +396,7 @@ serve(async (req) => {
       const dedupeCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
       const { data: recent } = await supabase
         .from('household_bookings')
-        .select('id, booking_data')
+        .select('id, booking_data, status, stripe_checkout_url')
         .eq('customer_phone', customer_phone.trim())
         .eq('category', cat)
         // Same requested time too — otherwise a customer booking "Cleaning now"
@@ -382,7 +406,7 @@ serve(async (req) => {
         .gte('created_at', dedupeCutoff)
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle() as { data: { id: string; booking_data: Record<string, unknown> | null } | null };
+        .maybeSingle() as { data: { id: string; booking_data: Record<string, unknown> | null; status?: string; stripe_checkout_url?: string | null } | null };
       // Same size AND same note AND same extra_label — a genuine double-tap
       // repeats every field; a DIFFERENT job changes one. Without note/extra:
       //  • custom jobs (category 'custom', note = the actual description) would
@@ -408,8 +432,23 @@ serve(async (req) => {
         // ones — they're the amounts that booking will actually use.
         const jobCents0 = Number(bd0?.job_price_cents) || priceCents;
         const feeDue0 = Number(bd0?.fee_due_cents ?? feeDueCents) || 0;
+        // Auth-at-booking dedupe: an awaiting_payment twin still needs its
+        // card step — hand back its EXISTING Stripe session, not the track
+        // URL, or a double-tap would strand the customer on a booking that
+        // never authorizes and never dispatches.
+        const isAwaitingAuth = recent.status === 'awaiting_payment' && !!recent.stripe_checkout_url;
         return new Response(
-          JSON.stringify({ booking_id: recent.id, track_url: trackUrl0, checkout_url: trackUrl0, price_cents: jobCents0, fee_due_cents: feeDue0, total_cents: jobCents0 + feeDue0, pay_later: true, deduped: true }),
+          JSON.stringify({
+            booking_id: recent.id,
+            track_url: trackUrl0,
+            checkout_url: isAwaitingAuth ? recent.stripe_checkout_url : trackUrl0,
+            ...(isAwaitingAuth ? { auth_required: true } : {}),
+            price_cents: jobCents0,
+            fee_due_cents: feeDue0,
+            total_cents: jobCents0 + feeDue0,
+            pay_later: true,
+            deduped: true,
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
@@ -424,7 +463,10 @@ serve(async (req) => {
         time_slot: null,
         is_express: false,
         price_estimate_cents: priceCents,
-        status: 'pending', // live immediately — payment is requested after a helper accepts
+        // Auth path: born awaiting_payment — the auth webhook flips it live
+        // (pending) once the card hold succeeds. Classic path: live
+        // immediately, payment requested after a helper accepts.
+        status: authPath ? 'awaiting_payment' : 'pending',
         customer_name: customer_name.trim(),
         // Prefer the dedicated address field (quick-book sheet sends it);
         // fall back to the legacy note-as-address behaviour.
@@ -551,13 +593,105 @@ serve(async (req) => {
       }
     }
 
+    // ── Auth path: mint the manual-capture Checkout session ─────────────
+    // The card step happens NOW (Apple Pay/Google Pay/card), but the money is
+    // only captured when a helper accepts. The booking sits at
+    // awaiting_payment until the auth webhook flips it live and dispatches.
+    // FAIL-OPEN: if Stripe hiccups here, the booking must not die — flip it
+    // straight to pending and continue down the classic dispatch path.
+    let authSessionUrl: string | null = null;
+    let authActive = authPath;
+    if (authPath) {
+      try {
+        const stripeApiBase = (Deno.env.get('STRIPE_API_BASE') ?? 'https://api.stripe.com').replace(/\/$/, '');
+        const feePartCents = feeDueCents - coverCents;
+        const catLabel = CATEGORY_LABELS[cat];
+        const params = new URLSearchParams({
+          mode: 'payment',
+          'payment_intent_data[capture_method]': 'manual',
+          'payment_intent_data[metadata][household_booking_id]': bookingId,
+          // Save the card for future one-tap bookings (composes with manual capture)
+          customer_creation: 'always',
+          'payment_intent_data[setup_future_usage]': 'off_session',
+          success_url: `${origin}/track/${bookingId}?authorized=true`,
+          cancel_url: `${origin}/track/${bookingId}`,
+          'metadata[household_booking_id]': bookingId,
+          'metadata[vano_fee_auth]': '1',
+          client_reference_id: bookingId,
+          // Abandoned checkouts expire in 60 min (Stripe min is 30) →
+          // checkout.session.expired quietly cancels the booking.
+          expires_at: String(Math.floor(Date.now() / 1000) + 3600),
+        });
+        let li = 0;
+        if (feePartCents > 0) {
+          params.set(`line_items[${li}][quantity]`, '1');
+          params.set(`line_items[${li}][price_data][currency]`, 'eur');
+          params.set(`line_items[${li}][price_data][unit_amount]`, String(feePartCents));
+          params.set(`line_items[${li}][price_data][product_data][name]`, 'VANO booking fee');
+          params.set(`line_items[${li}][price_data][product_data][description]`,
+            `Matching, ID verification & support for your ${catLabel}. Reserved now — only charged when a helper accepts. The job itself (€${(priceCents / 100).toFixed(2)}) is paid to your helper directly.`);
+          li += 1;
+        }
+        if (coverCents > 0) {
+          params.set(`line_items[${li}][quantity]`, '1');
+          params.set(`line_items[${li}][price_data][currency]`, 'eur');
+          params.set(`line_items[${li}][price_data][unit_amount]`, String(coverCents));
+          params.set(`line_items[${li}][price_data][product_data][name]`, 'Vano Cover — accidental damage up to €250');
+          li += 1;
+        }
+        if (typeof customer_email === 'string' && customer_email.trim()) {
+          // Receipt sends on CAPTURE (accept time) — exactly when money moves.
+          params.set('payment_intent_data[receipt_email]', customer_email.trim().toLowerCase());
+        }
+        const sessResp = await fetch(`${stripeApiBase}/v1/checkout/sessions`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${stripeKeyForAuth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Idempotency-Key': `vano_fee_auth_session_${bookingId}`,
+          },
+          body: params.toString(),
+        });
+        const sess = sessResp.ok ? await sessResp.json() as { id?: string; url?: string } : null;
+        if (sess?.url && sess?.id) {
+          authSessionUrl = sess.url;
+          await supabase
+            .from('household_bookings')
+            .update({
+              stripe_checkout_url: sess.url,
+              // cs_… while the session is open; the auth webhook overwrites
+              // with the real pi_. payment_requested_at stays NULL — it is
+              // strictly the post-accept pay-link clock.
+              stripe_payment_intent_id: sess.id,
+            })
+            .eq('id', bookingId);
+        } else {
+          const errText = sessResp.ok ? 'malformed session' : `${sessResp.status} ${(await sessResp.text().catch(() => '')).slice(0, 200)}`;
+          throw new Error(errText);
+        }
+      } catch (e) {
+        console.error('[create-household-payment-checkout] auth session failed — failing open to pay-after-accept', e);
+        authActive = false;
+        authSessionUrl = null;
+        delete bookingData.fee_auth_required;
+        bookingData.fee_auth_skipped = 'stripe_error';
+        await supabase
+          .from('household_bookings')
+          .update({ status: 'pending', booking_data: bookingData })
+          .eq('id', bookingId)
+          .eq('status', 'awaiting_payment');
+      }
+    }
+
     // Dispatch to helpers. ASAP jobs (no scheduled_at) and near-term ones go out
     // now — that's what makes the booking real. A genuinely future-dated job is
     // NOT dispatched yet: the dispatch-scheduled-jobs cron fans it out once it's
     // within the lead window, so helpers aren't offered a job days early (and it
     // isn't auto-cancelled before it's due). LEAD_MIN mirrors that cron.
+    // Auth path: dispatch is DEFERRED to the auth webhook — helpers only ever
+    // see fee-secured jobs.
     const LEAD_MIN = 90;
-    const dispatchNow = !scheduledAt || (Date.parse(scheduledAt) - Date.now()) <= LEAD_MIN * 60 * 1000;
+    const dispatchNow = !authActive && (!scheduledAt || (Date.parse(scheduledAt) - Date.now()) <= LEAD_MIN * 60 * 1000);
     if (dispatchNow) {
       try {
         const dispatchResp = await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
@@ -577,6 +711,8 @@ serve(async (req) => {
       } catch (e) {
         console.error('[create-household-payment-checkout] dispatch call failed', e);
       }
+    } else if (authActive) {
+      console.log('[create-household-payment-checkout] auth-at-booking — dispatch deferred to the fee-auth webhook', { bookingId });
     } else {
       console.log('[create-household-payment-checkout] future-dated booking — deferring dispatch to lead window', { bookingId, scheduledAt });
     }
@@ -627,7 +763,7 @@ serve(async (req) => {
               `City: ${cityVal ?? '—'}`,
               `When: ${when_label || 'Flexible'}`,
               `Helper gets (paid directly): €${(priceCents / 100).toFixed(2)}`,
-              `Vano fee on accept: €${(feeDueCents / 100).toFixed(2)}${coverOpted ? ' (incl. €2 Vano Cover)' : ''}${isLoyalty ? ' (loyalty: fee waived)' : ''}`,
+              `Vano fee: €${(feeDueCents / 100).toFixed(2)}${coverOpted ? ' (incl. €2 Vano Cover)' : ''}${isLoyalty ? ' (loyalty: fee waived)' : ''}${authActive ? ' — RESERVED at booking (card hold), captured on accept' : ' — charged on accept'}`,
               ...(unpaidStrikes > 0 ? [`⚠ Customer has ${unpaidStrikes} unpaid strike(s)`] : []),
               ...(referralDiscountCents > 0 ? [`Referral credit applied to fee: -€${(referralDiscountCents / 100).toFixed(2)}`] : []),
               `Ref: ${ref}`,
@@ -646,14 +782,17 @@ serve(async (req) => {
     if (runtime?.waitUntil) runtime.waitUntil(adminNotifyPromise);
     else adminNotifyPromise.catch(() => {});
 
-    // checkout_url intentionally mirrors track_url: frontends built before
-    // pay-after-accept redirect to checkout_url, and the track page is the
-    // correct destination now.
+    // Auth path: checkout_url is the Stripe session — the sheet hard-redirects
+    // external URLs, so the customer lands straight on the Apple Pay/card step.
+    // Classic path: checkout_url intentionally mirrors track_url (frontends
+    // built before pay-after-accept redirect to checkout_url, and the track
+    // page is the correct destination there).
     return new Response(
       JSON.stringify({
         booking_id: bookingId,
         track_url: trackUrl,
-        checkout_url: trackUrl,
+        checkout_url: authActive && authSessionUrl ? authSessionUrl : trackUrl,
+        ...(authActive && authSessionUrl ? { auth_required: true } : {}),
         price_cents: priceCents,
         fee_due_cents: feeDueCents,
         total_cents: priceCents + feeDueCents,
