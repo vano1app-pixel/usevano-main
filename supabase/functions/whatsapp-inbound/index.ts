@@ -185,7 +185,7 @@ function confirmMessage(d: WaDraft): string | null {
     `• When: ${d.when_label}`,
     `• Price: ${q.line}`,
     ``,
-    `You only pay AFTER a verified helper accepts — the secure pay link lands right here. Book it? (YES/NO)`,
+    `You're only CHARGED after a verified helper accepts — the secure card step lands right here. Book it? (YES/NO)`,
   ].join('\n');
 }
 
@@ -411,6 +411,7 @@ serve(async (req) => {
       if (!b) return twiml("No bookings on this number yet — text me what you need and let's fix that!");
       const label = CATEGORY_LABELS[b.category as Category] ?? b.category;
       const lines: Record<string, string> = {
+        awaiting_payment: "one tap left — hit the secure card link in this chat to lock it in (you're only charged when a helper accepts)",
         pending:     "we're still finding your helper — you'll hear from me the second someone accepts",
         accepted:    b.paid_at ? 'your helper is confirmed and will be in touch' : 'a helper accepted! Your payment link is in this chat (and your email) — the job locks in once paid',
         on_way:      'your helper is on the way 🚗',
@@ -498,6 +499,19 @@ serve(async (req) => {
       const discountLine = quoted && total > 0 && total < quoted.totalCents
         ? `\n🎉 A discount applied — your total is ${euro(total)}.`
         : '';
+      // AUTH-AT-BOOKING: the checkout function returns the Stripe link and the
+      // booking waits (awaiting_payment) until the card step is done — send
+      // that link as the ONE next action. The promise stays literally true:
+      // the fee is only reserved now; the charge happens when a helper accepts.
+      if (out.auth_required === true && typeof out.checkout_url === 'string') {
+        return twiml(
+          `Booked ✅ ${label}${d.size_label ? ` — ${d.size_label}` : ''}.${discountLine}\n` +
+          `🔒 One tap left — secure it with Apple Pay, Google Pay or card:\n${out.checkout_url}\n` +
+          `💶 You're only CHARGED when a helper accepts (this just reserves the small VANO fee). Then we ping Galway's verified helpers.\n` +
+          `📍 Track live: ${out.track_url}\n` +
+          `Reply STATUS any time.`,
+        );
+      }
       return twiml(
         `Booked ✅ ${label}${d.size_label ? ` — ${d.size_label}` : ''}.\n` +
         `We're pinging Galway's verified helpers now.${discountLine}\n` +

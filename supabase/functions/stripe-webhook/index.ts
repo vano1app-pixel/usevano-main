@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { computeAutoReleaseMs } from "../_shared/vanoPayConfig.ts";
+import { releaseBookingMoney } from "../_shared/bookingMoney.ts";
 
 // Stripe webhook endpoint. verify_jwt is disabled for this function
 // (Stripe can't send JWTs); authenticity is proven by verifying the
@@ -362,6 +363,10 @@ type StripeCharge = {
   payment_intent?: string;
   amount_refunded?: number;
   refunded?: boolean;
+  /** false = the charge was never captured (an auth hold being released).
+   *  Pre-basil API versions emit charge.refunded for hold releases — those
+   *  must be ignored, not treated as real refunds. */
+  captured?: boolean;
   metadata?: Record<string, string | undefined>;
 };
 
@@ -661,6 +666,160 @@ async function backfillGuestName(
   }
 }
 
+// --- Handler: household fee AUTHORIZED (auth-at-booking) ------------------
+// The manual-capture Checkout session minted at BOOKING time just completed:
+// the customer's card now holds the Vano fee, but nothing is captured yet
+// (that happens when a helper accepts — see notify-household-accepted).
+// IMPORTANT: these sessions legitimately complete with payment_status
+// 'unpaid' (the PI sits at requires_capture), so this handler is routed
+// BEFORE the generic unpaid guard, keyed on metadata.vano_fee_auth.
+// Flip awaiting_payment → pending, store the real pi_, clear the dead
+// session URL, stamp fee_authorized_at, and dispatch — paid_at stays NULL.
+async function handleHouseholdFeeAuthorized(
+  supabase: SupabaseClient,
+  session: StripeCheckoutSession,
+  bookingId: string,
+): Promise<Response> {
+  const nowIso = new Date().toISOString();
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  // Belt-and-braces: confirm the intent really is an uncaptured hold. If it
+  // somehow arrived already captured (dashboard capture, config drift), the
+  // legacy paid path is the correct handler.
+  if (stripeKey && session.payment_intent) {
+    try {
+      const piResp = await fetch(
+        `${(Deno.env.get('STRIPE_API_BASE') ?? 'https://api.stripe.com').replace(/\/$/, '')}/v1/payment_intents/${session.payment_intent}`,
+        { headers: { Authorization: `Bearer ${stripeKey}` } },
+      );
+      if (piResp.ok) {
+        const pi = await piResp.json() as { status?: string };
+        if (pi.status === 'succeeded') {
+          return handleHouseholdCheckoutCompleted(supabase, session, bookingId);
+        }
+        if (pi.status !== 'requires_capture') {
+          console.warn('[stripe-webhook] fee-auth session with unexpected PI status', bookingId, pi.status);
+          return new Response(JSON.stringify({ received: true, ignored: `pi_${pi.status}` }), { headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+    } catch (e) {
+      // Verification is best-effort — the CAS below is the real guard.
+      console.warn('[stripe-webhook] fee-auth PI verify failed (continuing)', e);
+    }
+  }
+
+  const customerEmail = session.customer_details?.email ?? null;
+  const { data: flipped, error } = await supabase
+    .from('household_bookings')
+    .update({
+      status: 'pending',
+      stripe_payment_intent_id: session.payment_intent ?? null,
+      // The completed session's URL is dead — leaving it would resurrect the
+      // tracking page's pay cards for a booking that needs no payment action.
+      stripe_checkout_url: null,
+      ...(customerEmail ? { customer_email: customerEmail } : {}),
+    })
+    .eq('id', bookingId)
+    .eq('status', 'awaiting_payment')
+    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, scheduled_at, city, price_estimate_cents, booking_data')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[stripe-webhook] fee-auth flip failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+
+  if (!flipped) {
+    // Replay, or the booking died before the customer finished checkout.
+    const { data: existing } = await supabase
+      .from('household_bookings')
+      .select('status, paid_at, category, customer_phone')
+      .eq('id', bookingId)
+      .maybeSingle() as { data: { status?: string; paid_at?: string | null; category?: string; customer_phone?: string | null } | null };
+    if (existing?.status === 'cancelled' && !existing.paid_at && session.payment_intent && stripeKey) {
+      // The hold landed on a cancelled booking. An uncaptured PI cannot be
+      // refunded — CANCEL it so the hold releases (mirror of the orphan-
+      // charge refund guard, for holds).
+      const released = await releaseBookingMoney({
+        stripeKey,
+        action: 'cancel_pi',
+        stripeId: session.payment_intent,
+        idemSuffix: bookingId,
+        apiBase: Deno.env.get('STRIPE_API_BASE') ?? undefined,
+      });
+      await supabase.rpc('merge_booking_data', {
+        p_id: bookingId,
+        p_patch: { fee_auth_canceled_at: nowIso },
+      }).then(() => {}, () => {});
+      const ref = bookingId.slice(-8).toUpperCase();
+      await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `${released.ok ? '↩️ *Hold released on cancelled booking*' : '🚨 *Stray card hold — cancel it in Stripe*'} (${ref})\nA customer completed the card step for a ${existing.category ?? 'job'} that was already cancelled. ${released.ok ? 'The hold was released automatically — they were never charged.' : 'Auto-release FAILED — cancel the uncaptured PaymentIntent in the Stripe dashboard.'}`,
+          subject: `${released.ok ? '↩️ Hold released (cancelled booking)' : '🚨 Stray card hold — manual cancel'} (${ref})`,
+          contact_phone: existing.customer_phone ?? undefined,
+        }),
+      }).catch(() => {});
+      return new Response(JSON.stringify({ received: true, orphan_hold_released: released.ok }), { headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ received: true, replay: true }), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  await backfillGuestName(supabase, session, bookingId);
+  await supabase.rpc('merge_booking_data', {
+    p_id: bookingId,
+    p_patch: { fee_authorized_at: nowIso },
+  }).then(() => {}, () => {});
+
+  // Card on file for future one-tap bookings — same upsert as the paid path.
+  const phone = (flipped as { customer_phone?: string }).customer_phone;
+  if (session.customer && phone) {
+    try {
+      await supabase.from('household_customers').upsert({
+        phone: phone.trim(),
+        stripe_customer_id: session.customer,
+        updated_at: nowIso,
+      }, { onConflict: 'phone' });
+    } catch (e) {
+      console.warn('[stripe-webhook] household_customers upsert failed (non-fatal)', e);
+    }
+  }
+
+  // Dispatch — the booking is now secured, get it in front of helpers. Only
+  // when due: far-out scheduled bookings wait for dispatch-scheduled-jobs
+  // (which selects status='pending' and now sees this row). Mirrors the
+  // LEAD_MIN=90 rule in create-household-payment-checkout.
+  const scheduledAtRaw = (flipped as { scheduled_at?: string | null }).scheduled_at;
+  const scheduledMs = scheduledAtRaw ? Date.parse(scheduledAtRaw) : NaN;
+  const dispatchNow = !Number.isFinite(scheduledMs) || (scheduledMs - Date.now()) <= 90 * 60 * 1000;
+  const dispatchPromise = dispatchNow
+    ? (async () => {
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ record: { ...flipped, status: 'pending' } }),
+          });
+        } catch (e) {
+          console.warn('[stripe-webhook] fee-auth dispatch call failed (non-fatal)', e);
+        }
+      })()
+    : Promise.resolve();
+
+  const runtime = (globalThis as unknown as {
+    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(dispatchPromise);
+
+  return new Response(
+    JSON.stringify({ received: true, triggered: 'household_fee_authorized', dispatched: dispatchNow }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
 // --- Handler: household checkout.session.completed -----------------------
 // Two payment flows land here:
 //   1. Legacy pay-first: booking sits at awaiting_payment until the customer
@@ -669,6 +828,8 @@ async function backfillGuestName(
 //   2. Pay-after-accept (current): the booking is already live and accepted;
 //      the session was created by notify-household-accepted. Stamp paid_at +
 //      the real PaymentIntent id, email the customer a receipt, ping admin.
+// (Auth-at-booking sessions — metadata.vano_fee_auth — are routed to
+// handleHouseholdFeeAuthorized BEFORE this and never land here.)
 async function handleHouseholdCheckoutCompleted(
   supabase: SupabaseClient,
   session: StripeCheckoutSession,
@@ -1136,6 +1297,17 @@ async function handleChargeRefunded(
     });
   }
 
+  // A NEVER-CAPTURED charge being "refunded" is an auth hold being released
+  // (older Stripe API versions emit charge.refunded when an uncaptured PI is
+  // cancelled). That's the normal end of a no-match/cancelled auth booking —
+  // treating it as a real refund would stamp refunded_at and CANCEL a live
+  // booking whose hold was simply replaced.
+  if (charge.captured === false) {
+    return new Response(JSON.stringify({ received: true, ignored: 'uncaptured_release' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const nowIso = new Date().toISOString();
 
   // Household bookings first: an out-of-band refund (Stripe dashboard,
@@ -1311,6 +1483,13 @@ serve(async (req) => {
       return handleVanoPayCheckoutCompleted(supabase, session, vanoPayId);
     }
     if (householdBookingId) {
+      // AUTH-AT-BOOKING sessions complete with payment_status 'unpaid' by
+      // design (manual capture — the PI sits at requires_capture until a
+      // helper accepts), so they MUST be routed before the unpaid guard
+      // below or every auth event would be silently swallowed.
+      if (session.metadata?.vano_fee_auth === '1') {
+        return handleHouseholdFeeAuthorized(supabase, session, householdBookingId);
+      }
       // A delayed-notification method (SEPA, Sofort — offered whenever enabled
       // in the Stripe dashboard, since the session doesn't restrict methods)
       // completes the session with payment_status 'unpaid' and only settles
@@ -1387,6 +1566,36 @@ serve(async (req) => {
     const householdBookingId = session?.metadata?.household_booking_id;
     if (session?.id && householdBookingId && session.payment_status === 'paid') {
       return handleHouseholdCheckoutCompleted(supabase, session, householdBookingId);
+    }
+    return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Abandoned auth-at-booking checkout: the customer tapped Book but never
+  // finished the card step, and the session's 60-min expires_at lapsed.
+  // Quietly cancel the awaiting_payment booking (CAS — idempotent against the
+  // remind-unpaid cron sweep that backstops a missed webhook). No customer
+  // messaging: they never completed anything and were never charged.
+  // Requires checkout.session.expired to be enabled on the Stripe endpoint.
+  if (eventType === 'checkout.session.expired') {
+    const session = event.data?.object as StripeCheckoutSession | undefined;
+    const bookingId = session?.metadata?.household_booking_id;
+    if (bookingId && session?.metadata?.vano_fee_auth === '1') {
+      const { data: cancelled } = await supabase
+        .from('household_bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId)
+        .eq('status', 'awaiting_payment')
+        .is('paid_at', null)
+        .select('id')
+        .maybeSingle();
+      if (cancelled) {
+        await supabase.from('household_job_updates').insert({
+          booking_id: bookingId,
+          status: 'cancelled',
+          note: 'Card step not completed — booking expired quietly. Nothing was charged.',
+        }).then(() => {}, () => {});
+        return new Response(JSON.stringify({ received: true, triggered: 'fee_auth_session_expired' }), { headers: { 'Content-Type': 'application/json' } });
+      }
     }
     return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } });
   }

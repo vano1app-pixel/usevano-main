@@ -17,7 +17,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export const STATUS_LABEL: Record<string, { label: string; colour: string }> = {
-  awaiting_payment: { label: 'Awaiting payment', colour: 'text-amber-600' },
+  awaiting_payment: { label: 'Securing booking…', colour: 'text-amber-600' },
   pending:          { label: 'Finding helper…',  colour: 'text-blue-600' },
   accepted:         { label: 'Helper on the way', colour: 'text-emerald-600' },
   on_way:           { label: 'On the way',        colour: 'text-emerald-600' },

@@ -41,12 +41,28 @@ escrow and complete under the old rules everywhere):
    cover if opted), blocks customers with ≥2 unpaid-job strikes, stamps a
    `customer_rep` snapshot, inserts the booking, dispatches. **Pay-after-
    accept** still holds — but what's charged at accept is ONLY Vano's fee.
+   **AUTH-AT-BOOKING (July 2026, behind `VANO_AUTH_AT_BOOKING=1`, read only
+   here):** when the flag is on (and fee > 0, and the job isn't scheduled
+   >5 days out — card holds die at ~7 days), the booking is instead born
+   `awaiting_payment` with a Stripe **manual-capture** Checkout session
+   (`booking_data.fee_auth_required`) and is NOT dispatched; the customer's
+   card is AUTHORIZED (held) for the fee right after booking, and
+   `stripe-webhook`'s `handleHouseholdFeeAuthorized` (keyed on
+   `metadata.vano_fee_auth`, branching BEFORE the unpaid-guard) flips it to
+   `pending` + dispatches. The promise stays literally true: the CHARGE
+   still only happens when a helper accepts. Session-create failure
+   fail-opens to the classic flow — a booking never dies for a hold.
 3. → `dispatch-household-job` → helpers get SMS/push (offers show 100%
    earnings) → `accept-job`.
-4. → `notify-household-accepted` sends the Stripe Checkout link for the
-   **fee only** (fee-free loyalty/referral bookings skip Stripe — `paid_at`
-   set directly). The job price is NEVER charged to the card: the customer
-   pays the helper directly (Revolut tag / cash) when the job's done.
+4. → `notify-household-accepted` — **auth bookings first try to CAPTURE the
+   booking-time hold** (idempotency-keyed; success = `paid_at` stamped, "the
+   €X you reserved was charged", no pay link, referrals settle); capture
+   failure stamps `fee_capture_failed_at` and falls through to the classic
+   path: send the Stripe Checkout link for the **fee only** (fee-free
+   loyalty/referral bookings skip Stripe — `paid_at` set directly), then
+   cancel the dead hold AFTER the new cs_ overwrites the row. The job price
+   is NEVER charged to the card: the customer pays the helper directly
+   (Revolut tag / cash) when the job's done.
 5. → helper finishes; **`capture-household-payment`** still flips status to
    completed (three doors: customer confirm, admin, 48h auto-confirm) but
    for direct-pay writes NO payout row and fires NO transfer. The helper
@@ -324,7 +340,24 @@ extend it.
   charge = booking fee (15% min €4) + optional €2 Cover, nothing else. The
   job price moves customer→helper directly (Revolut tag on the helper row —
   `payment_handle`, editable via `update-helper-profile` + both profile
-  editors; TrackBooking deep-links `revolut.me/<tag>`). Helper keeps 100%.
+  editors; TrackBooking's pay card + the completion email deep-link the
+  Revolut request-link shape `revolut.me/<tag>/<amount>` so the app opens
+  with recipient AND amount pre-filled — owner-verify note in the code; the
+  tag sanitizer accepts @tag / bare tag / pasted URL, never an IBAN). Helper
+  keeps 100%.
+- **The shared money-release rule** is `_shared/bookingMoney.ts`
+  (`resolveMoneyAction`: paid+pi_→refund · unpaid+pi_→cancel the hold
+  (uncaptured PIs cannot be refunded) · cs_→expire session; executor has
+  idempotency keys + "already captured"→refund cross-fallback). ALL cancel
+  paths use it (customer/admin cancel, no-helper-fallback, the 24h unpaid
+  sweep, the webhook's orphan guards). THE ONE EXCEPTION: **helper release
+  keeps an uncaptured hold ALIVE** (cs_-expiry only, in
+  cancel-household-booking helper_release AND remind-unpaid-bookings' 2h
+  release) — the booking returns to `pending` and the NEXT acceptor's
+  capture uses the same hold. `booking_data` stamps: `fee_authorized_at`,
+  `fee_auth_canceled_at`, `fee_capture_failed_at`/`fee_capture_fail_reason`.
+  `payment_requested_at` remains STRICTLY the post-accept pay-link clock —
+  never set at booking, or remind-unpaid's 2h/6h clocks misfire.
   NO payout row, NO transfer, NO Stripe Connect requirement for new helpers.
   `household_customer_ratings` is the two-way review + unpaid-strike ledger.
 - **Legacy escrow (bookings without the flag)**: customer paid job price +
@@ -349,9 +382,15 @@ extend it.
   the empty `vano_payments` table, `stripe-webhook`'s legacy branch (which
   imports `_shared/vanoPayConfig.ts` — kept for that reason), and
   `VANO_PAY_ESCROW.md` for history. Don't rebuild on any of it.
-- `stripe-webhook` is the central webhook (booking payments, `account.
-  updated` → `stripe_payouts_enabled`, refunds, €2 signup, legacy subs).
-  Stripe surface is raw REST everywhere — no SDK; keep it that way.
+- `stripe-webhook` is the central webhook (booking payments, the
+  AUTH-AT-BOOKING flow — `handleHouseholdFeeAuthorized` on
+  `checkout.session.completed` with `payment_status:'unpaid'` +
+  `metadata.vano_fee_auth`, a `checkout.session.expired` branch that
+  quiet-cancels abandoned awaiting_payment rows (the event MUST stay enabled
+  on the Stripe endpoint), a `charge.refunded` guard ignoring
+  `captured:false` (hold releases must not cancel live bookings) —
+  `account.updated` → `stripe_payouts_enabled`, refunds, €2 signup, legacy
+  subs). Stripe surface is raw REST everywhere — no SDK; keep it that way.
 
 ## The ops layer — crons & notifications
 Cadences live in each function's header comment (wired in the Supabase
@@ -597,3 +636,25 @@ migration `20260715000000` (payment_handle + household_customer_ratings);
 everything branches on `booking_data.direct_pay` so in-flight escrow
 bookings finish under the old rules, and the payout card/crons go
 naturally idle rather than being ripped out.
+
+**Fee AUTH-AT-BOOKING (July 2026, behind `VANO_AUTH_AT_BOOKING=1` — see "The
+one booking path" step 2 and "Money movement"):** the fee is now RESERVED
+(Stripe manual-capture hold) at booking and CAPTURED at accept, so every
+dispatched job is already card-committed and helpers stop being burned by
+never-paying customers — while "you're only charged when a helper accepts"
+stays literally true. Born `awaiting_payment` → webhook auth → `pending` +
+dispatch; capture at accept in `notify-household-accepted` (failure degrades
+to the old pay link, never a lost job); every cancel path releases the hold
+via `_shared/bookingMoney.ts` EXCEPT helper release, where the hold survives
+for the replacement acceptor; `remind-unpaid-bookings` grew a 75-min
+abandoned-checkout sweep (webhook-expiry backstop). Frontend: the sheet's
+"Securing…" handoff beat + "only charged when a helper accepts" copy,
+TrackBooking's `?authorized=true` banner, awaiting_payment "finish securing"
+card + free-cancel copy, `bookingLabels` "Securing booking…". The WhatsApp
+door sends the secure link and STATUS knows the state. Flag off = classic
+flow (data-driven branches keep in-flight holds working). Rollout: enable
+`checkout.session.expired` on the Stripe endpoint, then set the flag; test
+cards first. Also shipped alongside: the Revolut-first pay-the-helper card
+(one-tap `revolut.me/<tag>/<amount>` prefilled link, huge amount, copy
+chips, desktop QR via lazy `qrcode` dep, cash as quiet secondary) mirrored
+into the completion email.

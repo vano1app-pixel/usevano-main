@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
+import { releaseBookingMoney } from "../_shared/bookingMoney.ts";
 
 // Called by StudentDashboard after a helper claims a booking.
 // Pay-after-accept: creates the Stripe Checkout session for the booking
@@ -154,7 +155,7 @@ serve(async (req) => {
     // the internal path, load by id (student_id was just set by accept-job).
     let bookingQuery = supabase
       .from('household_bookings')
-      .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, time_slot, student_id, price_estimate_cents, booking_data, paid_at, stripe_checkout_url')
+      .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, time_slot, student_id, price_estimate_cents, booking_data, paid_at, stripe_checkout_url, stripe_payment_intent_id')
       .eq('id', booking_id);
     if (!isInternal) bookingQuery = bookingQuery.eq('student_id', callerUserId!);
 
@@ -232,6 +233,9 @@ serve(async (req) => {
       referral_discount_cents?: number;
       referral_welcome_id?: string;
       redeem_referral_id?: string;
+      /** Auth-at-booking: set by the fee-auth webhook — an uncaptured hold
+       *  exists on stripe_payment_intent_id, waiting for this accept. */
+      fee_authorized_at?: string;
     };
     const directPay = bookingData.direct_pay === true;
     const coverCents = directPay ? Math.max(0, Number(bookingData.cover_cents) || 0) : 0;
@@ -276,6 +280,78 @@ serve(async (req) => {
         .eq('id', booking_id).is('paid_at', null);
       (booking as { paid_at?: string | null }).paid_at = paidIso;
       feeFree = true;
+    }
+
+    // ── Auth-at-booking: CAPTURE the fee hold minted at booking ───────────
+    // The card was authorized (manual capture) when the booking was placed;
+    // a helper just accepted, so take the reserved fee NOW. Success = the
+    // booking confirms instantly — no pay link, no second ask. Failure
+    // (hold lapsed ~7d, card died) falls through to the classic pay-link
+    // block below — the existing remind-unpaid machinery is the designed
+    // fallback — and the dead hold is cancelled only AFTER the new session
+    // has overwritten the row, so a stray release event can't match it.
+    let feeCaptured = false;
+    let captureFailedHoldId: string | null = null;
+    {
+      const heldIntentId = String(booking.stripe_payment_intent_id ?? '').trim();
+      if (
+        directPay && !booking.paid_at && chargeCents > 0 && STRIPE_SECRET_KEY &&
+        heldIntentId.startsWith('pi_') && bookingData.fee_authorized_at
+      ) {
+        try {
+          const apiBase = (Deno.env.get('STRIPE_API_BASE') ?? 'https://api.stripe.com').replace(/\/$/, '');
+          const capResp = await fetch(`${apiBase}/v1/payment_intents/${heldIntentId}/capture`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              // Replays (webhook regenerate loop, double accept-notify) must
+              // never double-capture.
+              'Idempotency-Key': `vano_fee_capture_${booking_id}`,
+            },
+            body: '',
+          });
+          const capText = capResp.ok ? '' : (await capResp.text().catch(() => '')).slice(0, 400);
+          const alreadyCaptured = !capResp.ok && /already been captured|succeeded/i.test(capText);
+          if (capResp.ok || alreadyCaptured) {
+            const paidIso = new Date().toISOString();
+            await supabase.from('household_bookings')
+              .update({ paid_at: paidIso })
+              .eq('id', booking_id).is('paid_at', null);
+            (booking as { paid_at?: string | null }).paid_at = paidIso;
+            feeCaptured = true;
+            // Referral settlement — the webhook only settles session-metadata
+            // referrals, and a capture fires no session event, so settle from
+            // the booking_data ids here (CAS-guarded: replays are no-ops).
+            try {
+              if (bookingData.referral_welcome_id) {
+                await supabase.from('household_referrals')
+                  .update({ status: 'earned', earned_at: paidIso })
+                  .eq('id', bookingData.referral_welcome_id)
+                  .eq('status', 'pending');
+              }
+              if (bookingData.redeem_referral_id) {
+                await supabase.from('household_referrals')
+                  .update({ status: 'redeemed', redeemed_at: paidIso, redeemed_booking_id: booking_id })
+                  .eq('id', bookingData.redeem_referral_id)
+                  .eq('status', 'earned');
+              }
+            } catch (e) {
+              console.warn('[notify-household-accepted] capture-time referral settle failed (non-fatal)', e);
+            }
+          } else {
+            console.warn('[notify-household-accepted] fee capture failed — falling back to pay link', capResp.status, capText);
+            captureFailedHoldId = heldIntentId;
+            await supabase.rpc('merge_booking_data', {
+              p_id: booking_id,
+              p_patch: { fee_capture_failed_at: new Date().toISOString(), fee_capture_fail_reason: capText.slice(0, 160) || `HTTP ${capResp.status}` },
+            }).then(() => {}, () => {});
+          }
+        } catch (e) {
+          console.warn('[notify-household-accepted] fee capture threw — falling back to pay link', e);
+          captureFailedHoldId = heldIntentId;
+        }
+      }
     }
 
     // ── Card on file → auto-charge (OFF until VANO_AUTO_CHARGE=1) ────────────
@@ -476,6 +552,29 @@ serve(async (req) => {
       // discount, so quoted amounts should still reflect it.
       appliedDiscountCents = reservedDiscountCents;
     }
+
+    // Capture-failure cleanup: the fallback pay-link session (if minted) has
+    // overwritten stripe_payment_intent_id with its cs_, so releasing what's
+    // left of the dead hold can't be mistaken for this booking's live money —
+    // the customer must never carry a hold AND a fresh charge for one fee.
+    if (captureFailedHoldId && STRIPE_SECRET_KEY) {
+      const released = await releaseBookingMoney({
+        stripeKey: STRIPE_SECRET_KEY,
+        action: 'cancel_pi',
+        stripeId: captureFailedHoldId,
+        idemSuffix: booking_id,
+        apiBase: Deno.env.get('STRIPE_API_BASE') ?? undefined,
+      });
+      if (released.ok) {
+        await supabase.rpc('merge_booking_data', {
+          p_id: booking_id,
+          p_patch: { fee_auth_canceled_at: new Date().toISOString() },
+        }).then(() => {}, () => {});
+      } else {
+        console.warn('[notify-household-accepted] dead-hold release failed (Stripe auto-expires holds ~7d)', released.error);
+      }
+    }
+
     totalCents = directPay ? chargeCents : priceCents + serviceFeeCents - appliedDiscountCents;
     // Direct-pay message building blocks: the fee the card pays now, and the
     // job money the customer hands the helper directly at the end.
@@ -501,9 +600,11 @@ serve(async (req) => {
               ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm with the ${feeStr} booking fee: ${payUrl} — you pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done.`
               : feeFree
                 ? `VANO: ${helperFirstName} accepted your ${catSms} — no booking fee today 🎉 You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done. Track: ${siteUrlSms}/track/${booking_id}`
-                : autoCharged
-                  ? `VANO: ${helperFirstName} accepted your ${catSms}! The ${feeStr} booking fee went on your saved card. You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when done. Track: ${siteUrlSms}/track/${booking_id}`
-                  : `VANO: ${helperFirstName} accepted your ${catSms}! You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done. Track: ${siteUrlSms}/track/${booking_id}`)
+                : feeCaptured
+                  ? `VANO: ${helperFirstName} accepted your ${catSms}! You're confirmed — the ${feeStr} fee you reserved was charged. You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done. Track: ${siteUrlSms}/track/${booking_id}`
+                  : autoCharged
+                    ? `VANO: ${helperFirstName} accepted your ${catSms}! The ${feeStr} booking fee went on your saved card. You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when done. Track: ${siteUrlSms}/track/${booking_id}`
+                    : `VANO: ${helperFirstName} accepted your ${catSms}! You pay ${helperFirstName} ${jobStr} directly${payHelperHow} when the job's done. Track: ${siteUrlSms}/track/${booking_id}`)
           : (payUrl && !booking.paid_at
               ? `VANO: ${helperFirstName} accepted your ${catSms} and is holding your slot — confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely: ${payUrl}`
               : autoCharged
@@ -581,6 +682,10 @@ serve(async (req) => {
     <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:14px 18px;margin:0 0 20px;">
       <p style="margin:0;color:#2f4f3a;font-size:14px;font-weight:600;">🎉 Your booking fee is on us this time — you're all set.</p>
     </div>` : ''}
+    ${directPay && feeCaptured ? `
+    <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:14px 18px;margin:0 0 20px;">
+      <p style="margin:0;color:#2f4f3a;font-size:14px;font-weight:600;">✓ You're confirmed — the €${(totalCents / 100).toFixed(2)} fee you reserved at booking was charged. Nothing else to pay VANO.</p>
+    </div>` : ''}
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
       You'll get another message when they're on their way — including a <strong>live map</strong> so you can track exactly where they are.
     </p>
@@ -640,7 +745,7 @@ serve(async (req) => {
             `Email: ${booking.customer_email ?? '—'}`,
             `When: ${whenLine || 'Flexible'}`,
             directPay
-              ? `Fee: ${booking.paid_at ? (feeFree ? 'WAIVED (loyalty/referral)' : 'PAID') : `UNPAID — customer asked to confirm €${(totalCents / 100).toFixed(2)} fee`} · helper is paid ${jobStr} directly by the customer`
+              ? `Fee: ${booking.paid_at ? (feeFree ? 'WAIVED (loyalty/referral)' : feeCaptured ? `CAPTURED €${(totalCents / 100).toFixed(2)} (was reserved at booking)` : 'PAID') : `UNPAID — customer asked to confirm €${(totalCents / 100).toFixed(2)} fee${captureFailedHoldId ? ' (booking-time hold could not be captured — fell back to pay link)' : ''}`} · helper is paid ${jobStr} directly by the customer`
               : `Payment: ${booking.paid_at ? 'PAID' : `UNPAID — customer asked to pay €${(totalCents / 100).toFixed(2)}`}`,
             ...(appliedDiscountCents > 0 ? [`Referral discount applied: -€${(appliedDiscountCents / 100).toFixed(2)}`] : []),
             ...(payUrl && !booking.paid_at && !payLinkUndelivered ? [`Pay link (WhatsApp it to the customer if they have no email): ${payUrl}`] : []),
@@ -651,7 +756,7 @@ serve(async (req) => {
       }).catch(() => {});
     }
 
-    return ok({ ok: true, emailed: emailedOk, sms_sent: smsSent, pay_url: payUrl });
+    return ok({ ok: true, emailed: emailedOk, sms_sent: smsSent, pay_url: payUrl, fee_captured: feeCaptured });
   } catch (err) {
     console.error('[notify-household-accepted] unhandled', err);
     return bad(500, 'Unexpected error');

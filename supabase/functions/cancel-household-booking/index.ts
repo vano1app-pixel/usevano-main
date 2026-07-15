@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
+import { resolveMoneyAction, releaseBookingMoney } from "../_shared/bookingMoney.ts";
 
 // Three cancellation modes:
 //
@@ -9,12 +10,6 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 //                         job back to 'pending' for re-dispatch, notifies customer.
 // type=admin_cancel     — auth required (vano1app@gmail.com); cancels any non-final
 //                         booking, issues Stripe refund where possible.
-
-function formEncode(obj: Record<string, string>): string {
-  return Object.entries(obj)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-}
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
@@ -71,24 +66,39 @@ serve(async (req) => {
     const custEmail = b.customer_email as string | null;
     const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job';
 
-    // Helper: issue a Stripe refund. Returns true on success.
-    async function stripeRefund(): Promise<boolean> {
-      const piId = b.stripe_payment_intent_id as string | null;
-      if (!STRIPE_SECRET || !piId?.startsWith('pi_')) return false;
-      const resp = await fetch('https://api.stripe.com/v1/refunds', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${STRIPE_SECRET}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formEncode({ payment_intent: piId }),
-      });
-      if (!resp.ok) {
-        const txt = await resp.text();
-        console.error('[cancel-household-booking] stripe refund failed', resp.status, txt.slice(0, 200));
-        return false;
+    // Helper: release whatever Stripe artifact this booking carries, via the
+    // shared rule (_shared/bookingMoney.ts): captured money → refund;
+    // AUTH-AT-BOOKING hold (pi_ + no paid_at) → cancel the PI so the hold
+    // releases (uncaptured intents cannot be refunded); open session (cs_) →
+    // expire it. helper_release deliberately does NOT call this — a hold must
+    // SURVIVE a release so the replacement helper's accept can capture it.
+    async function releaseMoney(): Promise<{ refunded: boolean; holdReleased: boolean; failedRefund: boolean }> {
+      const id = b.stripe_payment_intent_id as string | null;
+      const action = resolveMoneyAction(b.paid_at as string | null, id);
+      if (action === 'none' || !STRIPE_SECRET || !id) {
+        return { refunded: false, holdReleased: false, failedRefund: false };
       }
-      return true;
+      const res = await releaseBookingMoney({
+        stripeKey: STRIPE_SECRET,
+        action,
+        stripeId: id,
+        idemSuffix: booking_id,
+        apiBase: Deno.env.get('STRIPE_API_BASE') ?? undefined,
+      });
+      if (res.ok && res.action === 'refund') return { refunded: true, holdReleased: false, failedRefund: false };
+      if (res.ok && res.action === 'cancel_pi') {
+        await supabase.rpc('merge_booking_data', {
+          p_id: booking_id,
+          p_patch: { fee_auth_canceled_at: new Date().toISOString() },
+        }).then(() => {}, () => {});
+        return { refunded: false, holdReleased: true, failedRefund: false };
+      }
+      if (res.ok) return { refunded: false, holdReleased: false, failedRefund: false }; // expire_session
+      console.error('[cancel-household-booking] money release failed', res.action, res.error);
+      // Only a failed REFUND blocks the cancel — captured money must never be
+      // stranded. A failed hold-cancel proceeds: Stripe auto-expires holds
+      // within ~7 days, so the customer is never actually charged.
+      return { refunded: false, holdReleased: false, failedRefund: res.action === 'refund' };
     }
 
     // Helper: kill the open checkout session so a stale pay link can't be paid
@@ -107,29 +117,24 @@ serve(async (req) => {
     if (type === 'customer_cancel') {
       // Self-serve cancel is allowed right up until the helper starts the job.
       // Once it's in_progress/completed the helper is already working — those
-      // route to the manual "message us" path.
-      const CANCELLABLE = ['pending', 'accepted', 'on_way', 'arrived'];
+      // route to the manual "message us" path. awaiting_payment = the customer
+      // bailed before/at the card step — always cancellable, nothing charged.
+      const CANCELLABLE = ['awaiting_payment', 'pending', 'accepted', 'on_way', 'arrived'];
       if (!CANCELLABLE.includes(b.status as string)) {
         return bad(409, 'Your helper has already started — message us to sort out a cancellation.');
       }
 
-      const isPaid = !!b.paid_at;
-      const hasRealIntent = (b.stripe_payment_intent_id as string | null)?.startsWith('pi_') ?? false;
-
-      // If paid via a real payment intent, refund first — only cancel on success.
-      // Unpaid bookings (no paid_at, or only a checkout session id) cancel directly.
-      let refundOk = false;
-      if (isPaid && hasRealIntent) {
-        refundOk = await stripeRefund();
-        if (!refundOk) {
-          return bad(502, "We couldn't process your refund automatically. Please contact us on WhatsApp: +353 89 981 7111");
-        }
+      // Shared money rule: refund captured money (blocks on failure), cancel
+      // an auth hold (proceeds on failure — holds self-expire), expire an
+      // open session. See releaseMoney above.
+      const money = await releaseMoney();
+      if (money.failedRefund) {
+        return bad(502, "We couldn't process your refund automatically. Please contact us on WhatsApp: +353 89 981 7111");
       }
+      const refundOk = money.refunded;
 
       await supabase.from('household_bookings').update({ status: 'cancelled' }).eq('id', booking_id);
       await supabase.from('household_job_updates').insert({ booking_id, status: 'cancelled', note: 'Customer cancelled.' });
-      // Kill the pay link so it can't be paid against this cancelled booking.
-      expireCheckoutSession();
 
       // If a helper was assigned, notify them so their live-subscribed screen
       // and pocket are updated. 'cancelled' isn't a valid push status, so this
@@ -170,13 +175,13 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> booking has been cancelled.${refundOk ? ' A full refund has been issued and should appear on your card within 5–7 business days.' : ' You weren\'t charged.'}</p>
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> booking has been cancelled.${refundOk ? ' A full refund has been issued and should appear on your card within 5–7 business days.' : money.holdReleased ? ' The hold on your card has been released — you were never charged.' : ' You weren\'t charged.'}</p>
     <p style="margin:0 0 0;color:#374151;font-size:15px;">Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${custName}, your VANO ${catLabel} (${ref}) has been cancelled.${refundOk ? ' Full refund issued (5–7 days).' : " You weren't charged."} Questions? WhatsApp +353 89 981 7111`,
+            text: `Hi ${custName}, your VANO ${catLabel} (${ref}) has been cancelled.${refundOk ? ' Full refund issued (5–7 days).' : money.holdReleased ? ' The hold on your card was released — you were never charged.' : " You weren't charged."} Questions? WhatsApp +353 89 981 7111`,
           }),
         }).catch(() => {});
       }
@@ -188,12 +193,12 @@ serve(async (req) => {
           body: JSON.stringify({
             from, to: [adminEmail],
             subject: `❌ Customer cancelled — ${ref}`,
-            text: `Customer cancelled booking ${ref}.\nJob: ${catLabel}\nCustomer: ${custName} (${custEmail ?? '—'})\nRefund: ${refundOk ? 'Issued' : 'None (no PI)'}\nID: ${booking_id}`,
+            text: `Customer cancelled booking ${ref}.\nJob: ${catLabel}\nCustomer: ${custName} (${custEmail ?? '—'})\nRefund: ${refundOk ? 'Issued' : money.holdReleased ? 'Hold released (never charged)' : 'None (no PI)'}\nID: ${booking_id}`,
           }),
         }).catch(() => {});
       }
 
-      return new Response(JSON.stringify({ success: true, refunded: refundOk }), {
+      return new Response(JSON.stringify({ success: true, refunded: refundOk, hold_released: money.holdReleased }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -247,6 +252,11 @@ serve(async (req) => {
       // a fresh session, the second charge landed on an already-paid booking —
       // a silent double-charge. (Reads b.stripe_payment_intent_id, the pre-
       // update snapshot that still holds the cs_ id.)
+      // ⚠ AUTH-AT-BOOKING: this must stay cs_-ONLY (expireCheckoutSession, not
+      // releaseMoney). An uncaptured pi_ HOLD must SURVIVE a helper release —
+      // the booking goes back to pending and the NEXT acceptor's capture uses
+      // the same hold. Cancelling it here would strand every re-dispatched
+      // auth booking on the pay-link fallback.
       expireCheckoutSession();
 
       await supabase.from('household_job_updates').insert({
@@ -333,12 +343,14 @@ serve(async (req) => {
       const { data: { user }, error: userErr } = await authClient.auth.getUser();
       if (userErr || !user || user.email !== 'vano1app@gmail.com') return bad(403, 'Admin only');
 
-      const refundOk = await stripeRefund();
+      // Shared rule: refund captured money / cancel an auth hold / expire an
+      // open session. Admin cancel proceeds even when a refund fails (the
+      // admin is watching and the email below says what happened).
+      const money = await releaseMoney();
+      const refundOk = money.refunded;
 
       await supabase.from('household_bookings').update({ status: 'cancelled' }).eq('id', booking_id);
       await supabase.from('household_job_updates').insert({ booking_id, status: 'cancelled', note: 'Cancelled by admin.' });
-      // Kill any open pay link so it can't be paid against this cancelled booking.
-      expireCheckoutSession();
 
       if (resendKey && custEmail) {
         fetch('https://api.resend.com/emails', {
@@ -354,18 +366,18 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">We've had to cancel your <strong>${catLabel}</strong> booking. ${refundOk ? 'A full refund has been issued and should appear within 5–7 business days.' : 'Please contact us and we will arrange your refund.'}</p>
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">We've had to cancel your <strong>${catLabel}</strong> booking. ${refundOk ? 'A full refund has been issued and should appear within 5–7 business days.' : money.holdReleased ? 'The hold on your card has been released — you were never charged.' : b.paid_at ? 'Please contact us and we will arrange your refund.' : 'You weren\'t charged.'}</p>
     <p style="margin:0;color:#374151;font-size:15px;">Apologies for the inconvenience. WhatsApp us: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${custName}, your VANO ${catLabel} (${ref}) has been cancelled. ${refundOk ? 'Full refund issued (5–7 days).' : 'Contact us about refund.'} WhatsApp +353 89 981 7111`,
+            text: `Hi ${custName}, your VANO ${catLabel} (${ref}) has been cancelled. ${refundOk ? 'Full refund issued (5–7 days).' : money.holdReleased ? 'The hold on your card was released — you were never charged.' : b.paid_at ? 'Contact us about refund.' : "You weren't charged."} WhatsApp +353 89 981 7111`,
           }),
         }).catch(() => {});
       }
 
-      return new Response(JSON.stringify({ success: true, refunded: refundOk }), {
+      return new Response(JSON.stringify({ success: true, refunded: refundOk, hold_released: money.holdReleased }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

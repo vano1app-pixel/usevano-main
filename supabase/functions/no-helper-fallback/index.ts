@@ -1,21 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveMoneyAction, releaseBookingMoney } from "../_shared/bookingMoney.ts";
 
 // Cron: runs every 30 minutes.
 // Finds UNPAID bookings stuck in 'pending' for more than 2 hours with no
-// helper assigned, issues a full Stripe refund (if any), flips them to
+// helper assigned, releases whatever Stripe artifact they carry (an
+// AUTH-AT-BOOKING card hold is CANCELLED — uncaptured intents can't be
+// refunded; an open checkout session is expired; under classic
+// pay-after-accept there's usually nothing at all), flips them to
 // 'cancelled', and emails both the customer and admin.
 //
 // PAID bookings are deliberately excluded: when a helper releases a job it goes
 // back to pending with paid_at kept, and redispatch-stale-jobs keeps re-matching
 // it. We must never auto-cancel/refund a customer who has paid and still wants
 // the job done — that's handled by admin if it can't be re-matched.
-
-function formEncode(obj: Record<string, string>): string {
-  return Object.entries(obj)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-}
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
@@ -70,29 +68,37 @@ serve(async (_req) => {
     const custEmail = b.customer_email as string | null;
     const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job';
 
-    // Stripe refund. Under pay-after-accept these stuck-unpaid bookings
-    // normally have NO payment intent — nothing was ever charged, so there is
-    // nothing to refund and the messaging below must not claim otherwise.
+    // Release whatever Stripe artifact this unpaid booking carries (shared
+    // rule — the query filters paid_at IS NULL, so this can only be an
+    // AUTH-AT-BOOKING hold to cancel, an open session to expire, or nothing).
+    // The messaging below must say exactly what happened: an auth customer
+    // had a HOLD released (never charged); a classic customer was simply
+    // never charged at all.
     let refundOk = false;
+    let holdReleased = false;
     const piId = b.stripe_payment_intent_id as string | null;
-    const nothingCharged = !piId?.startsWith('pi_');
-    if (STRIPE_SECRET && piId?.startsWith('pi_')) {
-      try {
-        const refundResp = await fetch('https://api.stripe.com/v1/refunds', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${STRIPE_SECRET}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: formEncode({ payment_intent: piId }),
-        });
-        refundOk = refundResp.ok;
-        if (!refundOk) {
-          const txt = await refundResp.text();
-          console.error(`[no-helper-fallback] stripe refund error for ${b.id}`, refundResp.status, txt.slice(0, 200));
-        }
-      } catch (e) {
-        console.error(`[no-helper-fallback] refund exception for ${b.id}`, e);
+    const moneyAction = resolveMoneyAction(null, piId);
+    const nothingCharged = moneyAction !== 'refund'; // paid_at is null — always true here
+    if (STRIPE_SECRET && piId && moneyAction !== 'none') {
+      const released = await releaseBookingMoney({
+        stripeKey: STRIPE_SECRET,
+        action: moneyAction,
+        stripeId: piId,
+        idemSuffix: b.id as string,
+        apiBase: Deno.env.get('STRIPE_API_BASE') ?? undefined,
+      });
+      if (released.ok && released.action === 'cancel_pi') {
+        holdReleased = true;
+        await supabase.rpc('merge_booking_data', {
+          p_id: b.id,
+          p_patch: { fee_auth_canceled_at: new Date().toISOString() },
+        }).then(() => {}, () => {});
+      } else if (released.ok && released.action === 'refund') {
+        // Cross-fallback: the hold was captured in a race — real money came
+        // back, tell the customer a refund happened.
+        refundOk = true;
+      } else if (!released.ok) {
+        console.error(`[no-helper-fallback] money release failed for ${b.id}`, released.action, released.error);
       }
     }
 
@@ -134,14 +140,14 @@ serve(async (_req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">We're really sorry — we weren't able to find an available helper for your <strong>${catLabel}</strong> in time. Your booking has been cancelled.</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${nothingCharged ? "<strong>You haven't been charged anything</strong> — no payment was ever taken for this booking." : refundOk ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.' : 'Please contact us and we will arrange your refund immediately.'}</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${refundOk ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.' : holdReleased ? '<strong>The hold on your card has been released</strong> — you were never charged.' : "<strong>You haven't been charged anything</strong> — no payment was ever taken for this booking."}</p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;">Want to try again? <a href="${siteUrl}" style="color:#4a7c59;font-weight:600;">Book here</a></p>
     <p style="margin:0;color:#374151;font-size:15px;">Or message us on WhatsApp: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
 </div>
 </body></html>`,
-          text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${nothingCharged ? "You haven't been charged anything." : refundOk ? 'Full refund issued (5–7 days).' : 'Contact us about refund.'} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
+          text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${refundOk ? 'Full refund issued (5–7 days).' : holdReleased ? 'The hold on your card was released — you were never charged.' : "You haven't been charged anything."} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
         }),
       }).catch(() => {});
     }
@@ -158,7 +164,7 @@ serve(async (_req) => {
             `Job: ${catLabel}`,
             `Customer: ${custName} (${custEmail ?? '—'})`,
             `City: ${b.city ?? '?'}`,
-            `Refund: ${nothingCharged ? 'n/a — never charged (pay-after-accept)' : refundOk ? 'Issued' : 'FAILED — check manually'}`,
+            `Money: ${refundOk ? 'refund issued (hold was captured in a race)' : holdReleased ? 'card hold released (never charged)' : nothingCharged ? 'n/a — never charged' : 'CHECK MANUALLY'}`,
             `ID: ${b.id}`,
           ].join('\n'),
         }),

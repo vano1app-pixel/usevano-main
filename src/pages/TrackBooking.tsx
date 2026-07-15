@@ -72,6 +72,9 @@ interface Booking {
     helper_payment_handle?: string | null;
     /** Set by the helper's confirm_paid / report_unpaid review. */
     paid_to_helper?: boolean;
+    /** AUTH-AT-BOOKING: fee reserved (held) at booking, captured at accept. */
+    fee_auth_required?: boolean;
+    fee_authorized_at?: string;
   } | null;
   created_at: string;
 }
@@ -86,6 +89,47 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const out = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
   return out;
+}
+
+// Normalize whatever the helper pasted into payment_handle — "@tag", "tag",
+// or a full revolut.me URL — down to the bare Revolut username. Conservative
+// on the bare form ({3,16} alnum/underscore, Revolut's username shape) so an
+// IBAN or free text never linkifies into a wrong revolut.me page.
+function revolutTag(raw: string | null | undefined): string | null {
+  const t = (raw ?? '').trim();
+  if (!t) return null;
+  const url = t.match(/^(?:https?:\/\/)?(?:www\.)?revolut\.me\/@?([a-z0-9_]{3,16})\/?(?:[?#].*)?$/i);
+  if (url) return url[1];
+  const bare = t.match(/^@?([a-z0-9_]{3,16})$/i);
+  return bare ? bare[1] : null;
+}
+
+// Desktop-only QR of the prefilled Revolut link — the customer scans with
+// their phone and Revolut opens with recipient + amount ready. Lazy on
+// purpose: the qrcode module only loads on viewports wide enough to show it
+// (on a phone the pay button IS the path — a QR there is noise).
+function RevolutQr({ href }: { href: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia('(min-width: 1024px)').matches) return;
+    let alive = true;
+    import('qrcode')
+      .then((QR) => QR.toDataURL(href, { margin: 1, width: 216 }))
+      .then((url) => { if (alive) setSrc(url); })
+      .catch(() => { /* QR is a bonus — the button + copy chips remain */ });
+    return () => { alive = false; };
+  }, [href]);
+  if (!src) return null;
+  return (
+    <div className="hidden lg:flex flex-col items-center gap-1.5 flex-shrink-0">
+      <img
+        src={src}
+        alt="Scan with your phone to pay in Revolut"
+        className="w-[108px] h-[108px] rounded-lg border border-border bg-white p-1"
+      />
+      <p className="text-[10px] text-muted-foreground">Scan with your phone</p>
+    </div>
+  );
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -431,6 +475,9 @@ const TrackBooking = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const justPaid = searchParams.get('paid') === 'true';
+  // AUTH-AT-BOOKING: Stripe's success URL for the booking-time hold. The card
+  // was RESERVED, not charged — the banner must say so, not "payment confirmed".
+  const justAuthorized = searchParams.get('authorized') === 'true' && !justPaid;
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [updates, setUpdates] = useState<JobUpdate[]>([]);
@@ -445,6 +492,8 @@ const TrackBooking = () => {
   } | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  // Pay-the-helper card: which copy chip just flashed "Copied ✓"
+  const [copiedChip, setCopiedChip] = useState<'amount' | 'tag' | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
@@ -1058,6 +1107,44 @@ const TrackBooking = () => {
           )}
         </AnimatePresence>
 
+        {/* Card-secured banner (AUTH-AT-BOOKING). Reached from the hold's
+            success URL — before any helper exists, so the copy is "finding
+            your helper", never "confirmed". Restricted to the searching
+            states: once a helper accepts, the capture messages own the story
+            (and paid_at kills it entirely). */}
+        <AnimatePresence>
+          {justAuthorized && booking && !booking.paid_at
+            && (booking.status === 'awaiting_payment' || booking.status === 'pending') && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+              className="mt-6 bg-sage-light border border-sage/30 rounded-2xl px-5 py-4 flex items-start gap-3"
+            >
+              <motion.span
+                initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 15, delay: 0.12 }}
+                className="mt-0.5 flex-shrink-0"
+              >
+                <CheckCircle2 className="w-6 h-6 text-sage" />
+              </motion.span>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground text-sm">Card secured 🎉 — finding your helper</p>
+                <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
+                  Your fee is reserved, not charged — the charge only happens when a helper accepts. Nothing to do now: watch below, we'll text you the moment someone's confirmed.
+                </p>
+                {bookingId && (
+                  <p className="text-muted-foreground text-xs mt-2 font-mono tracking-wide">
+                    Ref: {bookingId.slice(-8).toUpperCase()}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Booking summary card — the anchor of the page. Job first (the same
             emoji tile the customer tapped to book), when underneath, price on
             the right. A floating white card on the cream base, rising in as
@@ -1226,14 +1313,45 @@ const TrackBooking = () => {
           </motion.div>
         )}
 
+        {/* Finish-securing card (AUTH-AT-BOOKING): the customer bounced off the
+            Stripe card step — the booking is parked in awaiting_payment and
+            nothing dispatches until the hold lands. The session URL on the row
+            is the SAME session (Stripe re-opens it), so one tap resumes where
+            they left off. The link dies at 60 min; the expiry webhook/sweep
+            then quiet-cancels, so this card can't outlive its link by much. */}
+        {booking.status === 'awaiting_payment' && booking.stripe_checkout_url && !booking.paid_at && !isCancelled && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 rounded-2xl border-2 border-gold/50 bg-amber-50/70 p-5"
+          >
+            <p className="font-bold text-foreground text-sm">One tap left — secure your booking</p>
+            <p className="text-foreground/70 text-[13px] mt-1 leading-relaxed">
+              Your booking isn't live yet. Pop your card in (~30 seconds) and we start pinging helpers — <span className="font-semibold text-foreground">you're only charged when someone accepts</span>{(booking.booking_data?.fee_due_cents ?? 0) > 0 ? <>; this just reserves the €{((booking.booking_data?.fee_due_cents ?? 0) / 100).toFixed(2)} fee</> : null}.
+            </p>
+            <a
+              href={booking.stripe_checkout_url}
+              className="mt-3 w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-[opacity,transform] duration-150"
+            >
+              Finish securing{(booking.booking_data?.fee_due_cents ?? 0) > 0 ? ` — €${((booking.booking_data?.fee_due_cents ?? 0) / 100).toFixed(2)}` : ''} →
+            </a>
+            <p className="text-center text-xs text-muted-foreground mt-2">
+              Apple Pay, Google Pay or card · secured by Stripe · link expires ~1 hour after booking
+            </p>
+          </motion.div>
+        )}
+
         {/* Pay-after-accept: a helper is confirmed but the booking is unpaid.
             The email/WhatsApp pay link doesn't reach phone-only customers
             reliably — this card is the always-works path, updating live the
             moment notify-household-accepted stores the checkout URL. */}
         {/* status must be past 'pending': a released helper drops the booking back
             to searching but the old checkout URL survives on the row — showing
-            "Helper confirmed — secure your booking" then would be a lie. */}
-        {booking.stripe_checkout_url && !booking.paid_at && !isCancelled && !isCompleted && booking.status !== 'pending' && (
+            "Helper confirmed — secure your booking" then would be a lie. Same
+            for 'awaiting_payment' (AUTH-AT-BOOKING): its URL is the booking-time
+            hold session and no helper exists yet — the card above owns that state. */}
+        {booking.stripe_checkout_url && !booking.paid_at && !isCancelled && !isCompleted && booking.status !== 'pending' && booking.status !== 'awaiting_payment' && (
           <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1637,8 +1755,9 @@ const TrackBooking = () => {
                 </div>
               </div>
 
-              {/* Customer cancel */}
-              {booking.status === 'pending' && (
+              {/* Customer cancel — awaiting_payment cancels free too (the hold,
+                  if one landed, is released server-side; usually nothing exists yet) */}
+              {(booking.status === 'pending' || booking.status === 'awaiting_payment') && (
                 <div className="mt-3">
                   {!cancelConfirm ? (
                     <button
@@ -1662,6 +1781,8 @@ const TrackBooking = () => {
                       <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
                         {booking.paid_at
                           ? "You'll receive a full refund within 5–7 business days."
+                          : booking.booking_data?.fee_auth_required
+                          ? "You haven't been charged — any hold on your card is released straight away."
                           : "You haven't been charged — cancelling now is free."}
                       </p>
                       <div className="flex gap-2">
@@ -1916,17 +2037,27 @@ const TrackBooking = () => {
 
         {/* Direct-pay: the "pay your helper" moment. Appears once the work is
             underway/done and flips to a paid tick when the helper confirms.
-            Vano never holds this money — it goes straight to the student. */}
+            Vano never holds this money — it goes straight to the student.
+            REVOLUT-FIRST (owner's call): one big button opens Revolut with the
+            recipient AND amount pre-filled via the request-link shape
+            revolut.me/<tag>/<amount> — the same URLs Revolut's own "request
+            money" flow mints. If an account ignores the amount suffix it still
+            opens the helper's profile (old behaviour), and the huge amount +
+            copy chips are the backup. OWNER-VERIFY: tap one of these links
+            against your own tag once; if the amount doesn't prefill, drop the
+            `/${amountStr}` suffix below (one-line revert). */}
         {booking.booking_data?.direct_pay === true && ['in_progress', 'completed'].includes(booking.status) && !isCancelled && (() => {
           const bd = booking.booking_data ?? {};
           const owed = booking.price_estimate_cents ?? bd.job_price_cents ?? 0;
           const name = helperName || bd.helper_first_name || 'your helper';
-          const handle = (bd.helper_payment_handle ?? '').trim();
-          const revolutHref = handle
-            ? (handle.startsWith('@')
-                ? `https://revolut.me/${handle.slice(1)}`
-                : /^[a-z0-9_]+$/i.test(handle) ? `https://revolut.me/${handle}` : null)
-            : null;
+          const tag = revolutTag(bd.helper_payment_handle);
+          const amountStr = (owed / 100).toFixed(2).replace(/\.00$/, '');
+          const revolutHref = tag ? `https://revolut.me/${tag}/${amountStr}` : null;
+          const copyChip = (chip: 'amount' | 'tag', text: string) => {
+            void navigator.clipboard?.writeText(text).catch(() => {});
+            setCopiedChip(chip);
+            window.setTimeout(() => setCopiedChip((c) => (c === chip ? null : c)), 1600);
+          };
           if (bd.paid_to_helper === true) {
             return (
               <div className="mt-4 rounded-2xl border border-sage/30 bg-sage-light px-4 py-3 flex items-center gap-2.5">
@@ -1941,31 +2072,53 @@ const TrackBooking = () => {
               animate={{ opacity: 1, y: 0 }}
               className="mt-4 rounded-2xl border-2 border-gold/50 bg-amber-50/70 p-5"
             >
-              <p className="font-bold text-foreground text-sm">
-                {booking.status === 'completed' ? `Pay ${name} — €${(owed / 100).toFixed(2)}` : `When the job's done: pay ${name} €${(owed / 100).toFixed(2)}`}
-              </p>
-              <p className="text-[13px] text-foreground/70 mt-1 leading-relaxed">
-                You pay {name} directly — they keep 100%. Revolut{handle ? '' : ' or cash'} is easiest{handle ? ` (their tag is below), or cash is grand too` : ''}.
-              </p>
-              {handle && (
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="flex-1 min-w-0 rounded-xl bg-white border border-border px-3 py-2.5 text-sm font-mono text-foreground/80 truncate select-all">
-                    {handle}
-                  </span>
-                  {revolutHref && (
-                    <a
-                      href={revolutHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="h-10 px-4 rounded-xl bg-navy text-white text-sm font-semibold flex items-center flex-shrink-0 hover:opacity-90 active:scale-95 transition-[opacity,transform] duration-150"
-                    >
-                      Open Revolut →
-                    </a>
-                  )}
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-foreground/70">
+                    {booking.status === 'completed' ? `Job done — time to pay ${name}` : `When the job's done, pay ${name}`}
+                  </p>
+                  <p className="mt-1.5 text-[34px] leading-none font-bold text-foreground tabular-nums">
+                    €{(owed / 100).toFixed(2)}
+                  </p>
+                  <p className="mt-2 text-[13px] text-foreground/70 leading-relaxed">
+                    Straight to {name} — they keep 100%.{' '}
+                    {revolutHref
+                      ? 'One tap opens Revolut with everything filled in.'
+                      : `Revolut or cash in hand — ask ${name} for their tag.`}
+                  </p>
                 </div>
+                {revolutHref && <RevolutQr href={revolutHref} />}
+              </div>
+              {revolutHref && (
+                <a
+                  href={revolutHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 w-full h-[52px] rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-[opacity,transform] duration-150"
+                >
+                  Pay {name} €{amountStr} in Revolut →
+                </a>
               )}
+              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => copyChip('amount', (owed / 100).toFixed(2))}
+                  className="h-9 px-3.5 rounded-full border border-border bg-white text-xs font-semibold text-foreground/80 inline-flex items-center gap-1.5 active:scale-95 transition-transform"
+                >
+                  {copiedChip === 'amount' ? '✓ Copied' : 'Copy amount'}
+                </button>
+                {tag && (
+                  <button
+                    type="button"
+                    onClick={() => copyChip('tag', `@${tag}`)}
+                    className="h-9 px-3.5 rounded-full border border-border bg-white text-xs font-semibold text-foreground/80 inline-flex items-center gap-1.5 active:scale-95 transition-transform"
+                  >
+                    {copiedChip === 'tag' ? '✓ Copied' : `Copy @${tag}`}
+                  </button>
+                )}
+              </div>
               <p className="text-[11px] text-muted-foreground mt-2.5">
-                {name} will confirm once they've received it — that wraps the job up for both of you.
+                Or cash in hand is grand too. {name} will confirm once they've received it — that wraps the job up for both of you.
               </p>
             </motion.div>
           );
