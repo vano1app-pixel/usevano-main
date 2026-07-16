@@ -32,61 +32,61 @@ export const HeroSection: React.FC = () => {
     : 'Same-day help in Galway';
 
   return (
-    <section id="book" data-snap className="relative bg-navy px-4 pt-14 sm:pt-16 pb-[11vh] sm:pb-[16vh] flex flex-col justify-center min-h-[100svh]">
+    // LIGHT hero (July 2026): the paying customer is the 35+ Galway homeowner
+    // — the Airbnb-light treatment (warm cream, big dark type, white cards)
+    // reads "trusted home service", where the old navy band read "tech app".
+    // Navy stays the anchor colour mid-page (podium, closing CTA, footer).
+    <section id="book" data-snap className="relative bg-cream px-4 pt-14 sm:pt-16 pb-[11vh] sm:pb-[10vh] flex flex-col justify-center min-h-[100svh]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
-        {/* Soft seam (mobile only — desktop keeps the crisp edge for the
-            ScrollCue): the navy hero melts down into the cream content that
-            follows, so scrolling out of the hero isn't a hard colour cut. */}
-        <div className="lg:hidden pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-cream" aria-hidden="true" />
+        <div className="grain pointer-events-none absolute inset-0 opacity-[0.05]" aria-hidden="true" />
         <motion.div
           className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full"
-          style={{ background: 'radial-gradient(circle, hsl(43 90% 60% / 0.35) 0%, transparent 70%)' }}
-          initial={{ opacity: 0.16, scale: 1 }}
-          animate={{ opacity: [0.16, 0.26, 0.16], scale: [1, 1.08, 1] }}
+          style={{ background: 'radial-gradient(circle, hsl(43 90% 60% / 0.22) 0%, transparent 70%)' }}
+          initial={{ opacity: 0.5, scale: 1 }}
+          animate={{ opacity: [0.5, 0.75, 0.5], scale: [1, 1.08, 1] }}
           transition={{ duration: 9, ease: 'easeInOut', repeat: Infinity }}
           aria-hidden="true"
         />
         <motion.div
           className="pointer-events-none absolute -bottom-40 -right-32 w-[560px] h-[560px] rounded-full"
-          style={{ background: 'radial-gradient(circle, hsl(119 23% 55% / 0.28) 0%, transparent 70%)' }}
-          initial={{ opacity: 0.12, scale: 1.05 }}
-          animate={{ opacity: [0.12, 0.2, 0.12], scale: [1.05, 1, 1.05] }}
+          style={{ background: 'radial-gradient(circle, hsl(119 23% 55% / 0.18) 0%, transparent 70%)' }}
+          initial={{ opacity: 0.4, scale: 1.05 }}
+          animate={{ opacity: [0.4, 0.6, 0.4], scale: [1.05, 1, 1.05] }}
           transition={{ duration: 11, ease: 'easeInOut', repeat: Infinity, delay: 1.5 }}
           aria-hidden="true"
         />
       </div>
 
-      <div className="relative mx-auto w-full max-w-2xl text-center">
+      <div className="relative mx-auto w-full max-w-5xl text-center">
 
         <div className="flex justify-center">
           <ReferralWelcomeBanner />
         </div>
 
-        {/* Two stacked centered rows: (1) the trust-badges row — Trustpilot now,
-            room to grow with Yelp/Google as they come online; (2) the live
-            "helpers online" number on its own centered row directly beneath. */}
+        {/* One centered row of trust chips — Trustpilot + the live "helpers
+            online" count side by side (they used to stack; one line saves
+            height so the whole hero fits a desktop viewport). */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-3 sm:mb-10 flex flex-col items-center gap-2 sm:gap-2.5"
+          className="mb-4 sm:mb-8 flex flex-row flex-wrap items-center justify-center gap-2"
         >
           <ReviewBadges inline />
           {!helperReady ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3 py-1.5 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)]">
-              <span className="w-2 h-2 rounded-full bg-white/20 flex-shrink-0" aria-hidden="true" />
-              <span className="w-28 h-3 rounded-full bg-white/10 relative overflow-hidden">
-                <span className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3 py-1.5 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-foreground/15 flex-shrink-0" aria-hidden="true" />
+              <span className="w-28 h-3 rounded-full bg-secondary relative overflow-hidden">
+                <span className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-foreground/10 to-transparent" />
               </span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3 py-1.5 text-xs font-medium text-white/85 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3 py-1.5 text-xs font-medium text-foreground/80 shadow-sm">
               <span className="relative flex h-2 w-2 flex-shrink-0" aria-hidden="true">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-50 animate-ping" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
               </span>
-              <span className="text-white/80 tracking-wide whitespace-nowrap">{presenceLabel}</span>
+              <span className="tracking-wide whitespace-nowrap">{presenceLabel}</span>
             </span>
           )}
         </motion.div>
@@ -98,7 +98,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="display-lg text-white text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-[2.75rem] sm:leading-[1.04] mb-2 sm:mb-3"
+          className="display-lg text-foreground text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.4rem] mb-2 sm:mb-3"
         >
           Hire a{' '}
           <span className="relative inline-block">
@@ -120,7 +120,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.14, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-4 sm:mb-7 text-[13px] sm:text-base leading-relaxed text-white/70 text-pretty"
+          className="mb-4 sm:mb-7 text-[13px] sm:text-lg leading-relaxed text-muted-foreground text-pretty"
         >
           Cleaning, laundry, garden &amp; more — same-day in Galway, from €15.
         </motion.p>
@@ -151,12 +151,12 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-3 sm:mt-6 max-w-md mx-auto text-[13px] sm:text-sm leading-relaxed text-white/70 text-pretty"
+          className="mt-3 sm:mt-6 max-w-md sm:max-w-xl mx-auto text-[13px] sm:text-sm leading-relaxed text-muted-foreground text-pretty"
         >
           You see them first
-          <span className="text-white/35 px-1.5">·</span>
+          <span className="text-foreground/25 px-1.5">·</span>
           pay when it's done
-          <span className="text-white/35 px-1.5">·</span>
+          <span className="text-foreground/25 px-1.5">·</span>
           money-back guarantee
         </motion.p>
 
@@ -170,14 +170,14 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-2 text-[13px] font-semibold text-[#7fe0a5] hover:bg-[#25D366]/20 transition-colors"
+          className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/40 bg-[#25D366]/8 px-4 py-2 text-[13px] font-semibold text-[#128a45] hover:bg-[#25D366]/15 transition-colors"
         >
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
           Or book on WhatsApp — a person sorts it in minutes
         </motion.a>
       </div>
 
-      <ScrollCue tone="light" delay={1.2} />
+      <ScrollCue tone="dark" delay={1.2} />
     </section>
   );
 };

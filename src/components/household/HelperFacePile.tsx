@@ -86,16 +86,16 @@ export const HelperFacePile: React.FC = () => {
               src={f.photo_url}
               alt=""
               loading="lazy"
-              className="w-8 h-8 rounded-full object-cover object-[center_20%] ring-2 ring-navy bg-navy transition-transform duration-200 group-hover:-translate-y-0.5"
+              className="w-8 h-8 rounded-full object-cover object-[center_20%] ring-2 ring-cream bg-secondary transition-transform duration-200 group-hover:-translate-y-0.5"
             />
           ))}
         </div>
-        <span className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-medium text-white/70 group-hover:text-white/90 transition-colors">
+        <span className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
           {/* Shield only when the claim is actually "ID-verified" — a MapPin
               otherwise, so the icon never implies verification we don't have. */}
           {verified
-            ? <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
-            : <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />}
+            ? <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" aria-hidden="true" />
+            : <MapPin className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" aria-hidden="true" />}
           {label}
         </span>
       </a>

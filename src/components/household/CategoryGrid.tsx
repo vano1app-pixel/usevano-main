@@ -940,7 +940,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         dragElastic={{ top: 0, bottom: 0.6 }}
         dragSnapToOrigin
         onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
-        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl flex flex-col overflow-hidden"
+        className={cn(
+          'fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:bottom-6 sm:rounded-3xl flex flex-col overflow-hidden',
+          // Desktop: the form page goes two-column (details | price) so the
+          // whole booking fits one screen with no scrolling; the wizard's
+          // pick page stays a comfortable single column. Width animates
+          // between the two so the page handoff reads as one motion.
+          'sm:transition-[max-width] sm:duration-300 sm:ease-out',
+          step === 'form' ? 'sm:max-w-[780px]' : 'sm:max-w-[460px]',
+        )}
         style={{ maxHeight: '88vh' }}
         role="dialog"
         aria-modal="true"
@@ -1164,6 +1172,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             animate="show"
             exit="exit"
           >
+            {/* Desktop = two columns (who/when/where | the money), so the whole
+                booking sits on one screen with zero scrolling. Mobile keeps the
+                single top-to-bottom column. */}
+            <div className="space-y-5 sm:grid sm:grid-cols-2 sm:items-start sm:gap-x-6 sm:space-y-0">
+            <div className="space-y-5">
             {/* Returning customer → one-tap confirm: the "welcome back" strip
                 and the remembered phone + address live in ONE card (they used
                 to be two stacked rows — the sheet reads shorter this way).
@@ -1365,6 +1378,24 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               </AnimatePresence>
             </motion.div>
 
+            {/* Desktop only: the legal lines live at the foot of the LEFT
+                column (the mobile copies below carry them on phones), so the
+                two columns end near the same height and nothing scrolls. */}
+            <div className="hidden sm:block space-y-2.5 pt-1">
+              <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
+                Booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
+              </motion.p>
+              <motion.p variants={listItem} className="text-center text-[11px] leading-relaxed text-muted-foreground">
+                By booking you agree to VANO's{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                {' '}— your helper is an independent provider you pay directly, and{' '}
+                <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+                {' '}is there if you add it.
+              </motion.p>
+            </div>
+            </div>
+
+            <div className="space-y-5">
             {/* Price card — the maths reads top to bottom: job → fee → optional
                 €2 Cover → what actually lands on the card. The Cover opt-in
                 lives IN the breakdown, so ticking it visibly rolls the total
@@ -1468,16 +1499,20 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               )}
             </motion.div>
 
+            </div>
+            </div>
+
             {/* One fact each — "only charged at accept" + the money-back
                 guarantee already live on the price card and the docked bar,
-                so this line only carries what they don't. */}
-            <motion.p variants={listItem} className="text-center text-[13px] leading-relaxed text-muted-foreground">
+                so this line only carries what they don't. (Phones only — the
+                desktop two-column layout carries these in the left column.) */}
+            <motion.p variants={listItem} className="sm:hidden text-center text-[13px] leading-relaxed text-muted-foreground">
               Booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
             </motion.p>
             {/* Contract moment: the Terms (incl. "your helper is an independent
                 provider, VANO is the platform") must be incorporated at the
                 point of sale, not just linked in the footer. */}
-            <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
+            <motion.p variants={listItem} className="sm:hidden text-center text-xs leading-relaxed text-muted-foreground">
               By booking you agree to VANO's{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
               {' '}— your helper is an independent provider you pay directly, and{' '}
@@ -1533,7 +1568,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             className={cn(
-              'relative overflow-hidden rounded-full transition-shadow duration-300',
+              // Capped on desktop — a pill stretched across the whole
+              // two-column sheet reads as a banner, not a button.
+              'relative overflow-hidden rounded-full transition-shadow duration-300 sm:max-w-[480px] sm:mx-auto',
               // The glow only lights up once the form is genuinely ready to
               // submit (valid phone + an address), so it's a truthful "ready"
               // cue rather than lighting up on the first digit.
@@ -1702,7 +1739,7 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <>
-      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl scroll-mt-24">
+      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl sm:max-w-5xl scroll-mt-24">
         {/* ── The tap tiles — the one front door ──────────────────────────────
             One tap opens the booking sheet: page 1 "what kind?" (sub-services
             from the vetted catalogue), page 2 phone/address/when → book. */}
@@ -1714,7 +1751,7 @@ export const CategoryGrid: React.FC = () => {
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             whileTap={{ scale: 0.98 }}
             onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, direct: true }); }}
-            className="tile-float mb-2.5 flex w-full items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="tile-float mb-2.5 flex w-full sm:max-w-xl sm:mx-auto items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
             <span className="flex-1 min-w-0">
@@ -1731,7 +1768,10 @@ export const CategoryGrid: React.FC = () => {
         <motion.div
           role="group"
           aria-label="Book a service in one tap"
-          className="grid grid-cols-3 gap-2 sm:gap-3"
+          // Phones: the tight 3×2 grid. Desktop: ONE Airbnb-style row of six,
+          // so the whole hero (heading → tiles → reassurance) fits a laptop
+          // viewport with no scrolling.
+          className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3"
           initial="hidden"
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
@@ -1775,7 +1815,10 @@ export const CategoryGrid: React.FC = () => {
             transition={{ type: 'spring', stiffness: 420, damping: 26 }}
             onClick={() => { haptic(10); track('hero_search_open'); openSheet(CUSTOM_TILE); }}
             aria-label="Anything else — describe any job"
-            className="relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/20 bg-white/[0.08] px-1.5 py-2.5 sm:py-5 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            // The one NAVY tile on the light hero — the brand colour marks the
+            // special "ask for anything" door (it was glass-on-navy before the
+            // hero went light).
+            className="tile-float relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-navy bg-navy px-1.5 py-2.5 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">✨</span>
             <span className="mt-1.5 text-[13px] sm:text-base font-bold text-white leading-tight">Anything else</span>
