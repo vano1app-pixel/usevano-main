@@ -43,7 +43,10 @@ export const HouseholdFooter: React.FC = () => {
       <div className="relative max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8 mb-10">
           <Link to="/home" className="inline-block">
-            <img src={logo} alt="VANO" className="h-7 w-auto" style={{ filter: 'brightness(0) invert(1)' }} />
+            {/* No white-out filter: brightness(0) invert(1) turned the whole
+                mark into a blank white square. The real logo reads fine on
+                navy — it's the same asset the dark hero nav uses. */}
+            <img src={logo} alt="VANO" className="h-7 w-auto" />
           </Link>
 
           <nav aria-label="Footer navigation">
