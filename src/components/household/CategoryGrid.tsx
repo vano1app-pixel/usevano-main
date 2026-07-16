@@ -452,13 +452,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   }, [isDescribe, step, describeQuery]);
 
   const [when,     setWhen]    = useState('Now');
-  // When + duration collapse to a single "ASAP · change" line by default —
-  // most people want it now, so we don't make them wade through time chips.
-  const [showWhen, setShowWhen] = useState(false);
-  // Area also collapses to a compact line — Galway is the only live area and
-  // it's usually auto-detected from the address, so the city chips are tucked
-  // behind "Change".
-  const [showArea, setShowArea] = useState(false);
+  // When + duration + area collapse to ONE "ASAP · 2 hours · Galway" line by
+  // default — most people want it now, in the detected area, so the chips
+  // (time, book-ahead, duration, city) all live behind a single "Change".
+  // One row instead of two is part of the one-screen budget.
+  const [showOptions, setShowOptions] = useState(false);
   // Returning customers see their remembered phone + address as a read-only
   // summary (a one-tap confirm), not the full form. "Edit" reveals the fields.
   const [editDetails, setEditDetails] = useState(false);
@@ -733,7 +731,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           Time + duration below are pre-picked, so number + address is
           all a new visitor has to type. */}
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-1.5 flex items-center gap-1.5">
           Your phone
           <AnimatePresence>
             {phoneValid && (
@@ -756,16 +754,18 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           autoCorrect="off"
           required
           className={cn(
-            'w-full rounded-xl border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
+            'w-full rounded-xl border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
             phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
           )}
         />
-        <p className="text-xs leading-relaxed text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
+        {/* One line on purpose (one-screen budget). Non-Irish numbers get the
+            full "+44…" guidance from the submit-time validation message. */}
+        <p className="text-xs leading-relaxed text-muted-foreground mt-1">We'll text you when someone accepts (+44… works too)</p>
       </div>
 
       {/* Address — Eircode search or current location */}
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-1.5 flex items-center gap-1.5">
           Where?
           <AnimatePresence>
             {addressValid && (
@@ -793,7 +793,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           placeholder="Address or Eircode…"
           showMapPreview={false}
         />
-        <p className="text-xs text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
+        <p className="text-xs text-muted-foreground mt-1">So your helper knows exactly where to go</p>
       </div>
     </>
   );
@@ -940,8 +940,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         dragElastic={{ top: 0, bottom: 0.6 }}
         dragSnapToOrigin
         onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
-        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl flex flex-col overflow-hidden"
-        style={{ maxHeight: '88vh' }}
+        // Height budget: 92dvh of the ACTUAL visible viewport (dvh tracks the
+        // mobile URL bar, so the sheet is never clipped behind it); 88vh is
+        // the safe fallback for browsers without dvh. The goal is the whole
+        // form on one screen — the compacted content should sit UNDER this
+        // cap on a normal phone/laptop, so the middle never has to scroll.
+        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[480px] sm:bottom-4 sm:rounded-3xl flex flex-col overflow-hidden max-h-[88vh] supports-[height:1dvh]:max-h-[92dvh]"
         role="dialog"
         aria-modal="true"
         aria-label={`Book ${cat.label}`}
@@ -949,20 +953,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         {/* Drag handle — grab and pull down to close */}
         <div
           onPointerDown={(e) => dragControls.start(e)}
-          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+          className="flex justify-center pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none"
         >
           <div className="w-10 h-1.5 rounded-full bg-foreground/20" />
         </div>
 
         {/* Scrollable middle — header + fields. The action bar below is docked
             outside this scroll area, Uber-style, so price + Book never leave
-            the screen (and stay put while the keyboard is up). */}
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-2" style={{ overscrollBehavior: 'contain' }}>
+            the screen (and stay put while the keyboard is up). The whole form
+            is budgeted to fit an ordinary phone/laptop WITHOUT scrolling —
+            keep it that way (see the one-screen note above the form). */}
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 pt-1.5" style={{ overscrollBehavior: 'contain' }}>
           {/* Header — step-aware: page 1 asks the question, page 2 names the
               picked job and (when the wizard ran) offers a way back. The emoji
               and titles are keyed on their content, so a page change replays a
               gentle pop/crossfade instead of hard-swapping the text. */}
-          <div className="flex items-start justify-between mb-5">
+          <div className="flex items-start justify-between mb-1">
             <div className="flex items-start gap-1 min-w-0">
               {/* Back — grows in from zero width so the title glides right
                   instead of being shoved when the button appears. */}
@@ -1008,22 +1014,6 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     </motion.span>
                   </h2>
                 </div>
-                <p className="text-sm text-muted-foreground ml-9">
-                  <motion.span
-                    key={step === 'pick' ? 'pick-sub' : cat.hint}
-                    className="inline-block"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.25, delay: 0.05 }}
-                  >
-                    {step === 'pick'
-                      ? (isDescribe ? 'Tap a popular job, or type your own' : 'Tap one — it takes a second')
-                      : cat.hint}
-                  </motion.span>
-                </p>
-                {step === 'form' && note && note.trim() && note.trim() !== cat.label && (
-                  <p className="text-xs text-foreground/70 ml-9 mt-1">“{note.trim()}”</p>
-                )}
               </div>
             </div>
             <button
@@ -1037,43 +1027,57 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </button>
           </div>
 
-          {/* Trust at the decision moment — one glanceable row, absorbed
-              without reading (the Airbnb trick): who's coming, what covers
-              you. The details live in /terms + /cover; this is the signal.
-              Rises in with the form page (initial={false} keeps it static when
-              the sheet opens directly on the form — it rides the sheet slide). */}
-          <AnimatePresence initial={false}>
-            {step === 'form' && (
-              <motion.div
-                key="trust-row"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: SHEET_EASE, delay: 0.15 } }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.18, ease: 'easeOut' } }}
-                className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5 overflow-hidden"
-              >
-                {[
-                  { id: 'idv',   text: 'ID-verified student' },
-                  // Live chip: ticking the €2 Cover below flips the promise
-                  // from "optional" to "added" — the sheet acknowledges it.
-                  { id: 'cover', text: coverOpted ? '€250 cover added' : 'Optional €250 cover' },
-                  { id: 'mbg',   text: 'Money-back guarantee' },
-                ].map(({ id, text }) => (
-                  <span key={id} className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-semibold text-sage-dark whitespace-nowrap">
-                    <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
+          {/* Subtitle — its own full-width row BELOW the title flex (inside
+              the flex it shared width with the close button and wrapped to
+              two lines on phones). Page 1 explains the step; page 2 IS the
+              trust row (ID-verified + the cover promise used to be a separate
+              boxed strip — folding them up here bought ~50px of the
+              one-screen budget, and the third fact, money-back, lives
+              permanently in the docked bar). The cover chip still flips live
+              to "added" when the €2 Cover below is ticked. */}
+          <div className="mb-3">
+            <p className="text-sm text-muted-foreground ml-9">
+                  {step === 'pick' ? (
                     <motion.span
-                      key={text}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      key="pick-sub"
                       className="inline-block"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.25, delay: 0.05 }}
                     >
-                      {text}
+                      {isDescribe ? 'Tap a popular job, or type your own' : 'Tap one — it takes a second'}
                     </motion.span>
-                  </span>
-                ))}
-              </motion.div>
+                  ) : (
+                    <motion.span
+                      key="form-trust"
+                      className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-0.5"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.25, delay: 0.05 }}
+                    >
+                      <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-sage-dark whitespace-nowrap">
+                        <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
+                        ID-verified student
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-sage-dark whitespace-nowrap">
+                        <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
+                        <motion.span
+                          key={coverOpted ? 'cover-on' : 'cover-off'}
+                          initial={{ opacity: 0, y: 3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.18, ease: 'easeOut' }}
+                          className="inline-block"
+                        >
+                          {coverOpted ? '€250 cover added' : 'Optional €250 cover'}
+                        </motion.span>
+                      </span>
+                    </motion.span>
+                  )}
+                </p>
+            {step === 'form' && note && note.trim() && note.trim() !== cat.label && (
+              <p className="text-xs text-foreground/70 ml-9 mt-1">“{note.trim()}”</p>
             )}
-          </AnimatePresence>
+          </div>
 
           {/* The two wizard pages hand off with a directional slide (iOS
               push/pop) instead of a hard cut — mode="wait" lets the old page
@@ -1153,12 +1157,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               </p>
             </motion.div>
           ) : (
+          /* ── Wizard page 2: the form. ONE-SCREEN BUDGET — every block here
+             is sized so the whole page (details → time/area → price → legal)
+             fits a normal phone and laptop with NO scrolling in the common
+             case. Before adding a row or fattening a padding, take the same
+             height out of something else. */
           <motion.form
             key="form-page"
             custom={navDir.current}
             id="quick-book-form"
             onSubmit={handleBook}
-            className="space-y-5"
+            className="space-y-3"
             variants={formPage}
             initial="hidden"
             animate="show"
@@ -1177,7 +1186,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   exit={{ height: 0, opacity: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
                   className="rounded-xl border border-sage/25 bg-white overflow-hidden"
                 >
-                  <div className="flex items-center justify-between gap-3 bg-sage/8 border-b border-sage/15 px-4 py-2">
+                  <div className="flex items-center justify-between gap-3 bg-sage/8 border-b border-sage/15 px-4 py-1.5">
                     <p className="text-[11px] text-foreground/70 truncate">
                       <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
                     </p>
@@ -1190,22 +1199,20 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     </button>
                   </div>
                   {/* The whole row opens the editor — a tap target the size of
-                      the card, not just the little "Edit" label. */}
+                      the card, not just the little "Edit" label. Phone +
+                      address share ONE line (one-screen budget); a long
+                      address truncates, and Edit shows it in full. */}
                   <button
                     type="button"
                     onClick={() => setEditDetails(true)}
                     aria-label="Edit your phone or address"
-                    className="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary/40"
+                    className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-secondary/40"
                   >
-                    <span className="block min-w-0 space-y-1.5">
-                      <span className="flex items-center gap-2 text-sm text-foreground">
-                        <Phone className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
-                        <span className="font-semibold truncate">{phone || 'Add your number'}</span>
-                      </span>
-                      <span className="flex items-center gap-2 text-sm text-foreground/80">
-                        <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
-                        <span className="truncate">{address || 'Add your address'}</span>
-                      </span>
+                    <span className="flex items-center gap-1.5 text-[13px] text-foreground min-w-0">
+                      <Phone className="w-3.5 h-3.5 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                      <span className="font-semibold whitespace-nowrap">{phone || 'Add your number'}</span>
+                      <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-foreground/45 ml-1" aria-hidden="true" />
+                      <span className="truncate text-foreground/80">{address || 'Add your address'}</span>
                     </span>
                     <span className="text-[11px] font-semibold text-sage-dark flex-shrink-0" aria-hidden="true">
                       Edit
@@ -1227,37 +1234,38 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   onAnimationComplete={() => setFieldsUnfolded(true)}
                   className={fieldsUnfolded ? undefined : 'overflow-hidden'}
                 >
-                  <div className="space-y-5">{detailFields}</div>
+                  <div className="space-y-3.5">{detailFields}</div>
                 </motion.div>
               ) : (
-                <motion.div key="detail-fields" variants={listItem} className="space-y-5">
+                <motion.div key="detail-fields" variants={listItem} className="space-y-3.5">
                   {detailFields}
                 </motion.div>
               )
             )}
 
-            {/* When + duration + area — ONE quiet "logistics" card, two lines
-                (they were two separate rows). ASAP · Galway is what almost
-                everyone wants, so both lines start collapsed and unfold their
-                options in place when tapped. Fewer decisions up front = a
-                faster booking. */}
+            {/* When + duration + area — ONE quiet "logistics" line (they were
+                two rows; one is part of the one-screen budget). ASAP · Galway
+                is what almost everyone wants, so everything starts collapsed
+                and a single "Change" unfolds time, book-ahead, duration and
+                area chips together. Fewer decisions up front = a faster booking. */}
             <motion.div variants={listItem} className="rounded-xl border border-border bg-white overflow-hidden">
               <button
                 type="button"
-                onClick={() => setShowWhen(s => !s)}
-                aria-expanded={showWhen}
-                className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-secondary/40"
+                onClick={() => setShowOptions(s => !s)}
+                aria-expanded={showOptions}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-secondary/40"
               >
                 <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
                   <Clock className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
-                  <span className="font-semibold">{when === 'Now' ? 'ASAP' : when}</span>
-                  {size && <span className="text-muted-foreground truncate">· {size}</span>}
+                  <span className="font-semibold whitespace-nowrap">{when === 'Now' ? 'ASAP' : when}</span>
+                  {size && <span className="text-muted-foreground whitespace-nowrap">· {size}</span>}
+                  <span className="text-muted-foreground truncate">· {city}</span>
                 </span>
-                <span className="text-xs font-semibold text-sage-dark flex-shrink-0">{showWhen ? 'Done' : 'Change'}</span>
+                <span className="text-xs font-semibold text-sage-dark flex-shrink-0">{showOptions ? 'Done' : 'Change'}</span>
               </button>
 
               <AnimatePresence initial={false}>
-                {showWhen && (
+                {showOptions && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
@@ -1300,65 +1308,43 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                           </div>
                         </div>
                       )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
-              <div className="border-t border-border/60" aria-hidden="true" />
-
-              {/* Area — auto-detected from the address; chips unfold as fallback
-                  (one tap now, whether or not the geocoder filled it) */}
-              <button
-                type="button"
-                onClick={() => setShowArea(s => !s)}
-                aria-expanded={showArea}
-                className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-secondary/40"
-              >
-                <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
-                  <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
-                  <span className="font-semibold">{city}</span>
-                  <span className="text-muted-foreground text-xs truncate">· {cityAuto ? 'from your address' : 'your area'}</span>
-                </span>
-                <span className="text-xs font-semibold text-sage-dark flex-shrink-0">{showArea ? 'Done' : 'Change'}</span>
-              </button>
-
-              <AnimatePresence initial={false}>
-                {showArea && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.28, ease: SHEET_EASE }}
-                    className="overflow-hidden"
-                  >
-                    <div className="flex flex-wrap gap-2 px-4 pb-3.5">
-                      {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
-                        ? [...SUPPORTED_CITIES]
-                        : [city, ...SUPPORTED_CITIES]
-                      ).map(c => {
-                        // Galway-first: dispatch is live in Galway today. Other cities
-                        // read as "soon" — but a remembered or address-derived area
-                        // stays selectable so returning customers aren't locked out.
-                        const comingSoon = c !== 'Galway' && c !== city;
-                        if (comingSoon) {
-                          return (
-                            <span
-                              key={c}
-                              className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
-                            >
-                              {c} · soon
-                            </span>
-                          );
-                        }
-                        return (
-                          // A manual pick overrides the geocoder — clear the
-                          // "from your address" claim so the row stays honest.
-                          <Chip key={c} group="area" active={city === c} onClick={() => { setCity(c); setCityAuto(false); }}>
-                            {c}
-                          </Chip>
-                        );
-                      })}
+                      {/* Area — auto-detected from the address; chips as fallback */}
+                      <div className="mt-4">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                          <MapPin className="w-3.5 h-3.5 inline-block align-[-2px] mr-1" aria-hidden="true" />
+                          Area
+                          {cityAuto && <span className="normal-case tracking-normal font-medium text-foreground/35"> · from your address</span>}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
+                            ? [...SUPPORTED_CITIES]
+                            : [city, ...SUPPORTED_CITIES]
+                          ).map(c => {
+                            // Galway-first: dispatch is live in Galway today. Other cities
+                            // read as "soon" — but a remembered or address-derived area
+                            // stays selectable so returning customers aren't locked out.
+                            const comingSoon = c !== 'Galway' && c !== city;
+                            if (comingSoon) {
+                              return (
+                                <span
+                                  key={c}
+                                  className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
+                                >
+                                  {c} · soon
+                                </span>
+                              );
+                            }
+                            return (
+                              // A manual pick overrides the geocoder — clear the
+                              // "from your address" claim so the row stays honest.
+                              <Chip key={c} group="area" active={city === c} onClick={() => { setCity(c); setCityAuto(false); }}>
+                                {c}
+                              </Chip>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -1371,22 +1357,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 (+€2) instead of changing nothing on screen. Direct-pay: the
                 job money goes to the helper (100%); the card is only ever
                 charged the fee (+ Cover), and only at accept. */}
-            <motion.div variants={listItem} className="space-y-2.5 pt-1">
+            <motion.div variants={listItem} className="space-y-1.5 pt-0.5">
               {priceCents && (
-                <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
+                <div className="px-3.5 py-2.5 rounded-xl bg-foreground/4 border border-foreground/8">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-foreground/60 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
                     <AnimatedPrice cents={priceCents} className="text-lg font-bold text-foreground flex-shrink-0" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Paid to your helper directly — they keep 100%</p>
+                  <p className="text-[11px] text-muted-foreground">Paid to your helper directly — they keep 100%</p>
 
-                  <div className="flex items-center justify-between gap-3 mt-2 border-t border-foreground/8 pt-2">
+                  <div className="flex items-center justify-between gap-3 mt-1 border-t border-foreground/8 pt-1">
                     <span className="text-[11px] text-muted-foreground">VANO booking fee</span>
                     <AnimatedPrice cents={computeVanoFeeCents(priceCents)} className="text-xs font-semibold text-foreground flex-shrink-0" />
                   </div>
 
                   {/* Optional Vano Cover — customer-elected, flat €2 */}
-                  <label className="flex items-center justify-between gap-3 mt-1.5 py-0.5 cursor-pointer select-none">
+                  <label className="flex items-center justify-between gap-3 mt-0.5 py-0.5 cursor-pointer select-none">
                     <span className="flex items-center gap-2 min-w-0">
                       <input
                         type="checkbox"
@@ -1416,9 +1402,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                           )}
                         </AnimatePresence>
                       </span>
-                      <span className="text-[11px] text-muted-foreground min-w-0">
+                      <span className="text-[11px] text-muted-foreground min-w-0 truncate">
                         <span className="font-semibold text-foreground">Vano Cover</span> — damage up to €250 ·{' '}
-                        <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>how it works</a>
+                        <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>details</a>
                       </span>
                     </span>
                     <span className={cn('text-xs font-semibold tabular-nums flex-shrink-0 transition-colors duration-150', coverOpted ? 'text-sage-dark' : 'text-muted-foreground')}>
@@ -1428,7 +1414,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
 
                   {/* The only money that ever touches the card — rolls when the
                       duration or Cover changes it (the "price builds up" beat) */}
-                  <div className="flex items-center justify-between gap-3 mt-1.5 border-t border-foreground/8 pt-2">
+                  <div className="flex items-center justify-between gap-3 mt-0.5 border-t border-foreground/8 pt-1">
                     <span className="text-xs font-semibold text-foreground/75">Charged when a helper accepts</span>
                     <AnimatedPrice
                       announce
@@ -1446,43 +1432,40 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 </p>
               )}
 
-              <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                A nearby helper usually replies in minutes
-              </p>
-
-              {/* Quiet WhatsApp alternative — the loud green recovery version
-                  lives in the docked bar and only appears after a failed submit. */}
-              {!submitFailed && (
-                <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                  <Button
+              {/* Social proof + the quiet WhatsApp alternative share ONE line
+                  (they were a line + a full-width button). The loud green
+                  recovery button still lives in the docked bar after a failed
+                  submit — this link hides then so there's one WhatsApp door. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-0.5">
+                <p className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
+                  Helpers usually reply in minutes
+                </p>
+                {!submitFailed && (
+                  <button
                     type="button"
-                    variant="outline"
                     onClick={sendWhatsApp}
-                    className="w-full rounded-full gap-2 h-10 font-medium text-sm border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                    aria-label="Book via WhatsApp instead"
+                    className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-[#25D366] hover:text-[#1fb457] transition-colors py-1"
                   >
-                    <MessageCircle className="w-4 h-4" />
-                    Or book via WhatsApp
-                  </Button>
-                </motion.div>
-              )}
+                    <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                    WhatsApp
+                  </button>
+                )}
+              </div>
             </motion.div>
 
-            {/* One fact each — "only charged at accept" + the money-back
-                guarantee already live on the price card and the docked bar,
-                so this line only carries what they don't. */}
-            <motion.p variants={listItem} className="text-center text-[13px] leading-relaxed text-muted-foreground">
-              Booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
-            </motion.p>
-            {/* Contract moment: the Terms (incl. "your helper is an independent
-                provider, VANO is the platform") must be incorporated at the
-                point of sale, not just linked in the footer. */}
-            <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
-              By booking you agree to VANO's{' '}
+            {/* Contract moment, ONE paragraph (was two): how the money moves +
+                the Terms (incl. "your helper is an independent provider, VANO
+                is the platform") must be incorporated at the point of sale,
+                not just linked in the footer. "Only charged at accept" + the
+                money-back guarantee live on the price card and docked bar. */}
+            <motion.p variants={listItem} className="text-center text-[11px] leading-snug text-muted-foreground">
+              Pay your helper directly (Revolut or cash) once done. By booking you agree to VANO's{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
-              {' '}— your helper is an independent provider you pay directly, and{' '}
+              {' '}— your helper is an independent provider — and{' '}
               <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
-              {' '}is there if you add it.
+              {' '}if added.
             </motion.p>
           </motion.form>
           )}
@@ -1502,11 +1485,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           initial={{ y: 18, opacity: 0 }}
           animate={{ y: 0, opacity: 1, transition: { duration: 0.32, ease: SHEET_EASE, delay: 0.12 } }}
           exit={{ y: 14, opacity: 0, transition: { duration: 0.15, ease: 'easeOut' } }}
-          className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
+          className="flex-shrink-0 border-t border-border/50 bg-cream px-3.5 pt-2.5 pb-3 space-y-1.5 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
           {/* Risk-reversal at the decision point — the single most reassuring
               fact (you don't pay until a helper accepts) rides with the CTA.
               Swaps to the success line during the booked beat. */}
-          <p className="flex items-center justify-center gap-1.5 text-xs sm:text-[13px] font-semibold text-sage-dark">
+          <p className="flex items-center justify-center gap-1.5 text-[11px] sm:text-[13px] font-semibold text-sage-dark">
             <motion.span
               key={bookedOk ? 'assure-booked' : securing ? 'assure-securing' : 'assure-ready'}
               initial={{ opacity: 0, y: 4 }}
@@ -1514,15 +1497,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               transition={{ duration: 0.2, ease: 'easeOut' }}
               className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0"
             >
-              <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              <ShieldCheck className="w-4 h-4 flex-shrink-0 hidden sm:block" aria-hidden="true" />
               {bookedOk
                 ? 'Booked — taking you to live tracking…'
                 : securing
                 ? 'Opening the secure card step…'
                 : <>
                     {/* Two nowrap phrases: a narrow screen breaks at the
-                        separator, never mid-word ("money-/back"). */}
-                    <span className="whitespace-nowrap">Only charged when a helper accepts</span>
+                        separator, never mid-word ("money-/back"). Copy is
+                        sized to ONE line at 390px — same promise as the old
+                        "Only charged when a helper accepts", fewer ems. */}
+                    <span className="whitespace-nowrap">No charge until a helper accepts</span>
                     <span className="whitespace-nowrap">· money-back guarantee</span>
                   </>}
             </motion.span>
