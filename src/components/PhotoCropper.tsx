@@ -68,47 +68,65 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
     (async () => {
       let bitmap: ImageBitmap | null = null;
       try {
-        let source: CanvasImageSource | null = null;
-        let w = 0, h = 0;
-        // Tier 1 — createImageBitmap: decodes off the main thread, no decode()
-        // quirks, and gives exact dimensions.
+        // Step 1 — measure with an OFF-DOM <img>: onload only needs the file
+        // header (no full decode, nothing mounted or painted), so this is
+        // near-free even for a 48MP shot. Deliberately NOT decode(): Safari
+        // rejects decode() for big images that onload handles fine.
+        let probe: HTMLImageElement | null = new Image();
+        probe.src = src;
         try {
-          if (typeof createImageBitmap !== 'function') throw new Error('no createImageBitmap');
-          const blob = await (await fetch(src)).blob();
-          bitmap = await createImageBitmap(blob);
-          w = bitmap.width; h = bitmap.height;
-          source = bitmap;
-        } catch {
-          // Tier 2 — a plain <img> load. Deliberately NOT decode(): Safari
-          // rejects decode() for big images that onload handles fine.
-          const probe = new Image();
-          probe.src = src;
           await new Promise<void>((res, rej) => {
-            probe.onload = () => res();
-            probe.onerror = () => rej(new Error('load failed'));
+            probe!.onload = () => res();
+            probe!.onerror = () => rej(new Error('probe load failed'));
           });
-          w = probe.naturalWidth; h = probe.naturalHeight;
-          source = probe;
+        } catch {
+          probe = null; // <img> can't read it; createImageBitmap may still manage
         }
-        if (!source || !w || !h) throw new Error('unmeasurable image');
+        const w = probe?.naturalWidth ?? 0;
+        const h = probe?.naturalHeight ?? 0;
 
-        if (Math.max(w, h) <= SAFE_MAX_EDGE) {
-          bitmap?.close?.();
+        if (w && h && Math.max(w, h) <= SAFE_MAX_EDGE) {
           if (!cancelled) setSafeSrc(src); // measured small — raw is safe
           return;
         }
-        const ratio = SAFE_MAX_EDGE / Math.max(w, h);
+
+        // Step 2 — big (or <img>-unreadable): decode into a bitmap, asking the
+        // browser to downscale AT DECODE TIME so the full-size pixels never
+        // sit in memory. Engines that ignore the resize options just hand
+        // back a full bitmap, which the canvas below still shrinks; engines
+        // whose createImageBitmap is missing/broken fall back to drawing the
+        // probe <img> itself.
+        if (typeof createImageBitmap === 'function') {
+          const blob = await (await fetch(src)).blob().catch(() => null);
+          if (blob) {
+            const opts: ImageBitmapOptions = { resizeQuality: 'high' };
+            if (w && h) {
+              const r = SAFE_MAX_EDGE / Math.max(w, h);
+              opts.resizeWidth  = Math.max(1, Math.round(w * r));
+              opts.resizeHeight = Math.max(1, Math.round(h * r));
+            }
+            bitmap = await createImageBitmap(blob, opts)
+              .catch(() => createImageBitmap(blob))
+              .catch(() => null);
+          }
+        }
+        const source: CanvasImageSource | null = bitmap ?? probe;
+        const sw = bitmap?.width  ?? w;
+        const sh = bitmap?.height ?? h;
+        if (!source || !sw || !sh) throw new Error('undecodable image');
+
+        const ratio  = Math.min(1, SAFE_MAX_EDGE / Math.max(sw, sh));
         const canvas = document.createElement('canvas');
-        canvas.width  = Math.max(1, Math.round(w * ratio));
-        canvas.height = Math.max(1, Math.round(h * ratio));
+        canvas.width  = Math.max(1, Math.round(sw * ratio));
+        canvas.height = Math.max(1, Math.round(sh * ratio));
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('no 2d context');
         ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
         bitmap?.close?.();
         bitmap = null;
-        const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.92));
-        if (!blob) throw new Error('encode failed');
-        createdUrl = URL.createObjectURL(blob);
+        const out = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+        if (!out) throw new Error('encode failed');
+        createdUrl = URL.createObjectURL(out);
         if (cancelled) { URL.revokeObjectURL(createdUrl); return; }
         setSafeSrc(createdUrl);
       } catch {
