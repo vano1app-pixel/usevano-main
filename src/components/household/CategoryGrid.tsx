@@ -940,7 +940,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         dragElastic={{ top: 0, bottom: 0.6 }}
         dragSnapToOrigin
         onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
-        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl flex flex-col overflow-hidden"
+        className={cn(
+          'fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:bottom-6 sm:rounded-3xl flex flex-col overflow-hidden',
+          // Desktop: the form page goes two-column (details | price) so the
+          // whole booking fits one screen with no scrolling; the wizard's
+          // pick page stays a comfortable single column. Width animates
+          // between the two so the page handoff reads as one motion.
+          'sm:transition-[max-width] sm:duration-300 sm:ease-out',
+          step === 'form' ? 'sm:max-w-[780px]' : 'sm:max-w-[460px]',
+        )}
         style={{ maxHeight: '88vh' }}
         role="dialog"
         aria-modal="true"
@@ -1164,6 +1172,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             animate="show"
             exit="exit"
           >
+            {/* Desktop = two columns (who/when/where | the money), so the whole
+                booking sits on one screen with zero scrolling. Mobile keeps the
+                single top-to-bottom column. */}
+            <div className="space-y-5 sm:grid sm:grid-cols-2 sm:items-start sm:gap-x-6 sm:space-y-0">
+            <div className="space-y-5">
             {/* Returning customer → one-tap confirm: the "welcome back" strip
                 and the remembered phone + address live in ONE card (they used
                 to be two stacked rows — the sheet reads shorter this way).
@@ -1365,6 +1378,24 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               </AnimatePresence>
             </motion.div>
 
+            {/* Desktop only: the legal lines live at the foot of the LEFT
+                column (the mobile copies below carry them on phones), so the
+                two columns end near the same height and nothing scrolls. */}
+            <div className="hidden sm:block space-y-2.5 pt-1">
+              <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
+                Booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
+              </motion.p>
+              <motion.p variants={listItem} className="text-center text-[11px] leading-relaxed text-muted-foreground">
+                By booking you agree to VANO's{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                {' '}— your helper is an independent provider you pay directly, and{' '}
+                <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+                {' '}is there if you add it.
+              </motion.p>
+            </div>
+            </div>
+
+            <div className="space-y-5">
             {/* Price card — the maths reads top to bottom: job → fee → optional
                 €2 Cover → what actually lands on the card. The Cover opt-in
                 lives IN the breakdown, so ticking it visibly rolls the total
@@ -1468,16 +1499,20 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               )}
             </motion.div>
 
+            </div>
+            </div>
+
             {/* One fact each — "only charged at accept" + the money-back
                 guarantee already live on the price card and the docked bar,
-                so this line only carries what they don't. */}
-            <motion.p variants={listItem} className="text-center text-[13px] leading-relaxed text-muted-foreground">
+                so this line only carries what they don't. (Phones only — the
+                desktop two-column layout carries these in the left column.) */}
+            <motion.p variants={listItem} className="sm:hidden text-center text-[13px] leading-relaxed text-muted-foreground">
               Booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
             </motion.p>
             {/* Contract moment: the Terms (incl. "your helper is an independent
                 provider, VANO is the platform") must be incorporated at the
                 point of sale, not just linked in the footer. */}
-            <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
+            <motion.p variants={listItem} className="sm:hidden text-center text-xs leading-relaxed text-muted-foreground">
               By booking you agree to VANO's{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
               {' '}— your helper is an independent provider you pay directly, and{' '}
@@ -1533,7 +1568,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             className={cn(
-              'relative overflow-hidden rounded-full transition-shadow duration-300',
+              // Capped on desktop — a pill stretched across the whole
+              // two-column sheet reads as a banner, not a button.
+              'relative overflow-hidden rounded-full transition-shadow duration-300 sm:max-w-[480px] sm:mx-auto',
               // The glow only lights up once the form is genuinely ready to
               // submit (valid phone + an address), so it's a truthful "ready"
               // cue rather than lighting up on the first digit.
