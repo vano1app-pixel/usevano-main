@@ -1739,7 +1739,7 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <>
-      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl scroll-mt-24">
+      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl sm:max-w-5xl scroll-mt-24">
         {/* ── The tap tiles — the one front door ──────────────────────────────
             One tap opens the booking sheet: page 1 "what kind?" (sub-services
             from the vetted catalogue), page 2 phone/address/when → book. */}
@@ -1751,7 +1751,7 @@ export const CategoryGrid: React.FC = () => {
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             whileTap={{ scale: 0.98 }}
             onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, direct: true }); }}
-            className="tile-float mb-2.5 flex w-full items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="tile-float mb-2.5 flex w-full sm:max-w-xl sm:mx-auto items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
             <span className="flex-1 min-w-0">
@@ -1768,7 +1768,10 @@ export const CategoryGrid: React.FC = () => {
         <motion.div
           role="group"
           aria-label="Book a service in one tap"
-          className="grid grid-cols-3 gap-2 sm:gap-3"
+          // Phones: the tight 3×2 grid. Desktop: ONE Airbnb-style row of six,
+          // so the whole hero (heading → tiles → reassurance) fits a laptop
+          // viewport with no scrolling.
+          className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3"
           initial="hidden"
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
@@ -1812,7 +1815,10 @@ export const CategoryGrid: React.FC = () => {
             transition={{ type: 'spring', stiffness: 420, damping: 26 }}
             onClick={() => { haptic(10); track('hero_search_open'); openSheet(CUSTOM_TILE); }}
             aria-label="Anything else — describe any job"
-            className="relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/20 bg-white/[0.08] px-1.5 py-2.5 sm:py-5 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            // The one NAVY tile on the light hero — the brand colour marks the
+            // special "ask for anything" door (it was glass-on-navy before the
+            // hero went light).
+            className="tile-float relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-navy bg-navy px-1.5 py-2.5 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">✨</span>
             <span className="mt-1.5 text-[13px] sm:text-base font-bold text-white leading-tight">Anything else</span>

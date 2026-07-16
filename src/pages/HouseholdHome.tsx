@@ -50,7 +50,8 @@ const HouseholdHome: React.FC = () => {
           })),
         }}
       />
-      <HouseholdNav darkHero />
+      {/* Light hero (July 2026) — the nav uses its standard light treatment. */}
+      <HouseholdNav />
 
       <main>
         <HeroSection />

@@ -64,7 +64,7 @@ export const ReviewBadges: React.FC<{ inline?: boolean }> = ({ inline = false })
               ? `${name}: rated ${rating} out of 5${count ? ` from ${count} reviews` : ''} — opens in a new tab`
               : `Review us on ${name} — opens in a new tab`
           }
-          className="group inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3 py-1.5 text-xs font-medium text-white/85 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] transition-colors duration-200 hover:bg-white/[0.12]"
+          className="group inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3 py-1.5 text-xs font-medium text-foreground/80 shadow-sm transition-colors duration-200 hover:border-foreground/25"
         >
           <Star
             className="w-3.5 h-3.5 flex-shrink-0"
@@ -72,13 +72,13 @@ export const ReviewBadges: React.FC<{ inline?: boolean }> = ({ inline = false })
             aria-hidden="true"
           />
           {rating ? (
-            <span className="tabular-nums font-semibold text-white/95">{rating.toFixed(1)}</span>
+            <span className="tabular-nums font-semibold text-foreground">{rating.toFixed(1)}</span>
           ) : null}
-          <span className="text-white/80 group-hover:text-white/95 transition-colors">
+          <span className="text-foreground/70 group-hover:text-foreground transition-colors">
             {rating ? `on ${name}` : name}
           </span>
           {rating && count ? (
-            <span className="text-white/45">· {count}</span>
+            <span className="text-muted-foreground/70">· {count}</span>
           ) : null}
         </a>
       ))}
