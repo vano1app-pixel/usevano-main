@@ -12,7 +12,7 @@ import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { SKILL_GROUPS, defaultSelectedGroups, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { haptic } from '@/lib/haptics';
-import { PhotoCropper } from '@/components/PhotoCropper';
+import { prepareJoinPhoto } from '@/lib/safeImage';
 
 // The jobs customers actually book, shared with the account page via
 // helperSkills (groups gate dispatch matching; sub-skills are profile
@@ -228,10 +228,9 @@ export const JoinAsHelper: React.FC = () => {
   const [phone, setPhone] = useState(draft?.phone ?? '');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(draftPhoto);
-  // Raw file waiting to be cropped — selecting a photo opens the cropper; the
-  // cropped square becomes `photo`/`preview`. Keeps a full-body/landscape shot
-  // from being hard-cropped into a headless thumbnail on the cards.
-  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  // (The move-and-scale cropper was removed from this form on 2026-07-16 —
+  // its full-screen overlay black-screened iPhone Safari mid-signup. Photos
+  // are direct-set on pick; the account page still offers cropping later.)
 
   // Rebuild the File from the stashed data URL so a restored draft can submit
   // without re-picking the photo.
@@ -318,15 +317,31 @@ export const JoinAsHelper: React.FC = () => {
     set(list.includes(v) ? list.filter(x => x !== v) : [...list, v]);
   }
 
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ''; // let the same file be re-picked after a cancel
     if (!file) return;
-    // The upload is the ~400px crop, not this source, so allow big phone
-    // photos in — we only decode them for cropping.
     if (file.size > 15 * 1024 * 1024) { setError('Photo must be under 15 MB.'); return; }
     setError(null);
-    setCropSrc(URL.createObjectURL(file)); // opens the cropper
+    // DIRECT-SET, the pre-#324 flow every early signup used: the picked photo
+    // IS the photo, immediately — no full-screen cropper on this form (the
+    // cropper overlay black-screened iPhone 16 Safari mid-signup; it now
+    // lives only on the account page). prepareJoinPhoto shrinks big shots
+    // off-DOM as an invisible optimisation; if it can't, the ORIGINAL file
+    // uploads exactly like the old code — a photo pick can never dead-end.
+    const prepared = await prepareJoinPhoto(file).catch(() => null);
+    setPhoto(prepared?.file ?? file);
+    setPreview(prepared?.previewUrl ?? URL.createObjectURL(file));
+    haptic(8);
+    try {
+      if (prepared?.stashDataUrl) {
+        localStorage.setItem(DRAFT_PHOTO_KEY, prepared.stashDataUrl);
+      } else {
+        // No stash copy — drop any OLD stashed photo so a resumed draft can't
+        // silently show a different photo than the one being submitted.
+        localStorage.removeItem(DRAFT_PHOTO_KEY);
+      }
+    } catch { /* quota — best effort */ }
   }
 
   // Autosave the draft whenever anything meaningful changes. Gated on an
@@ -601,7 +616,21 @@ export const JoinAsHelper: React.FC = () => {
                           )}
                           aria-label="Upload face photo"
                         >
-                          {preview ? <img src={preview} alt="Your photo" className="w-full h-full object-cover" /> : <Camera className="w-6 h-6 text-muted-foreground" />}
+                          {preview ? (
+                            <img
+                              src={preview}
+                              alt="Your photo"
+                              className="w-full h-full object-cover"
+                              onError={() => {
+                                // Unreadable file (or a dead draft stash) — recover
+                                // visibly instead of dead-ending the signup.
+                                setPreview(null);
+                                setPhoto(null);
+                                try { localStorage.removeItem(DRAFT_PHOTO_KEY); } catch { /* noop */ }
+                                setError("We couldn't read that photo — please pick a different one.");
+                              }}
+                            />
+                          ) : <Camera className="w-6 h-6 text-muted-foreground" />}
                         </button>
                         <div>
                           <button type="button" onClick={() => fileRef.current?.click()} className="text-sm font-medium text-foreground hover:text-primary transition-colors">
@@ -1005,31 +1034,6 @@ export const JoinAsHelper: React.FC = () => {
 
       <HouseholdFooter />
 
-      {/* Move-and-scale cropper — opens when a photo is picked so students frame
-          their face instead of uploading a stretched full-body shot. */}
-      <AnimatePresence>
-        {cropSrc && (
-          <PhotoCropper
-            src={cropSrc}
-            onCancel={() => setCropSrc(null)}
-            onCropped={(file, previewUrl) => {
-              setPhoto(file);
-              setPreview(previewUrl);
-              setCropSrc(null);
-              haptic(8);
-              // Stash the cropped JPEG (small, ~50 KB) so a resumed draft
-              // keeps the photo too.
-              try {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  try { localStorage.setItem(DRAFT_PHOTO_KEY, String(reader.result)); } catch { /* quota */ }
-                };
-                reader.readAsDataURL(file);
-              } catch { /* best effort */ }
-            }}
-          />
-        )}
-      </AnimatePresence>
     </>
   );
 };

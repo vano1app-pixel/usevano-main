@@ -63,8 +63,14 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
   // an unbounded render.
   useEffect(() => {
     let cancelled = false;
+    let settled = false;
     let createdUrl: string | null = null;
     setSafeSrc(null); setImgReady(false); setFailed(false);
+    // Watchdog: preparation that goes quiet must surface the fail card, not
+    // an eternal spinner — Cancel stays live either way.
+    const watchdog = window.setTimeout(() => {
+      if (!cancelled && !settled) setFailed(true);
+    }, 20000);
     (async () => {
       let bitmap: ImageBitmap | null = null;
       try {
@@ -86,6 +92,7 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
         const h = probe?.naturalHeight ?? 0;
 
         if (w && h && Math.max(w, h) <= SAFE_MAX_EDGE) {
+          settled = true;
           if (!cancelled) setSafeSrc(src); // measured small — raw is safe
           return;
         }
@@ -97,7 +104,7 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
         // whose createImageBitmap is missing/broken fall back to drawing the
         // probe <img> itself.
         if (typeof createImageBitmap === 'function') {
-          const blob = await (await fetch(src)).blob().catch(() => null);
+          const blob: Blob | null = await fetch(src).then(r => r.blob()).catch(() => null);
           if (blob) {
             const opts: ImageBitmapOptions = { resizeQuality: 'high' };
             if (w && h) {
@@ -127,16 +134,19 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
         const out = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.92));
         if (!out) throw new Error('encode failed');
         createdUrl = URL.createObjectURL(out);
+        settled = true;
         if (cancelled) { URL.revokeObjectURL(createdUrl); return; }
         setSafeSrc(createdUrl);
       } catch {
         bitmap?.close?.();
+        settled = true;
         // Could not measure/shrink — fail visibly, never render unbounded.
         if (!cancelled) setFailed(true);
       }
     })();
     return () => {
       cancelled = true;
+      window.clearTimeout(watchdog);
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
   }, [src]);

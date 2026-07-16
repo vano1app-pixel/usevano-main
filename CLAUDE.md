@@ -33,8 +33,10 @@ Hard-learned specifics (July 2026 — a real applicant hit a black screen):
 - **Photo/file inputs are tested with a ≥30MP image, every time.** iPhones
   shoot 48MP; an unbounded image inside a CSS-transformed layer black-screens
   iOS Safari and can crash the tab (which also wipes fresh localStorage
-  writes — "it reset everything"). `PhotoCropper` downscales to
-  `SAFE_MAX_EDGE` before display — never render a user image unbounded.
+  writes — "it reset everything"). Never render a user image unbounded:
+  `/join` DIRECT-SETS the picked photo (small object-cover preview only —
+  no cropper overlay on that form, see `safeImage.ts`); `PhotoCropper`
+  (account page only) downscales to `SAFE_MAX_EDGE` before display.
 - **Full-screen overlays must be impossible to render as a dead black
   screen**: every media/async state needs a visible loading beat, an error
   message with a way out, and Cancel always live.
@@ -649,11 +651,16 @@ when a category is thin in a city — see "The helper funnel" and "Gap-recruit
 nudges" above (migration: `gap_nudged_at`); the join form now collects a
 **date of birth** (18+ gated client- AND server-side in
 `create-helper-application`, which derives `age` from it so the profile age
-badge fills), and both the join form and `StudentAccount` share ONE
-`src/components/PhotoCropper.tsx` (move/pinch/zoom, exports a SQUARE JPEG so
-circular avatars round it and the rectangular helper cards object-cover it
-with no baked-in black corners) — a picked photo always opens the cropper
-instead of uploading a stretched full-body shot; step 2 now also captures a
+badge fills); **photo on /join is DIRECT-SET (2026-07-16, don't re-add a
+cropper there)** — a real applicant's iPhone 16 black-screened on the
+full-screen `PhotoCropper` overlay mid-signup, so the join form went back to
+the pre-#324 flow (pick → photo set instantly → small bounded preview) with
+`src/lib/safeImage.ts:prepareJoinPhoto` shrinking big shots off-DOM as a
+FAIL-SOFT optimisation (any failure = the original file uploads, exactly the
+old behaviour — a photo pick can never block a signup; preview `onError`
+recovers visibly). `PhotoCropper` (hardened: probe-first measure, decode-time
+resize, no `decode()` — Safari rejects it for big photos —, visible fail
+card, 20s watchdog) now mounts ONLY on `StudentAccount`; step 2 now also captures a
 rough **area** (optional free text → `areas_served`, for nearest-job
 matching) and **how they get around** (multi-select → `application_data.
 transport`; car = the moving/tip-run/wider-radius signal dispatch can later
