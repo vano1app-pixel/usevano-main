@@ -39,7 +39,10 @@ export type TrackEvent =
   | 'hero_sub_pick'
   | 'hero_usual_tap'
   | 'hero_search_open'
-  | 'hero_whatsapp_tap';
+  | 'hero_whatsapp_tap'
+  // The end-of-page CTA band after the FAQ — measures how many readers the
+  // long page persuades (its taps scroll back up to the hero tiles).
+  | 'closing_cta_tap';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
   // PostHog mirror — dynamic import keeps posthog-js out of the entry
