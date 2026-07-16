@@ -415,9 +415,18 @@
    fade + a few px of rise reads as an intentional page change without any
    layout-shifting transform on the (prerendered, eager) homepage's content
    flow — the rise is a compositor-only translate that settles immediately. */
+/* IMPORTANT: `to` deliberately has NO transform. A missing property
+   animates to the element's natural value (none), so the rise looks the
+   same — but with fill-mode `both`, a `transform: translateY(0)` in `to`
+   would stay applied FOREVER, and ANY applied transform turns this
+   wrapper (which wraps every route) into the containing block for all
+   position:fixed descendants. That bug shipped: full-screen overlays
+   rendered inside long pages anchored to the PAGE, not the viewport —
+   the /join photo cropper centered its image ~1000px below the fold and
+   users saw a black screen. Keep `to` transform-free. */
 @keyframes page-enter-fade {
   from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; }
 }
 .animate-page-enter {
   animation: page-enter-fade 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
