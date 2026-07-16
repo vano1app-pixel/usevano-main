@@ -1,10 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { phonesMatch } from "../_shared/phoneMatch.ts";
+import { hasAccountAccess } from "../_shared/accountToken.ts";
 
 // Cancels a helper's €2/month ✓ Verified subscription — cancel-anytime is part
-// of the deal (and EU consumer law). Auth: phone number verified against the
-// helper row, same pattern as disconnect-helper-payouts. The subscription is
+// of the deal (and EU consumer law). Auth: phone match + the account_token
+// minted by student-account-otp (phone-gate hardening, July 2026 — knowing a
+// helper's number is not enough), same pattern as disconnect-helper-payouts. The subscription is
 // set to cancel AT PERIOD END (they paid for the month, they keep the tick for
 // the month); stripe-webhook's customer.subscription.deleted flips
 // verified_plan_active off when Stripe actually ends it.
@@ -27,7 +29,8 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
 
-    const { helper_id, phone } = await req.json() as { helper_id?: string; phone?: string };
+    const body = await req.json() as { helper_id?: string; phone?: string; account_token?: string };
+    const { helper_id, phone } = body;
     if (!helper_id || !phone) return json(400, { error: 'helper_id and phone are required' });
 
     const { data: helper } = await supabase
@@ -38,6 +41,9 @@ serve(async (req) => {
       };
     if (!helper) return json(404, { error: 'Account not found.' });
     if (!phonesMatch(helper.phone, phone)) return json(403, { error: 'Phone number does not match.' });
+    if (!await hasAccountAccess(body.account_token, helper.id)) {
+      return json(401, { error: 'Your secure session expired — verify your number again on the account page.' });
+    }
     if (!helper.verified_plan_active) return json(200, { cancelled: true, already_inactive: true });
 
     // No Stripe sub on file. That's EITHER a grandfathered/manually-comped

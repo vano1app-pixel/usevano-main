@@ -98,10 +98,12 @@ serve(async (req) => {
     const e164 = normalizeIrishPhone((helper as { phone?: string }).phone);
     if (!e164) return json(400, { error: "That phone number doesn't look right — fix it in your profile, or use email." });
 
-    // Rate limit — one code per 30s per helper (shared with the email flow).
+    // Rate limit — one code per 30s per helper (shared with the email flow;
+    // 'acct:' rows are the separate account-session codes — not counted).
     const { data: recent } = await supabase
       .from('helper_email_otps').select('created_at')
-      .eq('helper_id', helper_id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      .eq('helper_id', helper_id).not('email', 'like', 'acct:%')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (recent && Date.now() - new Date(recent.created_at as string).getTime() < RESEND_GAP_MS) {
       return json(429, { error: 'Please wait a moment before requesting another code.' });
     }
@@ -109,8 +111,9 @@ serve(async (req) => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const code_hash = await sha256Hex(`${helper_id}:${code}`);
 
-    // One live code per helper — clear old ones first.
-    await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
+    // One live code per helper — clear old ones first (never the 'acct:'
+    // account-session codes, which belong to student-account-otp).
+    await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id).not('email', 'like', 'acct:%');
     const { error: insErr } = await supabase.from('helper_email_otps').insert({
       helper_id, email: e164, code_hash, // `email` col is NOT NULL — store the phone the code went to
       expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),

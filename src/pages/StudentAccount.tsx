@@ -12,6 +12,7 @@ import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayC
 import { useToast } from '@/hooks/use-toast';
 import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { PhotoCropper } from '@/components/PhotoCropper';
+import { extractFnError } from '@/lib/fnError';
 import logo from '@/assets/logo.png';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,6 +62,32 @@ const phonesMatch = (stored: string, entered: string) => {
   const e = normalizePhone(entered);
   return s === e || s.endsWith(e) || e.endsWith(s);
 };
+
+// ── Account gate session ──────────────────────────────────────────────────────
+// Since the phone-gate hardening (July 2026), entering the number only STARTS
+// the gate: a 6-digit code is texted to the number on the helper's own row,
+// and verifying it mints a 30-minute signed account_token
+// (student-account-otp) that every phone-authed function on this page
+// requires. The session is cached in sessionStorage so a reload or a Stripe
+// round-trip doesn't re-text a code, and dies with the tab.
+const GATE_KEY = 'vano_account_gate_v1';
+interface GateSession { phone: string; token: string; exp: number }
+function readGateSession(): GateSession | null {
+  try {
+    const raw = sessionStorage.getItem(GATE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as GateSession;
+    // 30s slack so a request never leaves with a token that dies in flight.
+    if (!s?.token || !s?.phone || typeof s.exp !== 'number' || Date.now() > s.exp - 30_000) return null;
+    return s;
+  } catch { return null; }
+}
+function saveGateSession(s: GateSession) {
+  try { sessionStorage.setItem(GATE_KEY, JSON.stringify(s)); } catch { /* best effort */ }
+}
+function clearGateSession() {
+  try { sessionStorage.removeItem(GATE_KEY); } catch { /* best effort */ }
+}
 
 const StudentAccount = () => {
   const navigate = useNavigate();
@@ -120,11 +147,25 @@ const StudentAccount = () => {
   const [photoFile,    setPhotoFile]    = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
-  // Phone gate
+  // Phone gate — two steps since the July 2026 hardening: number → texted
+  // 6-digit code → account_token (see the module comment on GATE_KEY).
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [gateStep,      setGateStep]      = useState<'phone' | 'code'>('phone');
   const [gateInput,     setGateInput]     = useState('');
+  const [gateCode,      setGateCode]      = useState('');
+  const [gateChannel,   setGateChannel]   = useState<'sms' | 'whatsapp'>('sms');
   const [gateError,     setGateError]     = useState('');
   const [gateLoading,   setGateLoading]   = useState(false);
+  // Resend cooldown (mirrors the server's 30s gap) — `nowTick` only ticks
+  // while the code step is showing.
+  const [resendAt, setResendAt] = useState(0);
+  const [nowTick,  setNowTick]  = useState(() => Date.now());
+  const accountTokenRef = useRef('');
+  useEffect(() => {
+    if (gateStep !== 'code' || phoneVerified) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [gateStep, phoneVerified]);
 
   // "?add=<group>" deep link from the dispatch gap-recruit nudge ("a paying
   // job skipped you — add the category"): pre-ticks that job once the phone
@@ -175,31 +216,126 @@ const StudentAccount = () => {
     return () => clearTimeout(t);
   }, [saved]);
 
-  // ── Phone gate ────────────────────────────────────────────────────────────
-  const handlePhoneVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // ── Phone gate (number → texted code → account_token → profile) ──────────
+  // Loads the profile with a live account token. Returns false (and clears
+  // the stale session) when the server says the token's dead.
+  async function fetchProfile(phoneStr: string, token: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('find-helper-by-phone', {
+        body: { phone: phoneStr, account_token: token },
+      });
+      const match = (data as { helper?: HelperRow | null } | null)?.helper ?? null;
+      if (error || !match || !phonesMatch(match.phone, phoneStr)) {
+        clearGateSession();
+        accountTokenRef.current = '';
+        return false;
+      }
+      loadHelper(match);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // A still-live session from this tab (reload, Stripe round-trip) skips the
+  // code — the helper isn't re-texted every time the page remounts.
+  useEffect(() => {
+    const s = readGateSession();
+    if (!s) return;
+    accountTokenRef.current = s.token;
+    setGateInput(s.phone);
+    setLoading(true);
+    void fetchProfile(s.phone, s.token).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function sendGateCode() {
     const entered = gateInput.trim();
     if (!entered) return;
     setGateLoading(true);
     setGateError('');
     try {
-      // Server-side lookup — phone/email aren't readable with the anon key
-      const { data, error } = await supabase.functions.invoke('find-helper-by-phone', {
-        body: { phone: entered },
+      const { data, error } = await supabase.functions.invoke('student-account-otp', {
+        body: { action: 'send', phone: entered },
       });
-      const match = (data as { helper?: HelperRow | null } | null)?.helper ?? null;
-      if (error || !match || !phonesMatch(match.phone, entered)) {
-        setGateError("That number doesn't match any account. Try again or WhatsApp +353 89 981 7111.");
-        setGateLoading(false);
+      if (error || !(data as { success?: boolean } | null)?.success) {
+        setGateError(await extractFnError(data, error, "That number doesn't match any account. Try again or WhatsApp +353 89 981 7111."));
         return;
       }
-      loadHelper(match);
+      setGateChannel((data as { channel?: string } | null)?.channel === 'whatsapp' ? 'whatsapp' : 'sms');
+      setGateStep('code');
+      setGateCode('');
+      // Refresh the tick together with the deadline — nowTick is lazy (only
+      // ticks on the code step), so a stale value would flash a wrong count.
+      setNowTick(Date.now());
+      setResendAt(Date.now() + 30_000);
     } catch {
       setGateError('Something went wrong. Please try again.');
     } finally {
       setGateLoading(false);
     }
+  }
+
+  const handlePhoneVerify = (e: React.FormEvent) => {
+    e.preventDefault();
+    void sendGateCode();
   };
+
+  const gateVerifying = useRef(false);
+  async function verifyGateCode() {
+    const entered = gateInput.trim();
+    const codeClean = gateCode.trim();
+    if (codeClean.length !== 6 || gateVerifying.current) return;
+    gateVerifying.current = true;
+    setGateLoading(true);
+    setGateError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('student-account-otp', {
+        body: { action: 'verify', phone: entered, code: codeClean },
+      });
+      const token = (data as { account_token?: string } | null)?.account_token;
+      if (error || !token) {
+        setGateError(await extractFnError(data, error, 'That code is incorrect. Try again.'));
+        return;
+      }
+      const exp = (data as { expires_at_ms?: number } | null)?.expires_at_ms ?? Date.now() + 25 * 60_000;
+      accountTokenRef.current = token;
+      saveGateSession({ phone: entered, token, exp });
+      if (!await fetchProfile(entered, token)) {
+        setGateError('Verified — but we could not load your profile. Try again.');
+      }
+    } catch {
+      setGateError('Something went wrong. Please try again.');
+    } finally {
+      gateVerifying.current = false;
+      setGateLoading(false);
+    }
+  }
+
+  // Auto-verify the moment the 6th digit lands (same pattern as VerifyHelper —
+  // guarded so a failed code isn't retried in a loop).
+  const lastAutoTried = useRef('');
+  useEffect(() => {
+    if (gateStep === 'code' && !phoneVerified && gateCode.length === 6 && lastAutoTried.current !== gateCode) {
+      lastAutoTried.current = gateCode;
+      void verifyGateCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateCode, gateStep, phoneVerified]);
+
+  // A 401 from any phone-authed function = the 30-min session lapsed mid-edit.
+  // Drop back to the gate with an explanation instead of a dead-end toast.
+  function authExpired(status: number): boolean {
+    if (status !== 401) return false;
+    clearGateSession();
+    accountTokenRef.current = '';
+    setHelper(null);
+    setPhoneVerified(false);
+    setGateStep('phone');
+    setGateCode('');
+    setGateError('Your secure session expired — enter your number again.');
+    return true;
+  }
 
   function loadHelper(data: HelperRow) {
     setHelper(data);
@@ -242,13 +378,15 @@ const StudentAccount = () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
       const fd = new FormData();
-      fd.append('phone',     helper.phone);
-      fd.append('new_phone', phoneInput.trim());
+      fd.append('phone',         helper.phone);
+      fd.append('new_phone',     phoneInput.trim());
+      fd.append('account_token', accountTokenRef.current);
       const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
         body: fd,
       });
+      if (authExpired(res.status)) return;
       const json = await res.json().catch(() => ({})) as { success?: boolean; error?: string };
       if (!res.ok || !json.success) throw new Error(json.error || 'Update failed');
       setHelper(h => h ? { ...h, phone: phoneInput.trim() } : h);
@@ -275,13 +413,15 @@ const StudentAccount = () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
       const fd = new FormData();
-      fd.append('phone',     helper.phone);
-      fd.append('new_email', clean);
+      fd.append('phone',         helper.phone);
+      fd.append('new_email',     clean);
+      fd.append('account_token', accountTokenRef.current);
       const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
         body: fd,
       });
+      if (authExpired(res.status)) return;
       const json = await res.json().catch(() => ({})) as { success?: boolean; error?: string; email_unverified?: boolean };
       if (!res.ok || !json.success) throw new Error(json.error || 'Update failed');
       // Only blank the verified flag if the server actually cleared it (i.e.
@@ -321,6 +461,7 @@ const StudentAccount = () => {
       fd.append('payment_handle', payHandle.trim());
       fd.append('availability',   JSON.stringify(avail));
       fd.append('categories',     JSON.stringify(selectedCats));
+      fd.append('account_token',  accountTokenRef.current);
       if (photoFile) fd.append('photo', photoFile);
 
       const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
@@ -331,6 +472,7 @@ const StudentAccount = () => {
         },
         body: fd,
       });
+      if (authExpired(res.status)) return;
       const json = await res.json() as { success?: boolean; photo_url?: string; error?: string };
       if (!res.ok || !json.success) throw new Error(json.error ?? 'Save failed');
 
@@ -361,8 +503,9 @@ const StudentAccount = () => {
           Authorization: `Bearer ${anonKey}`,
           apikey: anonKey,
         },
-        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone }),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone, account_token: accountTokenRef.current }),
       });
+      if (authExpired(res.status)) return;
       const json = await res.json() as { cancelled?: boolean; error?: string };
       if (!json.cancelled) throw new Error(json.error ?? 'Unknown error');
       navigate('/', { replace: true });
@@ -393,8 +536,9 @@ const StudentAccount = () => {
       const res = await fetch(fnUrl('disconnect-helper-payouts'), {
         method: 'POST',
         headers: fnHeaders(),
-        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone }),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone, account_token: accountTokenRef.current }),
       });
+      if (authExpired(res.status)) return;
       const json = await res.json() as { disconnected?: boolean; error?: string };
       if (!res.ok || !json.disconnected) throw new Error(json.error ?? 'Failed');
       setHelper(h => h ? { ...h, stripe_account_id: null, stripe_payouts_enabled: false } : h);
@@ -417,8 +561,9 @@ const StudentAccount = () => {
       const res = await fetch(fnUrl('cancel-verified-plan'), {
         method: 'POST',
         headers: fnHeaders(),
-        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone }),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone, account_token: accountTokenRef.current }),
       });
+      if (authExpired(res.status)) return;
       const json = await res.json() as { cancelled?: boolean; immediate?: boolean; ends_at_period_end?: boolean; error?: string };
       if (!res.ok || !json.cancelled) throw new Error(json.error ?? 'Failed');
       if (json.immediate) {
@@ -444,8 +589,9 @@ const StudentAccount = () => {
       const res = await fetch(fnUrl('household-helper-connect-link'), {
         method: 'POST',
         headers: fnHeaders(),
-        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone }),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone, account_token: accountTokenRef.current }),
       });
+      if (authExpired(res.status)) return;
       const json = await res.json() as { url?: string; error?: string };
       if (!res.ok || !json.url) throw new Error(json.error ?? 'Failed');
       window.location.href = json.url;
@@ -475,8 +621,9 @@ const StudentAccount = () => {
         const res = await fetch(fnUrl('household-helper-connect-link'), {
           method: 'POST',
           headers: fnHeaders(),
-          body: JSON.stringify({ check_only: true, helper_id: helper.id, phone: helper.phone }),
+          body: JSON.stringify({ check_only: true, helper_id: helper.id, phone: helper.phone, account_token: accountTokenRef.current }),
         });
+        if (authExpired(res.status)) return;
         const json = await res.json() as { stripe_account_id?: string | null; stripe_payouts_enabled?: boolean };
         setHelper(h => h ? {
           ...h,
@@ -501,8 +648,9 @@ const StudentAccount = () => {
       const res = await fetch(fnUrl('delete-helper-account'), {
         method: 'POST',
         headers: fnHeaders(),
-        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone, confirm: 'DELETE' }),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone, confirm: 'DELETE', account_token: accountTokenRef.current }),
       });
+      if (authExpired(res.status)) return;
       const json = await res.json() as { deleted?: boolean; error?: string };
       if (!res.ok || !json.deleted) {
         // Guard messages ("you're owed €X", "finish your active job") arrive here.
@@ -556,33 +704,90 @@ const StudentAccount = () => {
         </header>
         <div className="min-h-dvh flex flex-col items-center justify-center px-6 pt-14 pb-10">
           <div className="w-full max-w-sm">
-            <h1 className="text-2xl font-bold text-foreground mb-2">Enter your number</h1>
-            <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-              {pendingAdd ? (
-                <>Enter the phone number you signed up with and we&rsquo;ll tick{' '}
-                <span className="font-semibold text-foreground">{skillLabel(pendingAdd)}</span> onto your jobs.</>
-              ) : (
-                'Enter the phone number you signed up with to access your VANO account.'
-              )}
-            </p>
-            <form onSubmit={handlePhoneVerify} className="space-y-3">
-              <input
-                type="tel"
-                value={gateInput}
-                onChange={e => { setGateInput(e.target.value); setGateError(''); }}
-                placeholder="+353 87 123 4567"
-                autoFocus
-                className="w-full h-14 rounded-2xl border border-border bg-background px-4 text-base focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/40"
-              />
-              {gateError && <p className="text-sm text-destructive">{gateError}</p>}
-              <button
-                type="submit"
-                disabled={gateLoading || !gateInput.trim()}
-                className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {gateLoading ? <><Loader2 size={17} className="animate-spin" />Looking up…</> : 'Continue →'}
-              </button>
-            </form>
+            {gateStep === 'phone' ? (
+              <>
+                <h1 className="text-2xl font-bold text-foreground mb-2">Enter your number</h1>
+                <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+                  {pendingAdd ? (
+                    <>Enter the phone number you signed up with and we&rsquo;ll tick{' '}
+                    <span className="font-semibold text-foreground">{skillLabel(pendingAdd)}</span> onto your jobs.
+                    We&rsquo;ll text you a 6-digit code to keep your account safe.</>
+                  ) : (
+                    "Enter the phone number you signed up with — we'll text you a 6-digit code to keep your account safe."
+                  )}
+                </p>
+                <form onSubmit={handlePhoneVerify} className="space-y-3">
+                  <input
+                    type="tel"
+                    value={gateInput}
+                    onChange={e => { setGateInput(e.target.value); setGateError(''); }}
+                    placeholder="+353 87 123 4567"
+                    autoFocus
+                    autoComplete="tel"
+                    className="w-full h-14 rounded-2xl border border-border bg-background px-4 text-base focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/40"
+                  />
+                  {gateError && <p className="text-sm text-destructive">{gateError}</p>}
+                  <button
+                    type="submit"
+                    disabled={gateLoading || !gateInput.trim()}
+                    className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {gateLoading ? <><Loader2 size={17} className="animate-spin" />Texting you a code…</> : 'Text me a code →'}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold text-foreground mb-2">Enter the code</h1>
+                <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+                  We {gateChannel === 'whatsapp' ? 'sent a 6-digit code to your WhatsApp' : 'texted a 6-digit code to'}{' '}
+                  <span className="font-semibold text-foreground">{gateInput.trim()}</span>.
+                  {gateChannel === 'sms' && ' It can take a few seconds.'}
+                </p>
+                <form onSubmit={(e) => { e.preventDefault(); void verifyGateCode(); }} className="space-y-3">
+                  <input
+                    type="text"
+                    value={gateCode}
+                    onChange={e => { setGateCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setGateError(''); }}
+                    placeholder="6-digit code"
+                    autoFocus
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    className="w-full h-14 rounded-2xl border border-border bg-background px-4 text-base tracking-[0.4em] text-center font-semibold focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/40 placeholder:tracking-normal placeholder:font-normal"
+                  />
+                  {gateError && <p className="text-sm text-destructive">{gateError}</p>}
+                  <button
+                    type="submit"
+                    disabled={gateLoading || gateCode.length !== 6}
+                    className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {gateLoading ? <><Loader2 size={17} className="animate-spin" />Checking…</> : 'Open my account →'}
+                  </button>
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => { setGateStep('phone'); setGateCode(''); setGateError(''); }}
+                      className="text-xs font-medium text-muted-foreground underline underline-offset-2 py-2"
+                    >
+                      Wrong number?
+                    </button>
+                    {(() => {
+                      const wait = Math.max(0, Math.ceil((resendAt - nowTick) / 1000));
+                      return (
+                        <button
+                          type="button"
+                          disabled={gateLoading || wait > 0}
+                          onClick={() => void sendGateCode()}
+                          className="text-xs font-medium text-muted-foreground underline underline-offset-2 py-2 disabled:opacity-50 disabled:no-underline"
+                        >
+                          {wait > 0 ? `Resend in ${wait}s` : 'Resend code'}
+                        </button>
+                      );
+                    })()}
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>

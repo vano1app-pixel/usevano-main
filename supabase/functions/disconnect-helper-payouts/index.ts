@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { phonesMatch } from "../_shared/phoneMatch.ts";
+import { hasAccountAccess } from "../_shared/accountToken.ts";
 
 // Lets a household helper disconnect their Stripe Connect payout account from
-// /student-account. Auth: phone number verified against helper_id — the same
-// model as cancel-helper-subscription / update-helper-profile, since most
-// helpers are phone-gated only (no Supabase auth session).
+// /student-account. Auth: phone match + the account_token minted by
+// student-account-otp (phone-gate hardening, July 2026) — the same model as
+// cancel-helper-subscription / update-helper-profile, since most helpers are
+// phone-gated only (no Supabase auth session).
 //
 // Best-effort deletes the Stripe Express account, then clears the link on
 // household_helpers so a later "Set up payouts" starts a fresh account. Any
@@ -33,7 +35,7 @@ serve(async (req) => {
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const stripeKey   = Deno.env.get('STRIPE_SECRET_KEY');
 
-    const body = await req.json().catch(() => ({})) as { helper_id?: string; phone?: string };
+    const body = await req.json().catch(() => ({})) as { helper_id?: string; phone?: string; account_token?: string };
     const { helper_id, phone } = body;
     if (!helper_id || !phone) return bad(400, 'helper_id and phone are required');
 
@@ -47,6 +49,9 @@ serve(async (req) => {
 
     if (!helper) return bad(404, 'Helper account not found');
     if (!phonesMatch(helper.phone, phone)) return bad(403, 'Phone number does not match');
+    if (!await hasAccountAccess(body.account_token, helper.id)) {
+      return bad(401, 'Your secure session expired — verify your number again on the account page.');
+    }
 
     if (!helper.stripe_account_id) return ok({ disconnected: true }); // already disconnected — idempotent
 

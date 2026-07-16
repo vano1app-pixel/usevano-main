@@ -123,7 +123,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
       },
       {
         heading: 'Regular walks without the subscription trap',
-        text: 'There’s no contract and no weekly minimum — book a walk whenever you need one, from the Prom in Salthill to the woods in Terryland. If you find a walker your dog loves, book again in two taps; every third booking is 50% off as a loyalty thank-you.',
+        text: 'There’s no contract and no weekly minimum — book a walk whenever you need one, from the Prom in Salthill to the woods in Terryland. If you find a walker your dog loves, book again in two taps; on every third booking VANO waives its booking fee as a loyalty thank-you.',
       },
     ],
     priceLabel: '€15 / 30 min · €20 / hour',

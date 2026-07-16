@@ -68,10 +68,12 @@ serve(async (req) => {
       return json(403, { error: "That's not the email on your application. Update your email from your account page first, then verify it here." });
     }
 
-    // Rate limit — one code per 30s per helper
+    // Rate limit — one code per 30s per helper ('acct:' rows are the separate
+    // account-session codes owned by student-account-otp — not counted).
     const { data: recent } = await supabase
       .from('helper_email_otps').select('created_at')
-      .eq('helper_id', helper_id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      .eq('helper_id', helper_id).not('email', 'like', 'acct:%')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (recent && Date.now() - new Date(recent.created_at as string).getTime() < RESEND_GAP_MS) {
       return json(429, { error: 'Please wait a moment before requesting another code.' });
     }
@@ -79,8 +81,8 @@ serve(async (req) => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const code_hash = await sha256Hex(`${helper_id}:${code}`);
 
-    // One live code per helper — clear old ones first
-    await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
+    // One live code per helper — clear old ones first (never the 'acct:' rows)
+    await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id).not('email', 'like', 'acct:%');
     const { error: insErr } = await supabase.from('helper_email_otps').insert({
       helper_id, email: cleanEmail, code_hash,
       expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),

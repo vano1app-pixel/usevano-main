@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
-import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound, ShieldCheck, Camera } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound, ShieldCheck, Camera, ClipboardList, Check } from 'lucide-react';
 import { uploadJobPhoto } from '@/lib/jobPhotos';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { extractFnError } from '@/lib/fnError';
 import { microCelebrate } from '@/lib/celebrate';
-import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
+import { isTimedCategory, formatCountdown, helperPlaybook } from '@/lib/householdJob';
 import { getCurrentPosition, watchPosition, clearWatch, isPermissionDenied, type WatchId } from '@/lib/native/geolocation';
 import logo from '@/assets/logo.png';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
@@ -1066,6 +1066,42 @@ const StudentJobDetail = () => {
           </motion.div>
         )}
 
+        {/* What to do on THIS job — the WORK, not the app flow (that's the
+            card above). A first-timer shouldn't have to guess what a laundry
+            job includes, or whether the clock matters: timed jobs deliver the
+            booked hours, task jobs are simply done when the task is done.
+            Hidden once the helper flags finished — its job is done too. */}
+        {mine && !isComplete && !isCancelled && !booking.helper_finished_at && (
+          <div className="rounded-2xl border border-border/60 bg-background p-4 mb-4">
+            <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
+              <div className="flex items-center gap-2">
+                <ClipboardList size={15} className="text-sage flex-shrink-0" />
+                <p className="text-sm font-bold text-foreground">What to do</p>
+              </div>
+              <span className={cn(
+                'text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5',
+                isTimedCategory(booking.category)
+                  ? 'bg-sage/10 text-sage-dark'
+                  : 'bg-gold/20 text-amber-800',
+              )}>
+                {isTimedCategory(booking.category) ? 'Timed — do the booked time' : 'Task — done when it’s done'}
+              </span>
+            </div>
+            <ul className="space-y-1.5">
+              {helperPlaybook(booking.category).steps.map((s) => (
+                <li key={s} className="flex items-start gap-2 text-xs text-foreground/80 leading-relaxed">
+                  <Check size={13} className="text-sage flex-shrink-0 mt-0.5" strokeWidth={3} aria-hidden="true" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2.5 flex items-start gap-1.5 text-[11px] text-muted-foreground leading-relaxed">
+              <Camera size={12} className="flex-shrink-0 mt-0.5 text-sage" aria-hidden="true" />
+              After photo: {helperPlaybook(booking.category).photoHint} — your proof, like a delivery photo.
+            </p>
+          </div>
+        )}
+
         {/* Live location sharing indicator */}
         {sharingLocation && (
           <motion.div
@@ -1365,6 +1401,23 @@ const StudentJobDetail = () => {
               Did {booking.customer_name && booking.customer_name !== 'Guest' ? booking.customer_name.split(' ')[0] : 'the customer'} pay you{earnCents ? ` €${(earnCents / 100).toFixed(2)}` : ''}?
             </p>
             <p className="text-xs text-muted-foreground mb-3">Revolut or cash — you keep all of it. Confirming closes the job out properly.</p>
+            {/* The delivery-photo moment: the after shot is worth the most
+                right here (job just finished, work still fresh). Optional and
+                fail-soft, same upload path as the photo card below. */}
+            {!booking.finish_photo_url && (
+              <label className={cn(
+                'mb-3 flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gold/50 bg-white/60 text-xs font-semibold text-amber-800',
+                photoUploading !== null && 'opacity-50 pointer-events-none',
+              )}>
+                {photoUploading === 'finish' ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} aria-hidden="true" />}
+                Add your after photo — proof of the finished job
+                <input
+                  type="file" accept="image/*" capture="environment" className="hidden"
+                  disabled={photoUploading !== null}
+                  onChange={(e) => { void handleJobPhoto('finish', e.target.files?.[0]); e.target.value = ''; }}
+                />
+              </label>
+            )}
             {/* Optional star rating for the customer — two-way reviews */}
             <div className="flex items-center gap-1.5 mb-3" role="group" aria-label="Rate this customer (optional)">
               {[1, 2, 3, 4, 5].map((n) => (

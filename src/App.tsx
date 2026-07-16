@@ -30,7 +30,6 @@ const JobAccepted = lazyWithRetry(() => import("./pages/JobAccepted"));
 const StudentAccount = lazyWithRetry(() => import("./pages/StudentAccount"));
 const JoinAsHelper = lazyWithRetry(() => import("./pages/JoinAsHelper"));
 const VerifyHelper = lazyWithRetry(() => import("./pages/VerifyHelper"));
-const HelperProfile = lazyWithRetry(() => import("./pages/HelperProfile"));
 const HelperPublicProfile = lazyWithRetry(() => import("./pages/HelperPublicProfile"));
 const HouseholdAdmin = lazyWithRetry(() => import("./pages/HouseholdAdmin"));
 const Auth = lazyWithRetry(() => import("./pages/Auth"));

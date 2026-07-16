@@ -49,6 +49,11 @@ project_id = "puomfwjtpvqedwxjxogh"
   # same verify-student-email-otp. Applicant has no JWT yet.
   [functions.send-student-sms-otp]
     verify_jwt = false
+  # The /student-account SMS gate: texts a code to the number on the helper's
+  # own row and mints the account_token the phone-authed functions require.
+  # Callers are phone-gated helpers with no JWT; origin + rate limits inside.
+  [functions.student-account-otp]
+    verify_jwt = false
   [functions.create-identity-verification]
     verify_jwt = false
   [functions.stripe-identity-webhook]

@@ -1,10 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { phonesMatch } from "../_shared/phoneMatch.ts";
+import { hasAccountAccess } from "../_shared/accountToken.ts";
 
 // GDPR "right to erasure" for a household helper, from /student-account.
-// Auth: phone number verified against helper_id (same model as
-// cancel-helper-subscription) PLUS an explicit confirm token ("DELETE").
+// Auth: phone match + the account_token minted by student-account-otp
+// (phone-gate hardening, July 2026 — the most destructive action on the page
+// must never ride on a guessable number) PLUS an explicit confirm ("DELETE").
 //
 // We ANONYMISE rather than hard-delete: bookings + payouts reference this row
 // for financial/legal records that must be retained, so we strip every piece
@@ -38,7 +40,7 @@ serve(async (req) => {
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const stripeKey   = Deno.env.get('STRIPE_SECRET_KEY');
 
-    const body = await req.json().catch(() => ({})) as { helper_id?: string; phone?: string; confirm?: string };
+    const body = await req.json().catch(() => ({})) as { helper_id?: string; phone?: string; confirm?: string; account_token?: string };
     const { helper_id, phone, confirm } = body;
     if (!helper_id || !phone) return bad(400, 'helper_id and phone are required');
     if (confirm !== 'DELETE') return bad(400, 'Missing confirmation');
@@ -58,6 +60,9 @@ serve(async (req) => {
 
     if (!helper) return bad(404, 'Helper account not found');
     if (!phonesMatch(helper.phone, phone)) return bad(403, 'Phone number does not match');
+    if (!await hasAccountAccess(body.account_token, helper.id)) {
+      return bad(401, 'Your secure session expired — verify your number again on the account page.');
+    }
     if (helper.status === 'deleted') return ok({ deleted: true }); // idempotent
 
     // Guard 1 — active job in progress. Deleting mid-job would strand a paying

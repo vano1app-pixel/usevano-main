@@ -229,9 +229,15 @@ extend it.
    editors always load the helper's saved picks.
    Submits to `create-helper-application` (dupe-guarded: same phone/email
    updates the existing row, never a second one).
-2. **Applying = live.** `create-helper-application` inserts the row as
-   `status 'approved'` + `is_available true` and fires
-   `notify-helper-approved` immediately. There is NO payment gate to join.
+2. **Applying = approved; the email code makes you live.** (Spam gate, July
+   2026.) `create-helper-application` inserts the row as `status 'approved'`
+   but `is_available false` with `application_data.pending_email_verify`;
+   the email OTP on `/verify-helper` (its step 1, where the client lands
+   right after joining) flips `is_available` true, clears the flag and fires
+   `notify-helper-approved` — so welcome messages and the public helper
+   count only ever include signups with a real inbox. Job offers are gated
+   further behind the free ID check (dispatch only texts `id_verified`
+   helpers). There is NO payment gate to join.
    (The old pay-to-join €2 one-off — `create-signup-payment` /
    `confirm-signup-payment` / the `signup_paid` DB trigger — is retired but
    still deployed for stragglers with old links; don't build on it.)
@@ -271,18 +277,21 @@ extend it.
   2026-07-07). cancel-verified-plan still handles a plan row with no Stripe
   sub (`verified_plan_sub_id` null) by flipping the flag directly — keep
   that as the safety net for manually-comped ticks.
-- `household-helper-connect-link` (payout onboarding) now has TWO auth
-  paths: JWT (dashboard) and helper_id+phone (the /student-account page);
-  its gateway verify_jwt is false and auth lives in the body.
+- `household-helper-connect-link` (payout onboarding) has TWO auth paths:
+  JWT (dashboard) and helper_id+phone+`account_token` (the /student-account
+  page, post-SMS-code); its gateway verify_jwt is false and auth lives in
+  the body.
 
-**Profile editing — three surfaces, one rule set:**
+**Profile editing — two surfaces, one rule set:**
 - `StudentDashboard.tsx` profile sheet (needs an auth session) and
-  `StudentAccount.tsx` (phone-gated, no auth needed) are the two live
-  editors. `/helper/profile` (`HelperProfile.tsx`) is a legacy orphan —
-  nothing links to it; retire/redirect it rather than extending it.
-- `update-helper-profile` authenticates by the helper's **phone** form
-  field — every call MUST send it (the dashboard photo save once didn't,
-  and photos silently never saved while the UI said "Saved!").
+  `StudentAccount.tsx` (phone+SMS-code gated, no auth needed) are the two
+  live editors. `/helper/profile` was the legacy orphan editor — deleted
+  July 2026; the route redirects to `/student-account`.
+- `update-helper-profile` locates the row by the **phone** form field —
+  every call MUST send it (the dashboard photo save once didn't, and
+  photos silently never saved while the UI said "Saved!") — and since the
+  phone-gate hardening ALSO requires `account_token` (the account page's
+  code-verified session) or a linked user JWT (the dashboard path).
 - The "Jobs I do" picker must always be the shared `SKILL_GROUPS` +
   `toggleGroup`/`toggleSub` from `src/lib/helperSkills.ts` — never a local
   list. Sub-skills only ever ride with their parent group (dispatch matches
@@ -292,21 +301,38 @@ extend it.
 - Nudge priority in the dashboard: verification card first, then "Finish
   your profile" (bio/availability) — one card at a time, never a stack.
 
+**Decided + shipped (July 2026) — the former open decisions:**
+- ~~ID-check policy~~ — **mandatory before the FIRST JOB, enforced.**
+  `dispatch-household-job` only offers to `id_verified` helpers (city pool,
+  platform-wide fallback AND the gap-recruit nudge all filter on it),
+  `accept-job` re-checks `status='approved' AND id_verified` server-side
+  before the atomic claim, and both in-app claim paths
+  (`StudentJobDetail.claimJob`, `StudentDashboard.acceptJob`) gate with a
+  verify CTA (`=== false` on purpose — null means the row hasn't loaded).
+  "ID-verified students" marketing is therefore literally true for anyone
+  who can work. `/verify-helper` + `notify-helper-approved` +
+  `nudge-helper-onboarding` all frame the ID check as the job unlock.
+- ~~Free signup spam filter~~ — **email OTP before going live** (see
+  "Sign-up → live" step 2 above): applications are born unavailable with
+  `pending_email_verify`; the first verified email code flips them live and
+  sends the welcome, so junk signups never inflate the public helper count
+  and never get welcome messages.
+- ~~Phone gate hardening~~ — **SMS OTP + signed account session.**
+  `/student-account` now texts a 6-digit code to the number ON the helper's
+  row (`student-account-otp`: send/verify, rate-limited, codes in
+  `helper_email_otps` under an `acct:` prefix + distinct hash salt so the
+  email-verify flow can't collide) and mints a 30-minute HMAC
+  `account_token` (`_shared/accountToken.ts`, same secret as accept links).
+  EVERY phone-authed function now requires it: `find-helper-by-phone` (the
+  profile read), `update-helper-profile` (which alternatively accepts a
+  linked user JWT — the dashboard's photo save sends its session token),
+  `household-helper-connect-link` (phone path), `cancel-verified-plan`,
+  `cancel-helper-subscription`, `disconnect-helper-payouts`,
+  `delete-helper-account`. Knowing a number no longer reads or edits
+  anything. The page caches the session in sessionStorage (30 min, dies
+  with the tab) and any 401 drops it back to the code step.
+
 **Open decisions the owner still needs to make (don't silently pick one):**
-- **ID-check policy — the big one.** Free-to-join means an unverified helper
-  can work, but marketing still says "ID-verified students" in places
-  (HowItWorks, review copy, service pages). Either make the ID check
-  mandatory before the FIRST JOB (preferred — Stripe Identity is already
-  wired) or sweep the remaining overclaiming copy. The helper public profile
-  is already honest; the rest of the site isn't fully.
-- **Free signup lost the spam filter.** The €2 used to keep sign-ups
-  genuine; now anyone is instantly live + available and the admin gets a
-  WhatsApp per application. Watch signup quality; if junk arrives, add a
-  cheap gate (email OTP before going live, or manual approve toggle).
-- **Phone gate hardening**: anyone who knows a helper's number can edit
-  their profile via `/student-account` — and now also start payout
-  onboarding and cancel the verified plan there. An SMS OTP at that gate is
-  the cheap fix (`send-student-sms-otp` infra already exists).
 - **Twilio env check**: `VANO_SMS_ENABLED=true` + `TWILIO_SMS_FROM` etc.
   must be set in Supabase or the "Prefer a text?" OTP path errors
   (gracefully, but the rescue hatch is then closed).
@@ -559,13 +585,15 @@ tick-eyebrows, floating cards.
   in the July 2026 cleanup — don't reintroduce them.
 
 ## What needs improving (known — not yet done)
-- **Legacy 404 routing**: `authSession.ts` can still route old
-  student/business accounts to unmounted routes via Auth.tsx's "Continue
-  as" button. Harmless for helpers/customers; tidy when touching auth.
+- ~~Legacy 404 routing~~ — done July 2026: the post-auth resolvers in
+  `authSession.ts` now discard the deleted marketplace's return stashes
+  (claim / talent board / AI-Find) instead of routing to their 404 pages;
+  every post-auth branch lands on a mounted route.
 - ~~Dashboard cleanup~~ — done July 2026: all orphaned/legacy functions are
   deleted remotely by the RETIRED prune list in the deploy workflow.
-- **Lint debt** — mostly cleared: `npm run lint` is down from 22 errors to 3,
-  all in `auth-email-hook` (`any`s left untouched for now). Worth a final pass.
+- ~~Lint debt~~ — cleared: `npm run lint` reports 0 errors (4 benign
+  warnings: shadcn fast-refresh notes + a hook-deps note in the legacy
+  `useAuthContext`).
 - **Perf** — already healthy (routes lazy-loaded, analytics deferred). No action
   unless first paint regresses.
 

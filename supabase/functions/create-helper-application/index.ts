@@ -198,7 +198,13 @@ serve(async (req) => {
 
     // Insert helper row (no user_id — they don't need a Supabase auth
     // account), or refresh the existing pending application in place.
-    // Free-to-join: live + available from the moment they apply.
+    // Free-to-join, but NOT instantly visible: the row is born approved yet
+    // UNAVAILABLE with a pending_email_verify flag — the email OTP on
+    // /verify-helper (the page the client lands on next) flips is_available
+    // true and sends the welcome. That one free step is the spam gate: a junk
+    // signup with a made-up email never inflates the public helper count and
+    // never gets welcome messages. (Offers were already gated further behind
+    // the free ID check — dispatch only texts id_verified helpers.)
     const helperFields = {
       name,
       email,
@@ -207,7 +213,7 @@ serve(async (req) => {
       photo_url: publicUrl,
       categories,
       status: 'approved',
-      is_available: true,
+      is_available: false,
       autopilot_opt_in: autopilotOptIn,
       ...(age !== null && !isNaN(age) ? { age } : {}),
       ...(bioRaw ? { bio: bioRaw } : {}),
@@ -227,6 +233,9 @@ serve(async (req) => {
         // the dedicated columns (student_email_verified, id_verified, signup_paid).
         consents: { right_to_work: rightToWork, verify: consentVerify, terms: agreeTerms },
         submitted_at: new Date().toISOString(),
+        // The spam gate: verify-student-email-otp sees this flag, flips
+        // is_available true, clears it, and fires the welcome notification.
+        pending_email_verify: true,
       },
     };
 
@@ -244,15 +253,12 @@ serve(async (req) => {
       });
     }
 
-    // Free-to-join: they're approved the moment the row lands — send the
-    // "you're in" WhatsApp/email (dashboard, alerts, payout steps) right away.
-    if (!pendingExisting && helperId) {
-      fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ helper_id: helperId }),
-      }).catch(() => {/* non-critical */});
-    }
+    // The "you're in" welcome (notify-helper-approved) is NOT sent here any
+    // more — it fires from verify-student-email-otp the moment the email code
+    // is confirmed, so welcomes only ever go to signups with a real inbox
+    // (the spam gate). The applicant confirmation email below still goes out
+    // immediately, since it's the message carrying the "confirm your email"
+    // instruction itself.
 
     // Notify admin via WhatsApp — fire and forget. Skipped on resubmission
     // so a retried signup doesn't ping the admin twice.
@@ -295,24 +301,25 @@ serve(async (req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${firstName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      Thanks for joining VANO in <strong>${city}</strong> — <strong>you're live already</strong> and
-      jobs near you can start coming through. Next, earn your <strong>✓ Verified tick</strong> on the
-      next screen: confirm your student email and do the 2-minute ID check (both free), then €2/month
-      keeps the tick on your name. Verified helpers are offered jobs first.
+      Thanks for joining VANO in <strong>${city}</strong> — you're approved. Two quick free steps
+      on the next screen and jobs start coming through: <strong>confirm this email</strong> (we send
+      a 6-digit code) and do the <strong>2-minute ID check</strong>. After that, the optional €2/month
+      keeps the ✓ Verified tick on your name — verified helpers are offered jobs first.
     </p>
     <p style="margin:0 0 4px;color:#374151;font-size:14px;">Questions or in a hurry?</p>
     <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;margin-top:6px;">💬 WhatsApp us</a>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${firstName}, you're live as a VANO helper in ${city} — jobs near you can start coming through. Next: earn your ✓ Verified tick — confirm your student email and do the 2-minute ID check (both free), then €2/month keeps the tick on your name. Verified helpers get offered jobs first. Questions? WhatsApp +353 89 981 7111`,
+            text: `Hi ${firstName}, you're approved as a VANO helper in ${city}. Two quick free steps and jobs start coming through: confirm this email (we send a 6-digit code) and do the 2-minute ID check. The optional €2/month keeps the ✓ Verified tick on your name — verified helpers are offered jobs first. Questions? WhatsApp +353 89 981 7111`,
           }),
         }).catch(() => {/* non-critical */});
       }
     }
 
-    // Saved as 'approved' — they're live. The client moves to /verify-helper,
-    // where the ✓ tick is earned: email OTP + ID check (free) + €2/month plan.
+    // Saved as 'approved' but not yet available. The client moves to
+    // /verify-helper, where the email OTP flips them live (the spam gate),
+    // the free ID check unlocks job offers, and the €2/month plan is optional.
     return new Response(JSON.stringify({ success: true, helper_id: helperId }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });

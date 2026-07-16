@@ -82,10 +82,14 @@ export const FAQSection: React.FC = () => {
           href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! Quick question — ')}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-5 flex items-center justify-center gap-1.5 py-2 text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150"
+          className="mt-5 block py-2 text-center text-[13px] leading-relaxed text-muted-foreground hover:text-foreground transition-colors duration-150"
         >
-          <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" aria-hidden="true" />
-          Something else?<span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span> — we reply in minutes
+          {/* Inline flow, not flex — flex items wrapped into an odd stacked
+              grid on narrow phones ("Something else? / WhatsApp us / — we…"). */}
+          <MessageCircle className="mr-1.5 inline h-3.5 w-3.5 align-[-2px] text-[#25D366]" aria-hidden="true" />
+          Something else?{' '}
+          <span className="font-semibold text-foreground/80 underline underline-offset-2 whitespace-nowrap">WhatsApp us</span>
+          {' '}— we reply in minutes
         </a>
       </div>
     </section>

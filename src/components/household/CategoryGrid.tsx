@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
+import { AnimatePresence, motion, useDragControls, useReducedMotion, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
 import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, ArrowLeft, Clock, Phone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -360,6 +360,51 @@ const Chip: React.FC<ChipProps> = ({ active, accent, group, onClick, children })
     <span className="relative z-10">{children}</span>
   </motion.button>
 );
+
+// ─── Animated price ──────────────────────────────────────────────────────────
+
+/** Rolling money: when the amount changes it counts to the new value with a
+ *  small settle pop, so a duration bump or the €2 Cover visibly BUILDS the
+ *  price instead of teleporting it. Interruptible — a change mid-roll starts
+ *  from wherever the roll got to. Reduced motion snaps straight to the target.
+ *  Screen readers only ever hear the final amount (the rolling digits are
+ *  aria-hidden); pass `announce` on at most one instance per card. */
+const AnimatedPrice: React.FC<{ cents: number; className?: string; announce?: boolean }> = ({ cents, className, announce }) => {
+  const reduceMotion = useReducedMotion();
+  const [display, setDisplay] = useState(cents);
+  const displayRef = useRef(cents);
+  useEffect(() => {
+    const from = displayRef.current;
+    if (from === cents) return;
+    if (reduceMotion) { displayRef.current = cents; setDisplay(cents); return; }
+    const t0 = performance.now();
+    const DUR = 520;
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 4);
+    let raf = requestAnimationFrame(function tick(now: number) {
+      const p = Math.min(1, (now - t0) / DUR);
+      const v = Math.round(from + (cents - from) * easeOut(p));
+      displayRef.current = v;
+      setDisplay(v);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [cents, reduceMotion]);
+  return (
+    <span className={cn('tabular-nums', className)}>
+      <motion.span
+        key={cents}
+        initial={reduceMotion ? false : { scale: 0.85 }}
+        animate={{ scale: 1 }}
+        transition={{ type: 'spring', stiffness: 460, damping: 21 }}
+        className="inline-block origin-right"
+        aria-hidden="true"
+      >
+        {fmt(display)}
+      </motion.span>
+      <span className="sr-only" aria-live={announce ? 'polite' : 'off'}>{fmt(cents)}</span>
+    </span>
+  );
+};
 
 // ─── Bottom sheet ─────────────────────────────────────────────────────────
 
@@ -753,12 +798,21 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     </>
   );
 
+  // A failed validation must SHOW the field it's pointing at: the customer
+  // just pressed Book at the BOTTOM of the sheet, and the fields live at the
+  // top (possibly folded behind the returning-customer summary). Unfold and
+  // scroll back up so the red border is on screen, not above the fold.
+  function revealFieldError() {
+    setEditDetails(true);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     if (submitLock.current) return; // ignore a double-tap before the re-render
     const phoneClean = phone.trim().replace(/\s+/g, '');
     if (!isValidPhone(phone)) {
-      setEditDetails(true); // reveal the fields if the compact summary is showing
+      revealFieldError();
       setPhoneError(true);
       setError('Please enter a valid phone number.');
       return;
@@ -767,16 +821,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       // Phone-shaped but not textable (UK 07…, landlines) — every update
       // (pay link, on-my-way, arrival) goes by text, so catch it here with a
       // fix instead of booking someone we can never reach.
-      setEditDetails(true);
+      revealFieldError();
       setPhoneError(true);
       setError("We can't text that number — Irish mobiles (08…) work as-is; for other countries add the code, e.g. +44 7…");
       return;
     }
     if (!address.trim()) {
-      // The red border targets the AddressPicker — which is hidden behind the
-      // "returning customer" compact summary. Reveal the fields first so the
-      // flagged field the error points at is actually on screen.
-      setEditDetails(true);
+      revealFieldError();
       setAddressError(true);
       setError('Please add your address so your helper can find you.');
       return;
@@ -998,16 +1049,26 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: SHEET_EASE, delay: 0.15 } }}
                 exit={{ opacity: 0, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.18, ease: 'easeOut' } }}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5 overflow-hidden"
+                className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5 overflow-hidden"
               >
                 {[
-                  'ID-verified student',
-                  'Optional €250 cover',
-                  'Money-back guarantee',
-                ].map((t) => (
-                  <span key={t} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-sage-dark whitespace-nowrap">
+                  { id: 'idv',   text: 'ID-verified student' },
+                  // Live chip: ticking the €2 Cover below flips the promise
+                  // from "optional" to "added" — the sheet acknowledges it.
+                  { id: 'cover', text: coverOpted ? '€250 cover added' : 'Optional €250 cover' },
+                  { id: 'mbg',   text: 'Money-back guarantee' },
+                ].map(({ id, text }) => (
+                  <span key={id} className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-semibold text-sage-dark whitespace-nowrap">
                     <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
-                    {t}
+                    <motion.span
+                      key={text}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="inline-block"
+                    >
+                      {text}
+                    </motion.span>
                   </span>
                 ))}
               </motion.div>
@@ -1042,6 +1103,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   }}
                   placeholder='e.g. "paint the fence" or "clean the oven"'
                   autoComplete="off"
+                  enterKeyHint="go"
                   aria-label="Describe what you need done"
                   className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
@@ -1102,54 +1164,53 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             animate="show"
             exit="exit"
           >
-            {/* Welcome back — details remembered from the last booking */}
-            {prefilled && (
-              <motion.div variants={listItem} className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
-                <p className="text-xs text-foreground/70">
-                  <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
-                </p>
-                <button
-                  type="button"
-                  onClick={forgetMe}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-3 -mx-3 -my-3"
-                >
-                  Clear
-                </button>
-              </motion.div>
-            )}
-
-            {/* Returning customer → one-tap confirm: show the remembered phone +
-                address as a compact summary instead of the full form. "Edit"
-                reveals the fields. New visitors always get the fields. The
-                summary folds away as the fields unfold beneath it — one
-                continuous push, not a swap. */}
+            {/* Returning customer → one-tap confirm: the "welcome back" strip
+                and the remembered phone + address live in ONE card (they used
+                to be two stacked rows — the sheet reads shorter this way).
+                "Edit" unfolds the fields beneath, "Clear" forgets the device.
+                New visitors always get the fields. */}
             <AnimatePresence>
               {prefilled && !editDetails && (
                 <motion.div
                   key="detail-summary"
                   variants={listItem}
-                  exit={{ height: 0, opacity: 0, paddingTop: 0, paddingBottom: 0, marginTop: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
-                  className="rounded-xl border border-border bg-white px-4 py-3.5 overflow-hidden"
+                  exit={{ height: 0, opacity: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
+                  className="rounded-xl border border-sage/25 bg-white overflow-hidden"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1.5">
-                      <p className="flex items-center gap-2 text-sm text-foreground">
-                        <Phone className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
-                        <span className="font-semibold truncate">{phone || 'Add your number'}</span>
-                      </p>
-                      <p className="flex items-center gap-2 text-sm text-foreground/80">
-                        <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
-                        <span className="truncate">{address || 'Add your address'}</span>
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between gap-3 bg-sage/8 border-b border-sage/15 px-4 py-2">
+                    <p className="text-[11px] text-foreground/70 truncate">
+                      <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
+                    </p>
                     <button
                       type="button"
-                      onClick={() => setEditDetails(true)}
-                      className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
+                      onClick={forgetMe}
+                      className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-2.5 -mx-3 -my-2.5"
                     >
-                      Edit
+                      Clear
                     </button>
                   </div>
+                  {/* The whole row opens the editor — a tap target the size of
+                      the card, not just the little "Edit" label. */}
+                  <button
+                    type="button"
+                    onClick={() => setEditDetails(true)}
+                    aria-label="Edit your phone or address"
+                    className="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary/40"
+                  >
+                    <span className="block min-w-0 space-y-1.5">
+                      <span className="flex items-center gap-2 text-sm text-foreground">
+                        <Phone className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                        <span className="font-semibold truncate">{phone || 'Add your number'}</span>
+                      </span>
+                      <span className="flex items-center gap-2 text-sm text-foreground/80">
+                        <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                        <span className="truncate">{address || 'Add your address'}</span>
+                      </span>
+                    </span>
+                    <span className="text-[11px] font-semibold text-sage-dark flex-shrink-0" aria-hidden="true">
+                      Edit
+                    </span>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1175,15 +1236,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               )
             )}
 
-            {/* When + duration — one quiet line by default (ASAP), because that's
-                what almost everyone wants. Tap "Change" to reveal the time and
-                duration options. Fewer decisions up front = a faster booking. */}
-            <motion.div variants={listItem}>
+            {/* When + duration + area — ONE quiet "logistics" card, two lines
+                (they were two separate rows). ASAP · Galway is what almost
+                everyone wants, so both lines start collapsed and unfold their
+                options in place when tapped. Fewer decisions up front = a
+                faster booking. */}
+            <motion.div variants={listItem} className="rounded-xl border border-border bg-white overflow-hidden">
               <button
                 type="button"
                 onClick={() => setShowWhen(s => !s)}
                 aria-expanded={showWhen}
-                className="w-full flex items-center justify-between rounded-xl border border-border bg-white px-4 py-3 text-left transition-colors hover:border-foreground/20"
+                className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-secondary/40"
               >
                 <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
                   <Clock className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
@@ -1199,10 +1262,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 0.28, ease: SHEET_EASE }}
                     className="overflow-hidden"
                   >
-                    <div className="pt-3">
+                    <div className="px-4 pb-3.5">
                       <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {timeSlots.map(opt => (
@@ -1241,118 +1304,140 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              <div className="border-t border-border/60" aria-hidden="true" />
+
+              {/* Area — auto-detected from the address; chips unfold as fallback
+                  (one tap now, whether or not the geocoder filled it) */}
+              <button
+                type="button"
+                onClick={() => setShowArea(s => !s)}
+                aria-expanded={showArea}
+                className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-secondary/40"
+              >
+                <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
+                  <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
+                  <span className="font-semibold">{city}</span>
+                  <span className="text-muted-foreground text-xs truncate">· {cityAuto ? 'from your address' : 'your area'}</span>
+                </span>
+                <span className="text-xs font-semibold text-sage-dark flex-shrink-0">{showArea ? 'Done' : 'Change'}</span>
+              </button>
+
+              <AnimatePresence initial={false}>
+                {showArea && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.28, ease: SHEET_EASE }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex flex-wrap gap-2 px-4 pb-3.5">
+                      {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
+                        ? [...SUPPORTED_CITIES]
+                        : [city, ...SUPPORTED_CITIES]
+                      ).map(c => {
+                        // Galway-first: dispatch is live in Galway today. Other cities
+                        // read as "soon" — but a remembered or address-derived area
+                        // stays selectable so returning customers aren't locked out.
+                        const comingSoon = c !== 'Galway' && c !== city;
+                        if (comingSoon) {
+                          return (
+                            <span
+                              key={c}
+                              className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
+                            >
+                              {c} · soon
+                            </span>
+                          );
+                        }
+                        return (
+                          // A manual pick overrides the geocoder — clear the
+                          // "from your address" claim so the row stays honest.
+                          <Chip key={c} group="area" active={city === c} onClick={() => { setCity(c); setCityAuto(false); }}>
+                            {c}
+                          </Chip>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
 
-            {/* Area — auto-detected from the address; chips only as fallback */}
-            {cityAuto ? (
-              <motion.div variants={listItem} className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
-                <p className="text-sm text-foreground/75 min-w-0 truncate">
-                  <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
-                  <span className="text-muted-foreground text-xs"> · from your address</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setCityAuto(false)}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-3 -mx-3 -my-3"
-                >
-                  Change
-                </button>
-              </motion.div>
-            ) : !showArea ? (
-              <motion.div variants={listItem} className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
-                <p className="text-sm text-foreground/75 min-w-0 truncate">
-                  <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowArea(true)}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-3 -mx-3 -my-3"
-                >
-                  Change
-                </button>
-              </motion.div>
-            ) : (
-              <motion.div variants={listItem}>
-                <div className="flex items-center justify-between mb-2.5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
-                  <button type="button" onClick={() => setShowArea(false)} className="text-[11px] font-semibold text-sage-dark px-3 py-3 -mx-3 -my-3">Done</button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
-                    ? [...SUPPORTED_CITIES]
-                    : [city, ...SUPPORTED_CITIES]
-                  ).map(c => {
-                    // Galway-first: dispatch is live in Galway today. Other cities
-                    // read as "soon" — but a remembered or address-derived area
-                    // stays selectable so returning customers aren't locked out.
-                    const comingSoon = c !== 'Galway' && c !== city;
-                    if (comingSoon) {
-                      return (
-                        <span
-                          key={c}
-                          className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
-                        >
-                          {c} · soon
-                        </span>
-                      );
-                    }
-                    return (
-                      <Chip key={c} group="area" active={city === c} onClick={() => setCity(c)}>
-                        {c}
-                      </Chip>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Price summary + CTA. Direct-pay: the job money goes to the
-                helper directly (they keep 100%); Vano's card charge at accept
-                is only the booking fee + the optional €2 Cover. */}
+            {/* Price card — the maths reads top to bottom: job → fee → optional
+                €2 Cover → what actually lands on the card. The Cover opt-in
+                lives IN the breakdown, so ticking it visibly rolls the total
+                (+€2) instead of changing nothing on screen. Direct-pay: the
+                job money goes to the helper (100%); the card is only ever
+                charged the fee (+ Cover), and only at accept. */}
             <motion.div variants={listItem} className="space-y-2.5 pt-1">
               {priceCents && (
                 <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                  <div className="flex items-center justify-between" aria-live="polite">
-                    <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                    {/* Bouncy live price — re-keying on the amount replays the spring pop */}
-                    <motion.span
-                      key={priceCents}
-                      initial={{ scale: 0.68, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: 'spring', stiffness: 520, damping: 16 }}
-                      className="text-lg font-bold text-foreground tabular-nums inline-block origin-right"
-                    >
-                      {fmt(priceCents)}
-                    </motion.span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-foreground/60 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
+                    <AnimatedPrice cents={priceCents} className="text-lg font-bold text-foreground flex-shrink-0" />
                   </div>
-                  <p className="flex items-center justify-between text-[11px] mt-1">
-                    <span className="text-muted-foreground">Paid to your helper directly — they keep 100%</span>
-                  </p>
-                  <p className="flex items-center justify-between text-[11px] mt-1 border-t border-foreground/8 pt-1.5">
-                    <span className="text-muted-foreground">VANO booking fee — charged only when a helper accepts</span>
-                    <span className="font-semibold text-foreground tabular-nums">{fmt(computeVanoFeeCents(priceCents))}</span>
-                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Paid to your helper directly — they keep 100%</p>
+
+                  <div className="flex items-center justify-between gap-3 mt-2 border-t border-foreground/8 pt-2">
+                    <span className="text-[11px] text-muted-foreground">VANO booking fee</span>
+                    <AnimatedPrice cents={computeVanoFeeCents(priceCents)} className="text-xs font-semibold text-foreground flex-shrink-0" />
+                  </div>
+
+                  {/* Optional Vano Cover — customer-elected, flat €2 */}
+                  <label className="flex items-center justify-between gap-3 mt-1.5 py-0.5 cursor-pointer select-none">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={coverOpted}
+                        onChange={(e) => { setCoverOpted(e.target.checked); haptic(8); }}
+                        className="peer sr-only"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-150',
+                          'peer-focus-visible:ring-2 peer-focus-visible:ring-gold',
+                          coverOpted ? 'border-sage bg-sage' : 'border-foreground/25 bg-white',
+                        )}
+                      >
+                        <AnimatePresence initial={false}>
+                          {coverOpted && (
+                            <motion.span
+                              initial={{ scale: 0.4, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.4, opacity: 0 }}
+                              transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                              className="inline-flex"
+                            >
+                              <Check className="h-3 w-3 text-white" strokeWidth={4} />
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </span>
+                      <span className="text-[11px] text-muted-foreground min-w-0">
+                        <span className="font-semibold text-foreground">Vano Cover</span> — damage up to €250 ·{' '}
+                        <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>how it works</a>
+                      </span>
+                    </span>
+                    <span className={cn('text-xs font-semibold tabular-nums flex-shrink-0 transition-colors duration-150', coverOpted ? 'text-sage-dark' : 'text-muted-foreground')}>
+                      +{fmt(VANO_COVER_CENTS)}
+                    </span>
+                  </label>
+
+                  {/* The only money that ever touches the card — rolls when the
+                      duration or Cover changes it (the "price builds up" beat) */}
+                  <div className="flex items-center justify-between gap-3 mt-1.5 border-t border-foreground/8 pt-2">
+                    <span className="text-xs font-semibold text-foreground/75">Charged when a helper accepts</span>
+                    <AnimatedPrice
+                      announce
+                      cents={computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
+                      className="text-sm font-bold text-sage-dark flex-shrink-0"
+                    />
+                  </div>
                 </div>
               )}
-
-              {/* Optional Vano Cover — customer-elected, flat €2 */}
-              <label className="flex items-start gap-2.5 rounded-xl border border-border/70 bg-white px-3.5 py-3 cursor-pointer hover:border-sage/50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={coverOpted}
-                  onChange={(e) => setCoverOpted(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-border accent-[#4a7c59]"
-                />
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-semibold text-foreground">
-                    Add Vano Cover · {fmt(VANO_COVER_CENTS)}
-                  </span>
-                  <span className="block text-xs text-muted-foreground leading-relaxed">
-                    Accidental damage covered up to €250 —{' '}
-                    <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" onClick={(e) => e.stopPropagation()}>how it works</a>
-                  </span>
-                </span>
-              </label>
 
               {referralCode && (
                 <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
@@ -1383,8 +1468,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               )}
             </motion.div>
 
+            {/* One fact each — "only charged at accept" + the money-back
+                guarantee already live on the price card and the docked bar,
+                so this line only carries what they don't. */}
             <motion.p variants={listItem} className="text-center text-[13px] leading-relaxed text-muted-foreground">
-              Your card is only charged when a helper accepts — booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done. Money-back guarantee on the fee
+              Booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
             </motion.p>
             {/* Contract moment: the Terms (incl. "your helper is an independent
                 provider, VANO is the platform") must be incorporated at the
@@ -1418,20 +1506,25 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           {/* Risk-reversal at the decision point — the single most reassuring
               fact (you don't pay until a helper accepts) rides with the CTA.
               Swaps to the success line during the booked beat. */}
-          <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-sage-dark">
+          <p className="flex items-center justify-center gap-1.5 text-xs sm:text-[13px] font-semibold text-sage-dark">
             <motion.span
               key={bookedOk ? 'assure-booked' : securing ? 'assure-securing' : 'assure-ready'}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="inline-flex items-center gap-1.5"
+              className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0"
             >
               <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               {bookedOk
                 ? 'Booked — taking you to live tracking…'
                 : securing
                 ? 'Opening the secure card step…'
-                : 'Only charged when a helper accepts · money-back guarantee'}
+                : <>
+                    {/* Two nowrap phrases: a narrow screen breaks at the
+                        separator, never mid-word ("money-/back"). */}
+                    <span className="whitespace-nowrap">Only charged when a helper accepts</span>
+                    <span className="whitespace-nowrap">· money-back guarantee</span>
+                  </>}
             </motion.span>
           </p>
 

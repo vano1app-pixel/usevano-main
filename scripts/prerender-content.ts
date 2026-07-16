@@ -417,24 +417,24 @@ ${siteFooter}`.trim();
 function homePage(): PageSpec {
   const rootHtml = `
 ${topNav}
-<h1>Same-day help, from someone you trust</h1>
-<p class="summary">VANO books an ID-verified local student for your home jobs in Galway — cleaning, laundry, dog walks, garden help and moving. You see your helper's name, photo and rating before you pay a cent: booking is free, and you only pay once a helper accepts. Money-back guarantee.</p>
+<h1>Hire a local student for help at home</h1>
+<p class="summary">VANO matches you with an ID-verified local student for your home jobs in Galway — cleaning, laundry, dog walks, garden help and moving. Same-day, from €15. You see your helper's name, photo and rating; your card is only ever charged the small booking fee, and only when a helper accepts. Money-back guarantee on the fee.</p>
 <h2>What you can book</h2>
 <ul class="cards">
 ${SERVICE_LANDINGS.map((s) => `<li><a href="/${s.slug}">${escAttr(s.name)} in Galway</a> — ${escAttr(s.priceLabel)}<br><span>${escAttr(s.description)}</span></li>`).join("\n")}
 </ul>
 <h2>How it works</h2>
 <ul>
-<li><strong>1. Say what you need</strong> — pick a job, add your phone and address. Takes about 30 seconds; no account, no payment.</li>
-<li><strong>2. A verified student accepts</strong> — you see their name, photo and rating, then pay securely by card to confirm them.</li>
-<li><strong>3. Track it live</strong> — follow your helper on a live map, chat in the app, and confirm when the job's done. Helpers are paid only after you confirm.</li>
+<li><strong>1. Say what you need</strong> — pick a job, add your phone and address. Takes about 30 seconds; no account needed.</li>
+<li><strong>2. A verified student accepts</strong> — you see their name, photo and rating; your card is charged the small VANO booking fee only when they accept.</li>
+<li><strong>3. Track it live, pay them directly</strong> — follow your helper on a live map, then pay them directly when the job's done (Revolut or cash). They keep 100% of the job price.</li>
 </ul>
 <h2>Why people trust VANO</h2>
 <ul>
 <li>Look for the blue ✓ — VANO Verified helpers have passed student-email and photo-ID checks</li>
+<li>Every helper passes a free photo-ID check before their first job</li>
 <li>You see exactly who's coming before any money moves</li>
-<li>Protected card payment — no cash on the day</li>
-<li>Money-back guarantee if it's not right</li>
+<li>Money-back guarantee on the booking fee if it's not right</li>
 </ul>
 <section class="faq"><h2>Frequently asked questions</h2>${FAQS.map((f) => `<details><summary>${escAttr(f.q)}</summary><p>${escAttr(f.a)}</p></details>`).join("")}</section>
 <p>Students: <a href="/join">earn money as a VANO helper</a> — flexible same-day jobs that pay above minimum wage after fees.</p>
@@ -442,9 +442,9 @@ ${siteFooter}`.trim();
 
   return {
     outFile: "index.html",
-    title: "Same-day home help in Galway",
+    title: "Hire a local student for help at home — same-day in Galway",
     description:
-      "Book a trusted local student helper in minutes — cleaning, garden, dog walks, laundry, moving & more. Same-day in Galway, from €15.",
+      "Hire a trusted local student for cleaning, garden, dog walks, laundry, moving & more. Same-day in Galway, from €15 — only charged when a helper accepts.",
     canonical: `${ORIGIN}/`,
     ogType: "website",
     jsonLd: [
@@ -467,28 +467,29 @@ ${siteFooter}`.trim();
 function joinPage(): PageSpec {
   const rootHtml = `
 ${topNav}
-<h1>Earn money as a student helper in Galway</h1>
-<p class="summary">Pick up same-day home help jobs near you — laundry runs, dog walks, cleaning, garden work and moving help. Earn €12–€65 per job, keep 85% of every fare, and work only when it suits your timetable.</p>
+<h1>Earn money as a student helper in Galway — keep 100%</h1>
+<p class="summary">Pick up same-day home help jobs near you — laundry runs, dog walks, cleaning, garden work and moving help. Customers pay you directly and you keep 100% of the job price (€18/hour on timed jobs), working only when it suits your timetable.</p>
 <h2>How it works</h2>
 <ul>
-<li><strong>Join free, live instantly</strong> — a short form with your photo and student details, and jobs can reach you straight away.</li>
-<li><strong>Earn the ✓ Verified tick</strong> — confirm your college email and pass a 2-minute photo-ID check (both free); €2/month keeps the blue tick on your name, and verified helpers are offered jobs first. Cancel anytime.</li>
-<li><strong>Accept jobs near you</strong> — offers arrive by WhatsApp and in your dashboard; take only the ones that suit you.</li>
-<li><strong>Get paid after each job</strong> — payouts go straight to your bank once the customer confirms the job is done.</li>
+<li><strong>Join free in a few minutes</strong> — a short form with your photo and student details, then confirm your email with a 6-digit code and your account is live.</li>
+<li><strong>One free ID check unlocks jobs</strong> — a 2-minute photo-ID check (free, via Stripe). Customers are promised every helper is ID-verified, so job offers only go out once you've passed it.</li>
+<li><strong>Accept jobs near you</strong> — offers arrive by WhatsApp, text and your dashboard; take only the ones that suit you.</li>
+<li><strong>Get paid on the spot</strong> — the customer pays you directly when the job's done (Revolut or cash) and you keep 100%. VANO's small booking fee is paid by the customer, never taken from your earnings.</li>
+<li><strong>Optional blue tick</strong> — €2/month keeps the ✓ VANO Verified badge on your name and bumps you up the offer list. Cancel anytime; you never pay to get work.</li>
 </ul>
 <h2>What jobs pay</h2>
 <ul>
-<li>Time-based work (cleaning, garden, moving) is priced at €18/hour — you keep €15.30/hour, above the Irish minimum wage.</li>
+<li>Time-based work (cleaning, garden, moving) is priced at €18/hour — you keep the full €18, well above the Irish minimum wage.</li>
 <li>Flat-rate errands (laundry €15, dog walks €15–20) are priced per task so a short job is still worth your trip.</li>
 </ul>
-<p><a href="/join">Apply now at vanojobs.com/join</a> — it takes a few minutes, joining is free, and you're live the moment you apply.</p>
+<p><a href="/join">Apply now at vanojobs.com/join</a> — free to join, and job offers start as soon as your email and free ID check are done (both take minutes).</p>
 ${siteFooter}`.trim();
 
   return {
     outFile: "join/index.html",
-    title: "Earn money as a student helper in Ireland",
+    title: "Earn €18/hr as a student helper in Galway — keep 100%",
     description:
-      "Pick up same-day home help jobs near you. Earn €12–€65 per job — laundry, dog walks, cleaning, gardening & more. Flexible hours, paid after each job. Apply in minutes.",
+      "Same-day home help jobs near you — cleaning, laundry, dog walks, garden & moving. €18/hr on timed jobs, customers pay you directly, you keep 100%. Join free.",
     canonical: `${ORIGIN}/join`,
     ogType: "website",
     jsonLd: [],
@@ -515,7 +516,7 @@ for (const page of pages) emit(page);
 const llmsTxt = [
   "# VANO",
   "",
-  "> Same-day home help in Galway, Ireland. Book an ID-verified student helper for cleaning, garden, dog walks, moving, errands or tutoring — or put your home on Autopilot. Helpers earn above the Irish minimum wage (€15.30/hr net on time-based jobs); customers pay only after a helper accepts.",
+  "> Hire a local student for help at home — same-day in Galway, Ireland, from €15. Cleaning, laundry, garden help, dog walks, moving and errands by ID-verified students. Booking is free: the card is only charged VANO's small booking fee when a helper accepts, and the customer pays the helper directly when the job's done — helpers keep 100% (€18/hr on timed jobs, above the Irish minimum wage).",
   "",
   "## Blog",
   ...BLOG_POSTS.map((p) => `- [${p.title}](${ORIGIN}/blog/${p.slug}): ${p.summary}`),
