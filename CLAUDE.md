@@ -16,6 +16,31 @@ and it is not being sold; don't build on it or cross-sell it. When in doubt,
 the tie-breaker is: does this make the one booking flow faster, clearer, or
 more trusted? If not, it waits.
 
+## The flows that must NEVER break (owner rule — read before merging)
+A real user losing a signup or a booking is the worst thing this codebase
+can do. Any change that touches one of these paths must be **driven
+end-to-end in a real browser (Playwright) with assertions before merge** —
+typecheck + unit tests alone do NOT count as verification:
+1. **Customer quick-book**: tiles → booking sheet → checkout submit →
+   /track (incl. the failure path: checkout error → WhatsApp rescue).
+2. **Helper signup**: `/join` all 3 steps — **including picking a PHOTO** —
+   → email code on `/verify-helper` → ID check start.
+3. **Helper job day**: accept → on-way → arrival → finish → the gold
+   did-you-get-paid card.
+4. **The gates**: `/student-account` SMS-code gate and `/bookings` lookup.
+
+Hard-learned specifics (July 2026 — a real applicant hit a black screen):
+- **Photo/file inputs are tested with a ≥30MP image, every time.** iPhones
+  shoot 48MP; an unbounded image inside a CSS-transformed layer black-screens
+  iOS Safari and can crash the tab (which also wipes fresh localStorage
+  writes — "it reset everything"). `PhotoCropper` downscales to
+  `SAFE_MAX_EDGE` before display — never render a user image unbounded.
+- **Full-screen overlays must be impossible to render as a dead black
+  screen**: every media/async state needs a visible loading beat, an error
+  message with a way out, and Cancel always live.
+- Mobile Safari is the primary real-world device — test at phone viewports,
+  and treat WebKit limits (canvas/layer size, memory) as hard constraints.
+
 ## Commands
 | | |
 |---|---|
