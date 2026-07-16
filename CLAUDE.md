@@ -229,9 +229,15 @@ extend it.
    editors always load the helper's saved picks.
    Submits to `create-helper-application` (dupe-guarded: same phone/email
    updates the existing row, never a second one).
-2. **Applying = live.** `create-helper-application` inserts the row as
-   `status 'approved'` + `is_available true` and fires
-   `notify-helper-approved` immediately. There is NO payment gate to join.
+2. **Applying = approved; the email code makes you live.** (Spam gate, July
+   2026.) `create-helper-application` inserts the row as `status 'approved'`
+   but `is_available false` with `application_data.pending_email_verify`;
+   the email OTP on `/verify-helper` (its step 1, where the client lands
+   right after joining) flips `is_available` true, clears the flag and fires
+   `notify-helper-approved` — so welcome messages and the public helper
+   count only ever include signups with a real inbox. Job offers are gated
+   further behind the free ID check (dispatch only texts `id_verified`
+   helpers). There is NO payment gate to join.
    (The old pay-to-join €2 one-off — `create-signup-payment` /
    `confirm-signup-payment` / the `signup_paid` DB trigger — is retired but
    still deployed for stragglers with old links; don't build on it.)
@@ -292,21 +298,24 @@ extend it.
 - Nudge priority in the dashboard: verification card first, then "Finish
   your profile" (bio/availability) — one card at a time, never a stack.
 
+**Decided + shipped (July 2026) — the former open decisions:**
+- ~~ID-check policy~~ — **mandatory before the FIRST JOB, enforced.**
+  `dispatch-household-job` only offers to `id_verified` helpers (city pool,
+  platform-wide fallback AND the gap-recruit nudge all filter on it),
+  `accept-job` re-checks `status='approved' AND id_verified` server-side
+  before the atomic claim, and both in-app claim paths
+  (`StudentJobDetail.claimJob`, `StudentDashboard.acceptJob`) gate with a
+  verify CTA (`=== false` on purpose — null means the row hasn't loaded).
+  "ID-verified students" marketing is therefore literally true for anyone
+  who can work. `/verify-helper` + `notify-helper-approved` +
+  `nudge-helper-onboarding` all frame the ID check as the job unlock.
+- ~~Free signup spam filter~~ — **email OTP before going live** (see
+  "Sign-up → live" step 2 above): applications are born unavailable with
+  `pending_email_verify`; the first verified email code flips them live and
+  sends the welcome, so junk signups never inflate the public helper count
+  and never get welcome messages.
+
 **Open decisions the owner still needs to make (don't silently pick one):**
-- **ID-check policy — the big one.** Free-to-join means an unverified helper
-  can work, but marketing still says "ID-verified students" in places
-  (HowItWorks, review copy, service pages). Either make the ID check
-  mandatory before the FIRST JOB (preferred — Stripe Identity is already
-  wired) or sweep the remaining overclaiming copy. The helper public profile
-  is already honest; the rest of the site isn't fully.
-- **Free signup lost the spam filter.** The €2 used to keep sign-ups
-  genuine; now anyone is instantly live + available and the admin gets a
-  WhatsApp per application. Watch signup quality; if junk arrives, add a
-  cheap gate (email OTP before going live, or manual approve toggle).
-- **Phone gate hardening**: anyone who knows a helper's number can edit
-  their profile via `/student-account` — and now also start payout
-  onboarding and cancel the verified plan there. An SMS OTP at that gate is
-  the cheap fix (`send-student-sms-otp` infra already exists).
 - **Twilio env check**: `VANO_SMS_ENABLED=true` + `TWILIO_SMS_FROM` etc.
   must be set in Supabase or the "Prefer a text?" OTP path errors
   (gracefully, but the rescue hatch is then closed).

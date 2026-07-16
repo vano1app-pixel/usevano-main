@@ -106,6 +106,9 @@ const VerifyHelper: React.FC = () => {
   // Which channel the live code was sent by, so Resend re-uses it and the
   // helper text matches ('sms' also covers WhatsApp).
   const [otpChannel, setOtpChannel] = useState<'email' | 'sms'>(restoredOtp?.channel ?? 'email');
+  // True when THIS verify flipped the account live (the signup spam gate) —
+  // the step card acknowledges the moment instead of a generic "verified".
+  const [wentLive, setWentLive] = useState(false);
 
   const [idState, setIdState] = useState<IdState>(
     cachedProgress.id_check ? 'verified' : returnedFromIdCheck ? 'submitted' : 'idle',
@@ -237,6 +240,9 @@ const VerifyHelper: React.FC = () => {
       return;
     }
     haptic(16);
+    // went_live = the signup spam gate just flipped this account available —
+    // acknowledge the moment on the step card.
+    if ((data as { went_live?: boolean } | null)?.went_live) setWentLive(true);
     setEmailState('verified');
     saveProgress(helperId, { email: true });
     clearOtpState();
@@ -366,14 +372,22 @@ const VerifyHelper: React.FC = () => {
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-5 text-center">
                   <CheckCircle2 className="w-9 h-9 text-sage mx-auto mb-1.5" />
                   <p className="text-base font-bold text-foreground">
-                    {hasTick ? "You're verified — blue tick on ✓ 🎉" : idState === 'verified' ? "You're verified — you'll get jobs 🎉" : 'Approved — one free step to go live'}
+                    {hasTick
+                      ? "You're verified — blue tick on ✓ 🎉"
+                      : idState === 'verified'
+                        ? "You're verified — you'll get jobs 🎉"
+                        : emailState === 'verified'
+                          ? 'Approved — one free step to go live'
+                          : 'Approved — two quick free steps to go live'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 mb-4">
                     {hasTick
                       ? 'Set yourself Available and jobs near you reach you first. The blue tick is on your name.'
                       : idState === 'verified'
                         ? 'Set yourself Available and job offers will start coming through. The blue tick below is an optional €2/month extra — you don\'t need it to get work.'
-                        : 'Verify your ID below (free, about 2 minutes) and job offers start coming through — every helper verifies before their first job.'}
+                        : emailState === 'verified'
+                          ? 'Verify your ID below (free, about 2 minutes) and job offers start coming through — every helper verifies before their first job.'
+                          : 'Confirm your email below (step 1) to switch your account live, then the free 2-minute ID check starts the job offers.'}
                   </p>
                   {(hasTick || idState === 'verified') && (
                     <a href={homeHref} className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">{homeLabel} <ArrowRight className="w-4 h-4" /></a>
@@ -392,7 +406,9 @@ const VerifyHelper: React.FC = () => {
               {/* Step 1 — student email */}
               <VerifyCard icon={<Mail className="w-5 h-5" />} step="1" title="Confirm your student email" done={emailState === 'verified'}>
                 {emailState === 'verified' ? (
-                  <p className="text-sm text-muted-foreground">Verified — you're confirmed as a student. 🎓</p>
+                  <p className="text-sm text-muted-foreground">
+                    {wentLive ? 'Verified — your account just went live. 🎓' : "Verified — you're confirmed as a student. 🎓"}
+                  </p>
                 ) : (
                   <div className="space-y-2.5">
                     <input
