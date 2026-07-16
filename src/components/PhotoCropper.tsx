@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
 
 /**
  * Full-screen "move and scale" photo cropper — the same drag + pinch + zoom
@@ -17,6 +18,13 @@ import { motion } from 'framer-motion';
 const CROP_D = 260;              // guide-circle diameter (screen px)
 const CROP_R = CROP_D / 2;
 const OUTPUT_SIZE = 400;         // exported square edge (px)
+// Photos are downscaled to this max edge BEFORE the cropper shows them. An
+// iPhone 16 shot is ~48MP (8064×6048); iOS Safari won't paint a CSS-
+// transformed layer that big, so the old code rendered a BLACK screen the
+// moment such a photo was picked (the exact "screen goes black after
+// uploading a picture" bug report). 2048px is far more detail than the
+// 400px export needs and safely inside every mobile browser's limits.
+const SAFE_MAX_EDGE = 2048;
 
 export interface PhotoCropperProps {
   /** Object URL (or data URL) of the image being cropped. */
@@ -37,6 +45,54 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
   const [scale,        setScale]        = useState(1);
   const [minScale,     setMinScale]     = useState(0.1);
   const [offset,       setOffset]       = useState({ x: 0, y: 0 });
+  // The size-bounded source the <img> actually shows (see SAFE_MAX_EDGE),
+  // plus honest loading/failure states — this overlay must NEVER be a silent
+  // black screen, whatever the phone throws at it.
+  const [safeSrc,  setSafeSrc]  = useState<string | null>(null);
+  const [imgReady, setImgReady] = useState(false);
+  const [failed,   setFailed]   = useState(false);
+
+  // Decode off-DOM and downscale huge photos to a browser-safe size before
+  // ever mounting the on-screen <img>. Any failure falls back to the raw
+  // source (small files were always fine); a truly undisplayable file then
+  // trips the <img> onError and gets a real message instead of blackness.
+  useEffect(() => {
+    let cancelled = false;
+    let createdUrl: string | null = null;
+    setSafeSrc(null); setImgReady(false); setFailed(false);
+    (async () => {
+      try {
+        const probe = new Image();
+        probe.src = src;
+        if (probe.decode) await probe.decode();
+        else await new Promise<void>((res, rej) => { probe.onload = () => res(); probe.onerror = () => rej(new Error('load failed')); });
+        const w = probe.naturalWidth, h = probe.naturalHeight;
+        if (!w || !h) throw new Error('empty image');
+        if (Math.max(w, h) <= SAFE_MAX_EDGE) {
+          if (!cancelled) setSafeSrc(src);
+          return;
+        }
+        const ratio = SAFE_MAX_EDGE / Math.max(w, h);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.max(1, Math.round(w * ratio));
+        canvas.height = Math.max(1, Math.round(h * ratio));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('no 2d context');
+        ctx.drawImage(probe, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+        if (!blob) throw new Error('encode failed');
+        createdUrl = URL.createObjectURL(blob);
+        if (cancelled) { URL.revokeObjectURL(createdUrl); return; }
+        setSafeSrc(createdUrl);
+      } catch {
+        if (!cancelled) setSafeSrc(src); // fall back — <img> onError handles the truly broken
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [src]);
 
   const clampOffset = useCallback((x: number, y: number, s: number) => {
     const { w, h } = naturalSize.current;
@@ -54,6 +110,7 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
     setMinScale(s);
     setScale(s * 1.1);
     setOffset({ x: 0, y: 0 });
+    setImgReady(true);
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -135,15 +192,37 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
       className="fixed inset-0 z-[70] bg-black flex flex-col"
     >
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
-        <button type="button" onClick={onCancel} className="text-sm text-white/70 font-medium">
+        <button type="button" onClick={onCancel} className="text-sm text-white/70 font-medium py-2 px-2 -mx-2">
           Cancel
         </button>
         <span className="text-sm font-semibold text-white">Move and scale</span>
-        <button type="button" onClick={confirm} className="text-sm text-white font-semibold">
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={!imgReady || failed}
+          className="text-sm text-white font-semibold py-2 px-2 -mx-2 disabled:opacity-40"
+        >
           Use photo
         </button>
       </div>
 
+      {failed ? (
+        /* The photo genuinely can't be opened on this device — say so and
+           offer the way out. Never a dead black screen. */
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 text-center">
+          <p className="text-base font-semibold text-white">We couldn't open that photo</p>
+          <p className="text-sm text-white/60 leading-relaxed max-w-xs">
+            The file may be in a format this browser can't read. Try picking a different photo, or take a fresh one with the camera.
+          </p>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="mt-2 h-11 rounded-full bg-white px-6 text-sm font-semibold text-black active:scale-[0.97] transition-transform"
+          >
+            Choose another photo
+          </button>
+        </div>
+      ) : (
       <div
         ref={cropAreaRef}
         className="flex-1 relative overflow-hidden flex items-center justify-center select-none"
@@ -153,15 +232,27 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <img
-          ref={imgRef}
-          src={src}
-          alt="Crop your photo"
-          draggable={false}
-          onLoad={onImageLoad}
-          className="absolute pointer-events-none max-w-none"
-          style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transformOrigin: 'center' }}
-        />
+        {safeSrc && (
+          <img
+            ref={imgRef}
+            src={safeSrc}
+            alt="Crop your photo"
+            draggable={false}
+            onLoad={onImageLoad}
+            onError={() => setFailed(true)}
+            className="absolute pointer-events-none max-w-none"
+            style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transformOrigin: 'center' }}
+          />
+        )}
+
+        {/* Preparing beat — big phone photos take a moment to decode +
+            downscale; a visible pulse means "working", never "crashed". */}
+        {!imgReady && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-6 h-6 text-white/80 animate-spin" aria-hidden="true" />
+            <p className="text-xs text-white/60">Preparing your photo…</p>
+          </div>
+        )}
 
         {/* Dimmed overlay with a circular framing hole */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}>
@@ -175,7 +266,9 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
           <circle cx="50%" cy="50%" r={CROP_R} fill="none" stroke="white" strokeWidth="1.5" opacity="0.7" />
         </svg>
       </div>
+      )}
 
+      {!failed && (
       <div className="px-8 pb-8 pt-4 flex-shrink-0">
         <input
           type="range"
@@ -183,16 +276,18 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
           max={minScale * 4}
           step={0.005}
           value={scale}
+          disabled={!imgReady}
           onChange={e => {
             const s = parseFloat(e.target.value);
             setScale(s);
             setOffset(o => clampOffset(o.x, o.y, s));
           }}
-          className="w-full accent-white"
+          className="w-full accent-white disabled:opacity-40"
           aria-label="Zoom"
         />
         <p className="text-center text-xs text-white/50 mt-2">Drag to reposition · pinch or slide to zoom</p>
       </div>
+      )}
     </motion.div>
   );
 }
