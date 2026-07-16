@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -1301,20 +1302,30 @@ const StudentAccount = () => {
         )}
       </AnimatePresence>
 
-      {/* Move-and-scale cropper (shared with the join form) */}
-      <AnimatePresence>
-        {cropSrc && (
-          <PhotoCropper
-            src={cropSrc}
-            onCancel={() => setCropSrc(null)}
-            onCropped={(file, previewUrl) => {
-              setPhotoFile(file);
-              setPhotoPreview(previewUrl);
-              setCropSrc(null);
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {/* Move-and-scale cropper (shared with the join form).
+          PORTALED TO <body>: the page-transition wrapper (.animate-page-enter)
+          keeps a lingering transform, which makes it the containing block for
+          position:fixed children — so the cropper's `fixed inset-0` overlay
+          would otherwise size to the whole tall page, not the viewport, and
+          render its controls far below the fold (the "black screen" bug).
+          Rendering into <body> escapes that wrapper so fixed = viewport. Same
+          pattern the booking sheet + search takeover already use. */}
+      {createPortal(
+        <AnimatePresence>
+          {cropSrc && (
+            <PhotoCropper
+              src={cropSrc}
+              onCancel={() => setCropSrc(null)}
+              onCropped={(file, previewUrl) => {
+                setPhotoFile(file);
+                setPhotoPreview(previewUrl);
+                setCropSrc(null);
+              }}
+            />
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
 
       {/* Leave VANO confirmation sheet */}
       <AnimatePresence>
