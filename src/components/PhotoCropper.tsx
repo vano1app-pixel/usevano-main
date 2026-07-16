@@ -53,23 +53,48 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
   const [failed,   setFailed]   = useState(false);
 
   // Decode off-DOM and downscale huge photos to a browser-safe size before
-  // ever mounting the on-screen <img>. Any failure falls back to the raw
-  // source (small files were always fine); a truly undisplayable file then
-  // trips the <img> onError and gets a real message instead of blackness.
+  // ever mounting the on-screen <img>.
+  //
+  // IRON RULE: an image we could not MEASURE and (if big) SHRINK is never
+  // shown — that's the black-screen bug. iOS Safari is known to REJECT
+  // img.decode() on very large photos even though they load fine, so the
+  // pipeline tries the most crash-resistant APIs in order and, if every
+  // tier fails, fails VISIBLY (message + way out) instead of gambling with
+  // an unbounded render.
   useEffect(() => {
     let cancelled = false;
     let createdUrl: string | null = null;
     setSafeSrc(null); setImgReady(false); setFailed(false);
     (async () => {
+      let bitmap: ImageBitmap | null = null;
       try {
-        const probe = new Image();
-        probe.src = src;
-        if (probe.decode) await probe.decode();
-        else await new Promise<void>((res, rej) => { probe.onload = () => res(); probe.onerror = () => rej(new Error('load failed')); });
-        const w = probe.naturalWidth, h = probe.naturalHeight;
-        if (!w || !h) throw new Error('empty image');
+        let source: CanvasImageSource | null = null;
+        let w = 0, h = 0;
+        // Tier 1 — createImageBitmap: decodes off the main thread, no decode()
+        // quirks, and gives exact dimensions.
+        try {
+          if (typeof createImageBitmap !== 'function') throw new Error('no createImageBitmap');
+          const blob = await (await fetch(src)).blob();
+          bitmap = await createImageBitmap(blob);
+          w = bitmap.width; h = bitmap.height;
+          source = bitmap;
+        } catch {
+          // Tier 2 — a plain <img> load. Deliberately NOT decode(): Safari
+          // rejects decode() for big images that onload handles fine.
+          const probe = new Image();
+          probe.src = src;
+          await new Promise<void>((res, rej) => {
+            probe.onload = () => res();
+            probe.onerror = () => rej(new Error('load failed'));
+          });
+          w = probe.naturalWidth; h = probe.naturalHeight;
+          source = probe;
+        }
+        if (!source || !w || !h) throw new Error('unmeasurable image');
+
         if (Math.max(w, h) <= SAFE_MAX_EDGE) {
-          if (!cancelled) setSafeSrc(src);
+          bitmap?.close?.();
+          if (!cancelled) setSafeSrc(src); // measured small — raw is safe
           return;
         }
         const ratio = SAFE_MAX_EDGE / Math.max(w, h);
@@ -78,14 +103,18 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
         canvas.height = Math.max(1, Math.round(h * ratio));
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('no 2d context');
-        ctx.drawImage(probe, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+        bitmap?.close?.();
+        bitmap = null;
         const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.92));
         if (!blob) throw new Error('encode failed');
         createdUrl = URL.createObjectURL(blob);
         if (cancelled) { URL.revokeObjectURL(createdUrl); return; }
         setSafeSrc(createdUrl);
       } catch {
-        if (!cancelled) setSafeSrc(src); // fall back — <img> onError handles the truly broken
+        bitmap?.close?.();
+        // Could not measure/shrink — fail visibly, never render unbounded.
+        if (!cancelled) setFailed(true);
       }
     })();
     return () => {
