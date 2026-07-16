@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -7,7 +7,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { signOutCleanly } from '@/lib/signOut';
 import logo from '@/assets/logo.png';
 import { Briefcase, GraduationCap, LogOut } from 'lucide-react';
-import { isEmailVerified, rememberTalentBoardReturn, resolvePostAuthDestination } from '@/lib/authSession';
+import { isEmailVerified, resolvePostAuthDestination } from '@/lib/authSession';
 import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
@@ -51,7 +51,6 @@ const Auth = () => {
   const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(magicLinkEmail.trim());
 
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
 
   const redirectIfAlreadySignedIn = useCallback(() => {
@@ -70,11 +69,6 @@ const Auth = () => {
     if (mode === 'signup') setIsLogin(false);
     else if (mode === 'login') setIsLogin(true);
   }, []);
-
-  useEffect(() => {
-    const from = (location.state as { from?: string } | null)?.from;
-    if (from) rememberTalentBoardReturn(from);
-  }, [location.state]);
 
   useEffect(() => {
     redirectIfAlreadySignedIn();

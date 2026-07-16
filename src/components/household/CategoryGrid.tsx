@@ -798,12 +798,21 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     </>
   );
 
+  // A failed validation must SHOW the field it's pointing at: the customer
+  // just pressed Book at the BOTTOM of the sheet, and the fields live at the
+  // top (possibly folded behind the returning-customer summary). Unfold and
+  // scroll back up so the red border is on screen, not above the fold.
+  function revealFieldError() {
+    setEditDetails(true);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     if (submitLock.current) return; // ignore a double-tap before the re-render
     const phoneClean = phone.trim().replace(/\s+/g, '');
     if (!isValidPhone(phone)) {
-      setEditDetails(true); // reveal the fields if the compact summary is showing
+      revealFieldError();
       setPhoneError(true);
       setError('Please enter a valid phone number.');
       return;
@@ -812,16 +821,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       // Phone-shaped but not textable (UK 07…, landlines) — every update
       // (pay link, on-my-way, arrival) goes by text, so catch it here with a
       // fix instead of booking someone we can never reach.
-      setEditDetails(true);
+      revealFieldError();
       setPhoneError(true);
       setError("We can't text that number — Irish mobiles (08…) work as-is; for other countries add the code, e.g. +44 7…");
       return;
     }
     if (!address.trim()) {
-      // The red border targets the AddressPicker — which is hidden behind the
-      // "returning customer" compact summary. Reveal the fields first so the
-      // flagged field the error points at is actually on screen.
-      setEditDetails(true);
+      revealFieldError();
       setAddressError(true);
       setError('Please add your address so your helper can find you.');
       return;
@@ -1097,6 +1103,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   }}
                   placeholder='e.g. "paint the fence" or "clean the oven"'
                   autoComplete="off"
+                  enterKeyHint="go"
                   aria-label="Describe what you need done"
                   className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
@@ -1182,25 +1189,28 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       Clear
                     </button>
                   </div>
-                  <div className="flex items-start justify-between gap-3 px-4 py-3.5">
-                    <div className="min-w-0 space-y-1.5">
-                      <p className="flex items-center gap-2 text-sm text-foreground">
+                  {/* The whole row opens the editor — a tap target the size of
+                      the card, not just the little "Edit" label. */}
+                  <button
+                    type="button"
+                    onClick={() => setEditDetails(true)}
+                    aria-label="Edit your phone or address"
+                    className="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary/40"
+                  >
+                    <span className="block min-w-0 space-y-1.5">
+                      <span className="flex items-center gap-2 text-sm text-foreground">
                         <Phone className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
                         <span className="font-semibold truncate">{phone || 'Add your number'}</span>
-                      </p>
-                      <p className="flex items-center gap-2 text-sm text-foreground/80">
+                      </span>
+                      <span className="flex items-center gap-2 text-sm text-foreground/80">
                         <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
                         <span className="truncate">{address || 'Add your address'}</span>
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setEditDetails(true)}
-                      className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
-                    >
+                      </span>
+                    </span>
+                    <span className="text-[11px] font-semibold text-sage-dark flex-shrink-0" aria-hidden="true">
                       Edit
-                    </button>
-                  </div>
+                    </span>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1496,20 +1506,25 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           {/* Risk-reversal at the decision point — the single most reassuring
               fact (you don't pay until a helper accepts) rides with the CTA.
               Swaps to the success line during the booked beat. */}
-          <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-sage-dark">
+          <p className="flex items-center justify-center gap-1.5 text-xs sm:text-[13px] font-semibold text-sage-dark">
             <motion.span
               key={bookedOk ? 'assure-booked' : securing ? 'assure-securing' : 'assure-ready'}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="inline-flex items-center gap-1.5"
+              className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0"
             >
               <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               {bookedOk
                 ? 'Booked — taking you to live tracking…'
                 : securing
                 ? 'Opening the secure card step…'
-                : 'Only charged when a helper accepts · money-back guarantee'}
+                : <>
+                    {/* Two nowrap phrases: a narrow screen breaks at the
+                        separator, never mid-word ("money-/back"). */}
+                    <span className="whitespace-nowrap">Only charged when a helper accepts</span>
+                    <span className="whitespace-nowrap">· money-back guarantee</span>
+                  </>}
             </motion.span>
           </p>
 

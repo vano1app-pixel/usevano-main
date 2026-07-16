@@ -559,13 +559,15 @@ tick-eyebrows, floating cards.
   in the July 2026 cleanup — don't reintroduce them.
 
 ## What needs improving (known — not yet done)
-- **Legacy 404 routing**: `authSession.ts` can still route old
-  student/business accounts to unmounted routes via Auth.tsx's "Continue
-  as" button. Harmless for helpers/customers; tidy when touching auth.
+- ~~Legacy 404 routing~~ — done July 2026: the post-auth resolvers in
+  `authSession.ts` now discard the deleted marketplace's return stashes
+  (claim / talent board / AI-Find) instead of routing to their 404 pages;
+  every post-auth branch lands on a mounted route.
 - ~~Dashboard cleanup~~ — done July 2026: all orphaned/legacy functions are
   deleted remotely by the RETIRED prune list in the deploy workflow.
-- **Lint debt** — mostly cleared: `npm run lint` is down from 22 errors to 3,
-  all in `auth-email-hook` (`any`s left untouched for now). Worth a final pass.
+- ~~Lint debt~~ — cleared: `npm run lint` reports 0 errors (4 benign
+  warnings: shadcn fast-refresh notes + a hook-deps note in the legacy
+  `useAuthContext`).
 - **Perf** — already healthy (routes lazy-loaded, analytics deferred). No action
   unless first paint regresses.
 
