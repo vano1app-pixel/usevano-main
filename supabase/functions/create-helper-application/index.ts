@@ -71,6 +71,17 @@ serve(async (req) => {
     const college      = (formData.get('college')       as string | null)?.trim() || null;
     const course       = (formData.get('course')        as string | null)?.trim() || null;
     const year         = (formData.get('year')          as string | null)?.trim() || null;
+    // Expected final year of study ('2027' … or 'not-sure') — VANO is
+    // student-only, so this is what the graduation check-in keys on. Bounded
+    // so a typo can't park a helper as a student forever.
+    const finishYearRaw = (formData.get('finish_year') as string | null)?.trim() || null;
+    const finishYear = (() => {
+      if (!finishYearRaw) return null;
+      if (finishYearRaw === 'not-sure') return 'not-sure';
+      const y = parseInt(finishYearRaw, 10);
+      const now = new Date().getFullYear();
+      return Number.isFinite(y) && y >= now - 1 && y <= now + 8 ? y : null;
+    })();
     const transport    = (formData.get('transport')     as string | null)?.trim() || null;
     const studentEmail = (formData.get('student_email') as string | null)?.trim().toLowerCase() || null;
     const areas        = JSON.parse((formData.get('areas')        as string | null) ?? '[]') as string[];
@@ -227,6 +238,9 @@ serve(async (req) => {
         college,
         course,
         year,
+        // '2028' → 2028 (number) | 'not-sure' | null. The graduation sweep
+        // reads this to know when to ask "still studying?".
+        expected_finish_year: finishYear,
         transport,
         student_email: studentEmail,
         // Consent snapshot at apply time. The live verification state lives in

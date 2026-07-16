@@ -118,7 +118,7 @@ const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface JoinDraft {
   savedAt: number; step: number;
-  name: string; dob: string; college: string; email: string; phone: string;
+  name: string; dob: string; college: string; finishYear: string; email: string; phone: string;
   city: string; area: string; transport: string[]; categories: string[];
   tutorSubjects: string[]; tutorLevels: string[]; referralCode: string;
 }
@@ -136,6 +136,7 @@ function readJoinDraft(): JoinDraft | null {
       name: typeof d.name === 'string' ? d.name : '',
       dob: typeof d.dob === 'string' ? d.dob : '',
       college: typeof d.college === 'string' ? d.college : '',
+      finishYear: typeof d.finishYear === 'string' ? d.finishYear : '',
       email: typeof d.email === 'string' ? d.email : '',
       phone: typeof d.phone === 'string' ? d.phone : '',
       city: typeof d.city === 'string' ? d.city : '',
@@ -220,6 +221,9 @@ export const JoinAsHelper: React.FC = () => {
   const [name, setName] = useState(draft?.name ?? '');
   const [dob, setDob] = useState(draft?.dob ?? ''); // YYYY-MM-DD — proves 18+ and fills the profile age badge
   const [college, setCollege] = useState(draft?.college ?? '');
+  // Expected final year of study — VANO is student-only, so this is how the
+  // graduation sweep knows when to check in (it never cuts anyone off silently).
+  const [finishYear, setFinishYear] = useState(draft?.finishYear ?? '');
   const [email, setEmail] = useState(draft?.email ?? ''); // college email — also the verification address
   const [phone, setPhone] = useState(draft?.phone ?? '');
   const [photo, setPhoto] = useState<File | null>(null);
@@ -334,12 +338,12 @@ export const JoinAsHelper: React.FC = () => {
     try {
       const d: JoinDraft = {
         savedAt: Date.now(), step,
-        name, dob, college, email, phone, city, area,
+        name, dob, college, finishYear, email, phone, city, area,
         transport, categories, tutorSubjects, tutorLevels, referralCode,
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
     } catch { /* quota/private mode — signup still works, just no resume */ }
-  }, [submitting, step, name, dob, college, email, phone, city, area, transport, categories, tutorSubjects, tutorLevels, referralCode]);
+  }, [submitting, step, name, dob, college, finishYear, email, phone, city, area, transport, categories, tutorSubjects, tutorLevels, referralCode]);
 
   // Per-step validity is enforced in goNext() (validateStep), which surfaces the
   // specific missing field — so the Continue button stays tappable instead of
@@ -358,6 +362,7 @@ export const JoinAsHelper: React.FC = () => {
         if (yrs > 100) return 'Please check your date of birth.';
       }
       if (!college) return 'Please choose where you study.';
+      if (!finishYear) return 'When do you expect to finish college? A best guess is fine.';
       if (!EMAIL_RE.test(email.trim())) return 'Please add your college email — we verify it at sign-up.';
       if (!PHONE_RE.test(phone.trim())) return 'Please enter a valid phone number.';
     }
@@ -419,6 +424,7 @@ export const JoinAsHelper: React.FC = () => {
       fd.append('tutor_subjects', JSON.stringify(tutorSubjects));
       fd.append('tutor_levels', JSON.stringify(tutorLevels));
       fd.append('college', college);
+      fd.append('finish_year', finishYear);
       fd.append('right_to_work', String(agreeAll));
       fd.append('consent_verify', String(agreeAll));
       fd.append('agree_terms', String(agreeAll));
@@ -635,6 +641,20 @@ export const JoinAsHelper: React.FC = () => {
                           {COLLEGES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div>
+                      <span className={labelClass}>When do you finish college?</span>
+                      <Select value={finishYear} onValueChange={setFinishYear}>
+                        <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Your expected final year" /></SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 6 }, (_, i) => String(new Date().getFullYear() + i)).map(y => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                          ))}
+                          <SelectItem value="not-sure">Not sure yet</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[11px] text-muted-foreground mt-1.5">VANO is student-only — around then we'll check in about your plans, never cut you off without asking.</p>
                     </div>
 
                     <div>
