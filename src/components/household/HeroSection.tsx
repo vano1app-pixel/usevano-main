@@ -98,7 +98,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="display-lg text-foreground text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.4rem] mb-2 sm:mb-3"
+          className="display-lg text-foreground text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.4rem] mb-5 sm:mb-8"
         >
           Hire a{' '}
           <span className="relative inline-block">
@@ -113,17 +113,6 @@ export const HeroSection: React.FC = () => {
           </span>{' '}
           for help at home.
         </motion.h1>
-
-        {/* The specifics the heading doesn't carry — what jobs, where, when,
-            from how much ("nobody ever buys without knowing the price"). */}
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.14, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-4 sm:mb-7 text-[13px] sm:text-lg leading-relaxed text-muted-foreground text-pretty"
-        >
-          Cleaning, laundry, garden &amp; more — same-day in Galway, from €15.
-        </motion.p>
 
         {/* The one front door — white search bar at centre under a warm amber
             halo (two-stop gold→amber) so it glows as the focal point. */}
@@ -146,20 +135,6 @@ export const HeroSection: React.FC = () => {
         {/* Real approved-helper faces — social proof right under the bar. */}
         <HelperFacePile />
 
-        {/* One gentle reassurance line — replaces the old subline + 4 chips. */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-3 sm:mt-6 max-w-md sm:max-w-xl mx-auto text-[13px] sm:text-sm leading-relaxed text-muted-foreground text-pretty"
-        >
-          You see them first
-          <span className="text-foreground/25 px-1.5">·</span>
-          pay when it's done
-          <span className="text-foreground/25 px-1.5">·</span>
-          money-back guarantee
-        </motion.p>
-
         {/* The WhatsApp door — it converted real customers, so it earns a spot
             on the hero, quiet but visible. A person books it for you. */}
         <motion.a
@@ -170,7 +145,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/40 bg-[#25D366]/8 px-4 py-2 text-[13px] font-semibold text-[#128a45] hover:bg-[#25D366]/15 transition-colors"
+          className="mt-4 sm:mt-6 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/40 bg-[#25D366]/8 px-4 py-2 text-[13px] font-semibold text-[#128a45] hover:bg-[#25D366]/15 transition-colors"
         >
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
           Or book on WhatsApp — a person sorts it in minutes
