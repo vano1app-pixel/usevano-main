@@ -91,16 +91,18 @@ export const HeroSection: React.FC = () => {
           )}
         </motion.div>
 
-        {/* Heading — warm, generous. Signature gold underline draws under "trust". */}
+        {/* Heading — the mom test (one plain sentence that says WHAT this is
+            and WHO comes; a stranger's mam should get it instantly). The
+            signature gold underline draws under the differentiator. */}
         <motion.h1
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="display-lg text-white text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-[2.75rem] sm:leading-[1.04] mb-4 sm:mb-7"
+          className="display-lg text-white text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-[2.75rem] sm:leading-[1.04] mb-2 sm:mb-3"
         >
-          Same-day help, from someone you{' '}
+          Hire a{' '}
           <span className="relative inline-block">
-            trust
+            local student
             <motion.span
               aria-hidden="true"
               className="absolute left-0 right-0 -bottom-1 h-[3px] rounded-full bg-gold/90 origin-left"
@@ -108,8 +110,20 @@ export const HeroSection: React.FC = () => {
               animate={{ scaleX: 1, opacity: 1 }}
               transition={{ delay: 0.5, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             />
-          </span>.
+          </span>{' '}
+          for help at home.
         </motion.h1>
+
+        {/* The specifics the heading doesn't carry — what jobs, where, when,
+            from how much ("nobody ever buys without knowing the price"). */}
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.14, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-4 sm:mb-7 text-[13px] sm:text-base leading-relaxed text-white/70 text-pretty"
+        >
+          Cleaning, laundry, garden &amp; more — same-day in Galway, from €15.
+        </motion.p>
 
         {/* The one front door — white search bar at centre under a warm amber
             halo (two-stop gold→amber) so it glows as the focal point. */}

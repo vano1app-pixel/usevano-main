@@ -417,24 +417,24 @@ ${siteFooter}`.trim();
 function homePage(): PageSpec {
   const rootHtml = `
 ${topNav}
-<h1>Same-day help, from someone you trust</h1>
-<p class="summary">VANO books an ID-verified local student for your home jobs in Galway — cleaning, laundry, dog walks, garden help and moving. You see your helper's name, photo and rating before you pay a cent: booking is free, and you only pay once a helper accepts. Money-back guarantee.</p>
+<h1>Hire a local student for help at home</h1>
+<p class="summary">VANO matches you with an ID-verified local student for your home jobs in Galway — cleaning, laundry, dog walks, garden help and moving. Same-day, from €15. You see your helper's name, photo and rating; your card is only ever charged the small booking fee, and only when a helper accepts. Money-back guarantee on the fee.</p>
 <h2>What you can book</h2>
 <ul class="cards">
 ${SERVICE_LANDINGS.map((s) => `<li><a href="/${s.slug}">${escAttr(s.name)} in Galway</a> — ${escAttr(s.priceLabel)}<br><span>${escAttr(s.description)}</span></li>`).join("\n")}
 </ul>
 <h2>How it works</h2>
 <ul>
-<li><strong>1. Say what you need</strong> — pick a job, add your phone and address. Takes about 30 seconds; no account, no payment.</li>
-<li><strong>2. A verified student accepts</strong> — you see their name, photo and rating, then pay securely by card to confirm them.</li>
-<li><strong>3. Track it live</strong> — follow your helper on a live map, chat in the app, and confirm when the job's done. Helpers are paid only after you confirm.</li>
+<li><strong>1. Say what you need</strong> — pick a job, add your phone and address. Takes about 30 seconds; no account needed.</li>
+<li><strong>2. A verified student accepts</strong> — you see their name, photo and rating; your card is charged the small VANO booking fee only when they accept.</li>
+<li><strong>3. Track it live, pay them directly</strong> — follow your helper on a live map, then pay them directly when the job's done (Revolut or cash). They keep 100% of the job price.</li>
 </ul>
 <h2>Why people trust VANO</h2>
 <ul>
 <li>Look for the blue ✓ — VANO Verified helpers have passed student-email and photo-ID checks</li>
+<li>Every helper passes a free photo-ID check before their first job</li>
 <li>You see exactly who's coming before any money moves</li>
-<li>Protected card payment — no cash on the day</li>
-<li>Money-back guarantee if it's not right</li>
+<li>Money-back guarantee on the booking fee if it's not right</li>
 </ul>
 <section class="faq"><h2>Frequently asked questions</h2>${FAQS.map((f) => `<details><summary>${escAttr(f.q)}</summary><p>${escAttr(f.a)}</p></details>`).join("")}</section>
 <p>Students: <a href="/join">earn money as a VANO helper</a> — flexible same-day jobs that pay above minimum wage after fees.</p>
@@ -442,9 +442,9 @@ ${siteFooter}`.trim();
 
   return {
     outFile: "index.html",
-    title: "Same-day home help in Galway",
+    title: "Hire a local student for help at home — same-day in Galway",
     description:
-      "Book a trusted local student helper in minutes — cleaning, garden, dog walks, laundry, moving & more. Same-day in Galway, from €15.",
+      "Hire a trusted local student for cleaning, garden, dog walks, laundry, moving & more. Same-day in Galway, from €15 — only charged when a helper accepts.",
     canonical: `${ORIGIN}/`,
     ogType: "website",
     jsonLd: [

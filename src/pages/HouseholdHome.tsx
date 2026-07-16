@@ -35,8 +35,8 @@ const HouseholdHome: React.FC = () => {
     // pure-white marketplace and reads warmer/more trustworthy for in-home services
     <div className="bg-cream">
       <SEOHead
-        title="Same-day home help in Galway"
-        description="Book a trusted local student helper in minutes — cleaning, garden, dog walks, groceries, moving & more. Same-day in Galway, from €15."
+        title="Hire a local student for help at home — same-day in Galway"
+        description="Hire a trusted local student for cleaning, garden, dog walks, laundry, moving & more. Same-day in Galway, from €15 — only charged when a helper accepts."
         keywords="home help Galway, cleaner Galway, dog walker Galway, garden help Galway, grocery delivery Galway, student helpers Galway, same day help Galway, VANO"
         url="https://vanojobs.com/"
         jsonLd={{
