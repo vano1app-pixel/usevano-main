@@ -35,10 +35,14 @@ serve(async (req) => {
       return json(400, { error: 'Enter the 6-digit code from your email.' });
     }
 
+    // 'acct:'-prefixed rows are student-account-otp's account-session codes
+    // sharing this table — never ours to check (their hash is salted
+    // differently anyway, so a cross-read could only burn attempts).
     const { data: otp } = await supabase
       .from('helper_email_otps')
       .select('id, email, code_hash, expires_at, attempts')
       .eq('helper_id', helper_id)
+      .not('email', 'like', 'acct:%')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -88,7 +92,7 @@ serve(async (req) => {
     const { error: updErr } = await supabase
       .from('household_helpers').update(updates).eq('id', helper_id);
     if (updErr) { console.error('[verify-student-email-otp] update failed', updErr); return json(500, { error: 'Could not save verification.' }); }
-    await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
+    await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id).not('email', 'like', 'acct:%');
 
     // The "you're in" welcome moved here from create-helper-application: it
     // only ever goes to a signup that proved its contact details (rate-limited

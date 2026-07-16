@@ -1,11 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
+import { hasAccountAccess } from "../_shared/accountToken.ts";
 
-// Returns a helper's own profile for the phone-gated edit pages
-// (/helper/profile and /student-account). Runs with the service role so
-// the anon role no longer needs SELECT access to helpers' phone/email
-// columns — those are revoked at the DB level.
+// Returns a helper's own profile for the phone-gated /student-account page.
+// Runs with the service role so the anon role no longer needs SELECT access
+// to helpers' phone/email columns — those are revoked at the DB level.
+//
+// AUTH (phone-gate hardening, July 2026): the caller must present the
+// account_token minted by student-account-otp — knowing a helper's number no
+// longer reads their profile. Missing/expired token → 401
+// `verification_required`, which the page turns into its code step.
 
 // ── Inlined CORS ──────────────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
@@ -148,6 +153,13 @@ serve(async (req) => {
       return new Response(JSON.stringify({ helper: null }), {
         headers: { ...cors, 'Content-Type': 'application/json' },
       });
+    }
+
+    // The profile only leaves the server for a code-verified session on this
+    // exact row. (The row's existence was already knowable from the OTP send
+    // step, but its contents were not.)
+    if (!await hasAccountAccess(body?.account_token, (data as { id: string }).id)) {
+      return bad(401, 'verification_required');
     }
 
     return new Response(JSON.stringify({ helper: data }), {

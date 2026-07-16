@@ -1,9 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { phonesMatch } from "../_shared/phoneMatch.ts";
+import { hasAccountAccess } from "../_shared/accountToken.ts";
 
 // Cancels a helper's Stripe subscription and removes them from the platform.
-// Auth: phone number verified against helper_id (no Supabase auth account required).
+// Auth: phone match + the account_token minted by student-account-otp
+// (phone-gate hardening, July 2026) — no Supabase auth account required.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -23,7 +25,7 @@ serve(async (req) => {
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const stripeKey   = Deno.env.get('STRIPE_SECRET_KEY');
 
-    const body = await req.json() as { helper_id?: string; phone?: string };
+    const body = await req.json() as { helper_id?: string; phone?: string; account_token?: string };
     const { helper_id, phone } = body;
     if (!helper_id || !phone) return bad(400, 'helper_id and phone are required');
 
@@ -38,6 +40,9 @@ serve(async (req) => {
 
     if (!helper) return bad(404, 'Helper account not found');
     if (!phonesMatch(helper.phone, phone)) return bad(403, 'Phone number does not match');
+    if (!await hasAccountAccess(body.account_token, helper.id)) {
+      return bad(401, 'Your secure session expired — verify your number again on the account page.');
+    }
 
     // Cancel the ✓ Verified €2/month subscription by its STORED id first —
     // the email sweep below only works when the Stripe customer's email

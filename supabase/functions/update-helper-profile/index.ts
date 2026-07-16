@@ -1,10 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { hasAccountAccess } from "../_shared/accountToken.ts";
 
-// Public endpoint — phone number is the authentication mechanism.
-// Uses service-role key so RLS is bypassed server-side.
-// Handles every helper self-service edit: bio, availability, categories,
-// photo, and changing the phone number itself (new_phone).
+// Helper self-service edits: bio, availability, categories, photo, and
+// changing the phone number itself (new_phone). Uses the service-role key so
+// RLS is bypassed server-side.
+//
+// AUTH (phone-gate hardening, July 2026): the phone field LOCATES the row but
+// no longer authorises the edit by itself. The caller must also present ONE of
+//   - account_token — minted by student-account-otp after a texted 6-digit
+//     code (/student-account, the phone-gated editor), or
+//   - a signed-in Supabase session whose user is linked to this helper row
+//     (the dashboard's profile sheet sends its access token).
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -71,7 +78,7 @@ serve(async (req) => {
     // differences, falling back to a digits-only comparison.
     let { data: helper, error: lookupErr } = await supabase
       .from('household_helpers')
-      .select('id, photo_url, email')
+      .select('id, photo_url, email, user_id')
       .in('phone', phoneVariants(phone))
       .neq('status', 'suspended')
       .limit(1)
@@ -82,19 +89,35 @@ serve(async (req) => {
       if (last9.length === 9) {
         const { data: rows, error: listErr } = await supabase
           .from('household_helpers')
-          .select('id, phone, photo_url, email')
+          .select('id, phone, photo_url, email, user_id')
           .neq('status', 'suspended');
         if (listErr) {
           lookupErr = listErr;
         } else {
           const hit = (rows ?? []).find((r: { phone: string | null }) =>
             (r.phone ?? '').replace(/\D/g, '').endsWith(last9));
-          if (hit) helper = hit as { id: string; photo_url: string; email: string | null };
+          if (hit) helper = hit as { id: string; photo_url: string; email: string | null; user_id: string | null };
         }
       }
     }
 
     if (lookupErr || !helper) return bad('No helper found with that phone number', 404);
+
+    // Prove the caller IS this helper (see header comment). Try the account
+    // session token first (phone-gated /student-account), then a linked auth
+    // session (the dashboard sends its access token; the bare anon key fails
+    // getUser and correctly falls through to the 401).
+    const accountToken = (formData.get('account_token') as string | null) ?? undefined;
+    let authorized = await hasAccountAccess(accountToken, helper.id);
+    if (!authorized) {
+      const jwt = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
+      if (jwt) {
+        const { data: userData } = await supabase.auth.getUser(jwt);
+        const uid = userData?.user?.id ?? null;
+        authorized = !!uid && uid === (helper as { user_id?: string | null }).user_id;
+      }
+    }
+    if (!authorized) return bad('Your secure session expired — verify your number again on the account page.', 401);
 
     const updates: Record<string, unknown> = {};
 

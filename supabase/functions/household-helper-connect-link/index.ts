@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 import { phonesMatch } from "../_shared/phoneMatch.ts";
+import { hasAccountAccess } from "../_shared/accountToken.ts";
 
 // Creates (or retrieves) a Stripe Connect Express account for the
 // calling household helper and returns a hosted onboarding URL. The
@@ -71,7 +72,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
     const reqBody = await req.json().catch(() => ({})) as {
-      check_only?: boolean; helper_id?: string; phone?: string;
+      check_only?: boolean; helper_id?: string; phone?: string; account_token?: string;
     };
 
     // ── Resolve the caller to their helper row (two auth paths) ────────────
@@ -86,7 +87,10 @@ serve(async (req) => {
     let userEmail: string | undefined;
 
     if (reqBody.helper_id && reqBody.phone) {
-      // Phone path — the /student-account page (no auth session).
+      // Phone path — the /student-account page (no auth session). Since the
+      // phone-gate hardening (July 2026) the page also presents the
+      // account_token minted by student-account-otp: payout onboarding must
+      // never start off a merely-guessed number.
       const { data } = await supabase
         .from('household_helpers')
         .select('id, user_id, stripe_account_id, stripe_payouts_enabled, name, phone, email')
@@ -95,6 +99,9 @@ serve(async (req) => {
       if (!data) return bad(404, 'No helper account found.');
       if (!phonesMatch(String(data.phone ?? ''), reqBody.phone)) {
         return bad(403, 'Phone number does not match.');
+      }
+      if (!await hasAccountAccess(reqBody.account_token, String(data.id))) {
+        return bad(401, 'Your secure session expired — verify your number again on the account page.');
       }
       helper = data;
       userId = (data.user_id as string | null) ?? null;

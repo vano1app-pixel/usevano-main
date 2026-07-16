@@ -277,18 +277,21 @@ extend it.
   2026-07-07). cancel-verified-plan still handles a plan row with no Stripe
   sub (`verified_plan_sub_id` null) by flipping the flag directly — keep
   that as the safety net for manually-comped ticks.
-- `household-helper-connect-link` (payout onboarding) now has TWO auth
-  paths: JWT (dashboard) and helper_id+phone (the /student-account page);
-  its gateway verify_jwt is false and auth lives in the body.
+- `household-helper-connect-link` (payout onboarding) has TWO auth paths:
+  JWT (dashboard) and helper_id+phone+`account_token` (the /student-account
+  page, post-SMS-code); its gateway verify_jwt is false and auth lives in
+  the body.
 
-**Profile editing — three surfaces, one rule set:**
+**Profile editing — two surfaces, one rule set:**
 - `StudentDashboard.tsx` profile sheet (needs an auth session) and
-  `StudentAccount.tsx` (phone-gated, no auth needed) are the two live
-  editors. `/helper/profile` (`HelperProfile.tsx`) is a legacy orphan —
-  nothing links to it; retire/redirect it rather than extending it.
-- `update-helper-profile` authenticates by the helper's **phone** form
-  field — every call MUST send it (the dashboard photo save once didn't,
-  and photos silently never saved while the UI said "Saved!").
+  `StudentAccount.tsx` (phone+SMS-code gated, no auth needed) are the two
+  live editors. `/helper/profile` was the legacy orphan editor — deleted
+  July 2026; the route redirects to `/student-account`.
+- `update-helper-profile` locates the row by the **phone** form field —
+  every call MUST send it (the dashboard photo save once didn't, and
+  photos silently never saved while the UI said "Saved!") — and since the
+  phone-gate hardening ALSO requires `account_token` (the account page's
+  code-verified session) or a linked user JWT (the dashboard path).
 - The "Jobs I do" picker must always be the shared `SKILL_GROUPS` +
   `toggleGroup`/`toggleSub` from `src/lib/helperSkills.ts` — never a local
   list. Sub-skills only ever ride with their parent group (dispatch matches
@@ -314,6 +317,20 @@ extend it.
   `pending_email_verify`; the first verified email code flips them live and
   sends the welcome, so junk signups never inflate the public helper count
   and never get welcome messages.
+- ~~Phone gate hardening~~ — **SMS OTP + signed account session.**
+  `/student-account` now texts a 6-digit code to the number ON the helper's
+  row (`student-account-otp`: send/verify, rate-limited, codes in
+  `helper_email_otps` under an `acct:` prefix + distinct hash salt so the
+  email-verify flow can't collide) and mints a 30-minute HMAC
+  `account_token` (`_shared/accountToken.ts`, same secret as accept links).
+  EVERY phone-authed function now requires it: `find-helper-by-phone` (the
+  profile read), `update-helper-profile` (which alternatively accepts a
+  linked user JWT — the dashboard's photo save sends its session token),
+  `household-helper-connect-link` (phone path), `cancel-verified-plan`,
+  `cancel-helper-subscription`, `disconnect-helper-payouts`,
+  `delete-helper-account`. Knowing a number no longer reads or edits
+  anything. The page caches the session in sessionStorage (30 min, dies
+  with the tab) and any 401 drops it back to the code step.
 
 **Open decisions the owner still needs to make (don't silently pick one):**
 - **Twilio env check**: `VANO_SMS_ENABLED=true` + `TWILIO_SMS_FROM` etc.
