@@ -66,9 +66,10 @@ const stepV = {
 
 export const PopularCategories: React.FC = () => {
   return (
-    <section id="popular" className="relative bg-navy px-4 py-24 sm:py-28 lg:py-32 scroll-mt-20">
-      {/* No gradient seams — the cream→navy fades rendered as muddy grey
-          smears on real phones (owner: "that looks awful"). Hard edges. */}
+    <section id="popular" className="relative bg-navy rounded-[2rem] sm:rounded-[3rem] px-4 py-24 sm:py-28 lg:py-32 scroll-mt-20">
+      {/* Rounded-slab seam: the navy band curves into the cream like a sheet
+          laid on the page — crafted transition without gradients (the old
+          cream→navy fades smeared muddy grey on real phones). */}
       <div className="relative max-w-4xl mx-auto">
         <motion.div
           className="text-center mb-12 lg:mb-16"
