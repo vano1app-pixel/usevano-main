@@ -267,7 +267,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Garden help</strong> — mowing, weeding, edging, and bagging the waste.</li>
 <li><strong>Moving help</strong> — loading, carrying and unloading. The heavy-lifting hand people need on the day.</li>
 <li><strong>Grocery collection &amp; errands</strong> — pick up a click-and-collect order or run a quick errand and drop it to the door.</li>
-<li><strong>Online tutoring</strong> — one-to-one online with adults (18+), in a subject you already know. No in-home grinds for under-18s — that needs Garda vetting.</li>
+<li><strong>Online tutoring</strong> — one-to-one online with adults (18+), in a subject you already know. Tutoring on Vano is online and adults-only — no in-home grinds for under-18s.</li>
 </ul>
 <h2>How a job runs, start to finish</h2>
 <p>The flow is the same every time, which makes it easy once you've done one:</p>
@@ -383,6 +383,318 @@ export const BLOG_POSTS: BlogPost[] = [
       { q: "Who founded Vano?", a: "Vano was founded by three Atlantic Technological University (ATU) students in Galway — Ayush Puri, Cormac Hennessy and Michael Okocha." },
       { q: "Are the people behind Vano really students?", a: "Yes. The founders are ATU students who built Vano around their own lectures — which is exactly why fair, flexible pay for student helpers is built into the platform." },
       { q: "Where is Vano based?", a: "Vano is based in Galway, Ireland, and currently serves households and student helpers across the city." },
+    ],
+  },
+
+  {
+    slug: "cleaner-cost-galway",
+    title: "How Much Does a Cleaner Cost in Galway? (2026 Prices)",
+    summary:
+      "A cleaner in Galway costs €18 an hour on Vano — a typical 2-hour clean is €36 plus a small booking fee (15%, min €4). No contracts, no call-out charges, and you can usually book same-day.",
+    description:
+      "Real 2026 cleaner prices in Galway: €18/hr with no contracts or call-out fees. What a 2, 3 or 4-hour clean costs, what's included, and how to book same-day.",
+    keywords:
+      "cleaner cost Galway, house cleaning prices Galway, cleaner Galway, how much does a cleaner cost Ireland, hourly rate cleaner Galway, same day cleaner Galway",
+    eyebrow: "Price guide",
+    datePublished: "2026-07-17",
+    dateModified: "2026-07-17",
+    readingMins: 6,
+    author: "The Vano Team",
+    heroGradient: "from-navy via-sage-dark to-emerald-700",
+    heroAlt: "A student cleaner wiping down a kitchen counter in a Galway home",
+    tags: ["Cleaning", "Prices", "Galway"],
+    bodyHtml: `
+<p>Short answer: on Vano, a cleaner in Galway costs <strong>€18 an hour</strong>, and you book exactly the hours you want. No contracts, no minimum weekly commitment, no call-out charge. Here's what that actually comes to, what's included, and how it compares.</p>
+<h2>Galway cleaning prices at a glance (2026)</h2>
+<ul>
+<li><strong>2-hour clean</strong> (kitchen + bathroom + floors) — €36</li>
+<li><strong>3-hour clean</strong> (whole small home) — €54</li>
+<li><strong>4-hour <a href="/glossary/deep-clean">deep clean</a></strong> — €72</li>
+<li><strong>Oven &amp; kitchen clean</strong> — €18–€36 (1–2 hours usually does it)</li>
+<li><strong><a href="/glossary/end-of-tenancy-clean">End-of-tenancy clean</a></strong> — €54–€72 for most flats (3–4 hours)</li>
+</ul>
+<p>On top of the job price there's one small <strong>booking fee</strong> — 15% of the job price, minimum €4 — charged to your card only <a href="/glossary/pay-after-accept">when a helper says yes</a>. So a 2-hour clean is €36 + €5.40 = <strong>€41.40 all-in</strong>. The €36 goes straight to your cleaner (Revolut or cash when the job's done — they keep 100%), and the price is agreed upfront, so there are no surprises after.</p>
+<h2>What's included in a standard clean?</h2>
+<p>The everyday essentials: kitchen surfaces and hob, bathroom (toilet, sink, shower or bath), floors hoovered and mopped, and general tidying and dusting. If you want the heavier stuff — inside the oven, inside cupboards, limescale, skirting boards — book more time and say so in the booking note. Our guide to <a href="/blog/deep-clean-vs-standard-clean">deep clean vs standard clean</a> helps you pick.</p>
+<h2>Who does the cleaning?</h2>
+<p>Local <a href="/glossary/student-cleaner">student cleaners</a> — real students at ATU and the University of Galway, every one <a href="/glossary/id-verified-helper">ID-verified before their first job</a> and rated after every job. You see their name, photo and rating before they arrive, follow them on a live map on the way, and they can only start with the <a href="/glossary/arrival-code">4-digit code</a> shown on your screen.</p>
+<h2>How Galway cleaner prices compare</h2>
+<p>Agency cleans in Ireland commonly run €20–€30+ an hour once fees are counted, often with minimum visits or contracts. Independent cleaners can be cheaper but are hard to find at short notice and rarely vetted. Vano sits in the honest middle: <strong>€18/hr flat</strong>, bookable <a href="/glossary/same-day-home-help">same-day</a>, with verification built in — and because your cleaner keeps 100% of the job price, the low price doesn't come out of their pocket.</p>
+<h2>How to book a cleaner in Galway</h2>
+<p>Tap <strong>Cleaning</strong> on <a href="/">vanojobs.com</a>, pick the kind of clean and how many hours, add your phone number and address, and that's it — most jobs are confirmed within a few hours. You can add optional <a href="/glossary/vano-cover">Vano Cover</a> (€2, accidental damage up to €250) when booking. If anything's not right, tell us within 24 hours and we'll re-do it or refund you.</p>
+<p><a href="/#book"><strong>Book a cleaner in Galway →</strong></a></p>
+`,
+    related: ["deep-clean-vs-standard-clean", "end-of-tenancy-cleaning-galway", "laundry-service-galway-cost"],
+    faqs: [
+      { q: "How much does a cleaner cost per hour in Galway?", a: "€18 an hour on Vano, with no contracts or call-out fees. A typical 2-hour clean costs €36 plus a small booking fee (15%, minimum €4)." },
+      { q: "Is there a minimum number of hours?", a: "Cleaning is booked by the hour — most people book 2 hours for a kitchen-bathroom-floors clean, and 3–4 hours for a whole home or deep clean." },
+      { q: "Do I pay upfront?", a: "No. Booking is free — the small booking fee is only charged when a helper says yes, and you pay the cleaner the job price directly (Revolut or cash) once the work is done." },
+      { q: "Are Vano cleaners vetted?", a: "Every cleaner is ID-verified before their first job, rated after every job, and can only start the job using the 4-digit code shown on your screen." },
+    ],
+  },
+
+  {
+    slug: "end-of-tenancy-cleaning-galway",
+    title: "End-of-Tenancy Cleaning in Galway: Checklist & Cost (2026)",
+    summary:
+      "An end-of-tenancy clean in Galway costs €54–€72 for most flats on Vano (3–4 hours at €18/hr). Here's the room-by-room checklist landlords actually check — and how to get it done same-day before handover.",
+    description:
+      "Moving out in Galway? End-of-tenancy cleaning costs €54–€72 for most flats (€18/hr). The room-by-room deposit checklist plus how to book a same-day move-out clean.",
+    keywords:
+      "end of tenancy cleaning Galway, move out cleaning Galway, deposit cleaning checklist Ireland, end of lease clean cost, student accommodation cleaning Galway",
+    eyebrow: "Moving out",
+    datePublished: "2026-07-17",
+    dateModified: "2026-07-17",
+    readingMins: 7,
+    author: "The Vano Team",
+    heroGradient: "from-sage-dark via-sage to-gold",
+    heroAlt: "A freshly cleaned, empty Galway rental flat ready for key handover",
+    tags: ["Cleaning", "Moving out", "Galway"],
+    bodyHtml: `
+<p>Handing back the keys is the one clean you can't skip — it's the difference between your full deposit and a deduction. In a student city like Galway, <a href="/glossary/end-of-tenancy-clean">end-of-tenancy cleans</a> are our most-booked job every summer. Here's what landlords actually check, what it costs, and how to get it done fast.</p>
+<h2>What does an end-of-tenancy clean cost in Galway?</h2>
+<p>On Vano it's priced simply by time at <strong>€18/hr</strong>:</p>
+<ul>
+<li><strong>Studio or one-bed flat</strong> — 3 hours, €54</li>
+<li><strong>Two-bed house or apartment</strong> — 4 hours, €72</li>
+<li><strong>Bigger or very lived-in homes</strong> — 5–6 hours, €90–€108</li>
+</ul>
+<p>Plus one small booking fee (15%, min €4) charged only <a href="/glossary/pay-after-accept">when a helper says yes</a>. The job price goes straight to your <a href="/glossary/student-cleaner">student cleaner</a> when it's done — they keep 100%. Compare that with dedicated end-of-tenancy firms, which commonly quote €150–€300 for the same flat.</p>
+<h2>The room-by-room deposit checklist</h2>
+<h3>Kitchen (where deposits are lost)</h3>
+<ul>
+<li><a href="/glossary/oven-clean">Oven</a> degreased inside and out, racks soaked and scrubbed</li>
+<li>Fridge and freezer emptied, defrosted, wiped inside</li>
+<li>Inside every cupboard and drawer</li>
+<li>Hob, extractor, sink and taps descaled</li>
+</ul>
+<h3>Bathroom</h3>
+<ul>
+<li>Limescale off the shower screen, tiles and taps</li>
+<li>Toilet, sink and bath scrubbed; mirror polished</li>
+<li>Extractor grille dusted; bin emptied and wiped</li>
+</ul>
+<h3>Everywhere else</h3>
+<ul>
+<li>Skirting boards, window sills and door frames wiped</li>
+<li>Inside windows cleaned; cobwebs down</li>
+<li>Carpets hoovered (edges too), hard floors mopped</li>
+<li>All bins out, no belongings left behind</li>
+</ul>
+<h2>Tips from hundreds of Galway move-outs</h2>
+<p><strong>Book before the final inspection, not after</strong> — a same-day re-clean is possible on Vano, but calm beats panic. <strong>Take photos when the clean is done</strong>; they're your evidence if there's any deposit debate. And if the place needs boxes shifted too, pair the clean with <a href="/services/moving-help-galway">moving help</a> — same booking flow, same €18/hr.</p>
+<h2>How to book it</h2>
+<p>Tap <strong>Cleaning → End-of-tenancy clean</strong> on <a href="/">vanojobs.com</a>, pick the hours, drop your phone number and the address. An <a href="/glossary/id-verified-helper">ID-verified</a> local student takes it on — you'll see their name, photo and rating before they arrive, and if anything's missed, tell us within 24 hours and we'll make it right.</p>
+<p><a href="/#book"><strong>Book an end-of-tenancy clean →</strong></a></p>
+`,
+    related: ["cleaner-cost-galway", "moving-help-galway", "deep-clean-vs-standard-clean"],
+    faqs: [
+      { q: "How much is an end-of-tenancy clean in Galway?", a: "€54–€72 for most flats on Vano (3–4 hours at €18/hr), plus a small booking fee. Dedicated end-of-tenancy firms commonly charge €150–€300 for the same size of home." },
+      { q: "How long does a move-out clean take?", a: "About 3 hours for a studio or one-bed, 4 hours for a two-bed — longer if the oven or bathroom needs serious work." },
+      { q: "Can I get an end-of-tenancy clean same-day in Galway?", a: "Usually yes — most Vano jobs are confirmed within a few hours, so you can book the morning of your final inspection if needed." },
+      { q: "Does the clean include the oven?", a: "Ask for it in your booking note and book enough time — the oven is the single most-checked item at handover and usually adds about an hour." },
+    ],
+    howTo: [
+      { name: "Book the clean before your final inspection", text: "Book 3–4 hours of end-of-tenancy cleaning on vanojobs.com a day or two before handover — not after the landlord has already looked." },
+      { name: "Clear your belongings first", text: "The clean goes much faster in an empty home. Move boxes out (or book moving help) before the cleaner arrives." },
+      { name: "Point out the priority areas", text: "Use the booking note for what the landlord checks hardest: oven, limescale, inside cupboards." },
+      { name: "Photograph every room after", text: "Take timestamped photos of the finished clean — your evidence if there's any deposit discussion." },
+    ],
+  },
+
+  {
+    slug: "dog-walker-galway-cost",
+    title: "Dog Walker in Galway: Prices & What a Good Walk Includes",
+    summary:
+      "A dog walk in Galway costs €15 for 30 minutes or €20 for an hour on Vano — always on-lead, door to door, by an ID-verified local student you can see before they ring the bell.",
+    description:
+      "Dog walker prices in Galway for 2026: €15 for 30 minutes, €20 for an hour. What an on-lead walk includes, how vetting works, and how to book same-day.",
+    keywords:
+      "dog walker Galway, dog walking prices Galway, dog walker cost Ireland, on-lead dog walking, same day dog walker Galway, pet care Galway",
+    eyebrow: "Pets",
+    datePublished: "2026-07-17",
+    dateModified: "2026-07-17",
+    readingMins: 5,
+    author: "The Vano Team",
+    heroGradient: "from-gold via-express-orange to-sage-dark",
+    heroAlt: "A student dog walker walking a dog on the lead along the Salthill prom in Galway",
+    tags: ["Dog walking", "Prices", "Galway"],
+    bodyHtml: `
+<p>Stuck in work, away for the day, or just wrecked? A dog walker in Galway costs less than most people think: <strong>€15 for a 30-minute walk, €20 for a full hour</strong> on Vano — and you can usually book one for today.</p>
+<h2>What the walk includes</h2>
+<p>Every Vano walk is <a href="/glossary/on-lead-dog-walking"><strong>on-lead, door to door</strong></a>: your walker collects your dog at your front door, keeps them on the lead for the whole walk, and drops them back home. On-lead is the professional standard when a dog is out with someone who isn't its owner — no recall gambles near traffic, no surprise run-ins on the prom.</p>
+<p>Add anything your dog needs in the booking note: route preferences, "no other dogs", treats allowed or not, where the lead lives.</p>
+<h2>Who's walking my dog?</h2>
+<p>A local student — <a href="/glossary/id-verified-helper">ID-verified before their first job</a> and rated after every job. You see their <strong>name, photo and rating before they arrive</strong>, and you can follow the pick-up on a live map. Many Galway owners end up requesting the same walker again once their dog has a favourite.</p>
+<h2>Galway dog walking prices compared</h2>
+<ul>
+<li><strong>Vano</strong> — €15 / 30 min, €20 / hour. Your walker keeps 100%; one small booking fee (min €4) confirms the booking <a href="/glossary/pay-after-accept">when someone says yes</a>.</li>
+<li><strong>Professional walkers &amp; agencies</strong> — commonly €15–€25 per walk, often needing a regular weekly slot and a meet-and-greet first.</li>
+<li><strong>Group walks</strong> — cheaper per dog, but your dog shares the walk and the attention.</li>
+</ul>
+<h2>Great for busy weeks, not just holidays</h2>
+<p>One-off walks are the point: a late meeting, a hospital appointment, a heatwave when the midday walk needs to happen while you're out. Book on the day, walk done by dinner. If you need feeding or a garden check too, book it as an "<a href="/glossary/same-day-home-help">Anything else</a>" job and describe what's needed.</p>
+<p><a href="/#book"><strong>Book a dog walk in Galway →</strong></a></p>
+`,
+    related: ["cleaner-cost-galway", "laundry-service-galway-cost", "what-vano-helpers-do"],
+    faqs: [
+      { q: "How much does a dog walker cost in Galway?", a: "€15 for a 30-minute walk or €20 for a full hour on Vano, plus a small booking fee (minimum €4) charged only when a walker says yes." },
+      { q: "Are the walks on-lead?", a: "Yes — every Vano walk is on-lead, door to door. It's the safe standard when a dog is out with someone who isn't its owner." },
+      { q: "Can I meet the walker first?", a: "You see the walker's name, photo and rating before they arrive, and you can follow the walk pick-up on a live map. Owners often rebook the same walker once their dog has a favourite." },
+      { q: "Can I book a dog walker for today?", a: "Usually yes — most Vano bookings are confirmed within a few hours, so a same-day walk is normal rather than the exception." },
+    ],
+  },
+
+  {
+    slug: "moving-help-galway",
+    title: "Moving in Galway: What Help Costs & a Stress-Free Checklist",
+    summary:
+      "Student moving help in Galway costs €18 an hour per helper on Vano — you arrange the van, they bring the muscle. Here's what a typical move costs and the checklist that keeps moving day calm.",
+    description:
+      "Help moving house in Galway: €18/hr per helper for lifting, loading and carrying. What a typical flat move costs in 2026, plus a stress-free moving day checklist.",
+    keywords:
+      "moving help Galway, man with a van Galway alternative, help moving house Ireland cost, furniture moving Galway, student movers Galway, moving day checklist",
+    eyebrow: "Moving",
+    datePublished: "2026-07-17",
+    dateModified: "2026-07-17",
+    readingMins: 6,
+    author: "The Vano Team",
+    heroGradient: "from-express-orange via-gold to-sage",
+    heroAlt: "Students carrying moving boxes into a house in Galway on moving day",
+    tags: ["Moving", "Prices", "Galway"],
+    bodyHtml: `
+<p>The hardest part of moving isn't the van — it's the fourth trip up the stairs with a couch. On Vano, <strong>moving help costs €18 an hour per helper</strong>: strong, careful lifting and carrying, booked for exactly the hours you need.</p>
+<h2>How it works (and what you arrange)</h2>
+<p>One honest thing upfront: <strong>you arrange the van</strong> (or use your own car for a small move). Vano helpers are the labour — they load, carry, and unload, but they never drive your belongings. That split keeps it simple and cheap: van hire in Galway runs roughly €40–€80 for a half day, and the muscle is €18/hr on top.</p>
+<h2>What a typical Galway move costs</h2>
+<ul>
+<li><strong>Student room move</strong> (boxes + a few bags, 2 hours, one helper) — €36</li>
+<li><strong>One-bed flat</strong> (3 hours, one helper) — €54</li>
+<li><strong>Two-bed with furniture</strong> (3 hours, two helpers booked together) — €108</li>
+</ul>
+<p>Each booking adds one small fee (15%, min €4), charged only <a href="/glossary/pay-after-accept">when a helper says yes</a>. Your helpers keep 100% of the job price — you pay them directly when the lifting's done.</p>
+<h2>The stress-free moving day checklist</h2>
+<ul>
+<li><strong>Book the van first, helpers second</strong> — match the helper hours to the van window.</li>
+<li><strong>Box everything before they arrive</strong> — €18/hr is for carrying, not bubble-wrapping mugs.</li>
+<li><strong>Heaviest furniture measured</strong> — check the couch actually fits the new stairwell.</li>
+<li><strong>Park close</strong> — five metres to the door beats fifty.</li>
+<li><strong>Keep kettle, chargers and keys in one "open me first" box.</strong></li>
+</ul>
+<h2>Moving out? Don't forget the clean</h2>
+<p>If it's a rental, the <a href="/glossary/end-of-tenancy-clean">end-of-tenancy clean</a> decides your deposit. Book it for after the furniture's out — an empty home cleans faster. Full checklist in our <a href="/blog/end-of-tenancy-cleaning-galway">end-of-tenancy guide</a>, and flat-pack going back together at the new place is a classic <a href="/glossary/flat-pack-assembly">assembly job</a>.</p>
+<p><a href="/#book"><strong>Book moving help in Galway →</strong></a></p>
+`,
+    related: ["end-of-tenancy-cleaning-galway", "cleaner-cost-galway", "what-vano-helpers-do"],
+    faqs: [
+      { q: "How much does moving help cost in Galway?", a: "€18 an hour per helper on Vano. A typical student room move is about €36 (2 hours); a one-bed flat about €54 (3 hours) — plus van hire, which you arrange." },
+      { q: "Do Vano helpers drive the van?", a: "No — helpers load, carry and unload, but never drive your belongings or passengers. You arrange the van or use your own car; that split is what keeps the price low." },
+      { q: "Can two helpers work the same move?", a: "Yes — book two moving jobs for the same time slot and note they're for the same move. Two sets of hands roughly halves the carrying time." },
+      { q: "How far in advance should I book?", a: "Same-day is often possible, but for a moving day with a hired van, booking a day or two ahead is safest so the van and the muscle line up." },
+    ],
+    howTo: [
+      { name: "Sort the van before the muscle", text: "Book your van (or borrow a car) first, then book Vano helpers for the same window at €18/hr each." },
+      { name: "Pack completely before helpers arrive", text: "Everything boxed, sealed and labelled — helper hours should go on carrying, not packing." },
+      { name: "Load heavy and awkward items first", text: "Couch, mattress, wardrobe into the van first; boxes fill the gaps around them." },
+      { name: "Book the end-of-tenancy clean for after", text: "Once furniture is out, a 3–4 hour move-out clean gets the deposit back — book it as a separate cleaning job." },
+    ],
+  },
+
+  {
+    slug: "laundry-service-galway-cost",
+    title: "Laundry Service in Galway: €15 Collected, Washed & Folded",
+    summary:
+      "Vano's Galway laundry service is a flat €15: a local student collects your laundry, washes and dries it, and returns it folded. No subscriptions, no per-kilo maths — one price, usually same-day or next-day.",
+    description:
+      "Laundry service in Galway for a flat €15 — collected from your door, washed, dried and returned folded by an ID-verified local student. How it works and who it suits.",
+    keywords:
+      "laundry service Galway, wash and fold Galway, laundry collection Galway, laundrette alternative Galway, student laundry service, ironing Galway",
+    eyebrow: "Laundry",
+    datePublished: "2026-07-17",
+    dateModified: "2026-07-17",
+    readingMins: 5,
+    author: "The Vano Team",
+    heroGradient: "from-sage via-emerald-600 to-navy",
+    heroAlt: "A neatly folded basket of clean laundry being returned to a Galway doorstep",
+    tags: ["Laundry", "Prices", "Galway"],
+    bodyHtml: `
+<p>The laundry pile always wins in the end — unless someone takes it away. Vano's laundry service is one flat price: <strong>€15, collected from your door, washed, dried and returned folded</strong>. No per-kilo weighing, no subscription, no trek to the launderette.</p>
+<h2>How it works</h2>
+<ul>
+<li><strong>Book "Laundry" on <a href="/">vanojobs.com</a></strong> — add your phone number and address; booking takes under a minute.</li>
+<li><strong>A local student collects</strong> — an <a href="/glossary/id-verified-helper">ID-verified</a> helper picks up your bag or basket at the door. You'll see their name, photo and rating first.</li>
+<li><strong>Washed, dried, folded</strong> — everyday clothes, bedding and towels, handled with normal care (note anything delicate in the booking).</li>
+<li><strong>Returned folded</strong> — usually same-day or next-day, back at your door.</li>
+</ul>
+<p>You pay the €15 directly to your helper when it's back (Revolut or cash — they keep 100%), and one small €4 booking fee confirms the job <a href="/glossary/pay-after-accept">when a helper says yes</a>. So the true all-in cost is <strong>€19</strong>.</p>
+<h2>Who it suits</h2>
+<p><strong>Busy working households</strong> that never catch up on the basket; <strong>older neighbours</strong> for whom the machine, the line and the carrying have become a chore; <strong>students</strong> in accommodation where the shared machines eat coins; and anyone mid-<a href="/blog/moving-help-galway">move</a> whose machine is in a van somewhere.</p>
+<h2>Compared with the alternatives</h2>
+<p>A launderette service wash in Ireland typically runs €12–€20 <em>plus</em> the two trips to drop off and collect. Big laundry apps charge by the kilo with delivery fees on top and mostly serve Dublin. Vano's flat €15 includes collection and return, and the money goes to a local student, not a logistics chain.</p>
+<h2>Want ironing too?</h2>
+<p>Ironing is its own job — see the <a href="/glossary/ironing-service">ironing service</a> explainer, or book it as an "Anything else" job at €18/hr alongside your wash.</p>
+<p><a href="/#book"><strong>Book laundry collection in Galway →</strong></a></p>
+`,
+    related: ["cleaner-cost-galway", "dog-walker-galway-cost", "why-vano-fair-pay-same-day"],
+    faqs: [
+      { q: "How much is the laundry service in Galway?", a: "A flat €15 — collected, washed, dried and returned folded — plus a €4 booking fee when a helper says yes. €19 all-in, no per-kilo charges." },
+      { q: "How fast does laundry come back?", a: "Usually same-day or next-day, depending on when you book and drying time. The helper agrees timing with you at collection." },
+      { q: "Is ironing included?", a: "No — the €15 covers wash, dry and fold. Ironing can be booked as its own job at €18/hr." },
+      { q: "Who collects my laundry?", a: "A local ID-verified student — you see their name, photo and rating before they call, and the same helper returns it folded." },
+    ],
+  },
+
+  {
+    slug: "deep-clean-vs-standard-clean",
+    title: "Deep Clean vs Standard Clean: Which Do You Actually Need?",
+    summary:
+      "A standard clean (about 2 hours, €36) keeps a home ticking over; a deep clean (3–4 hours, €54–€72) gets into the corners a weekly tidy skips. Here's how to tell which your home needs — and when.",
+    description:
+      "Deep clean or standard clean? What each includes, what they cost in Galway (€36 vs €54–€72 at €18/hr), and a simple rule for choosing the right one.",
+    keywords:
+      "deep clean vs regular clean, what is a deep clean, deep cleaning checklist Ireland, standard clean includes, deep clean cost Galway, spring clean",
+    eyebrow: "Cleaning guide",
+    datePublished: "2026-07-17",
+    dateModified: "2026-07-17",
+    readingMins: 5,
+    author: "The Vano Team",
+    heroGradient: "from-navy via-navy to-sage-dark",
+    heroAlt: "Cleaning caddy with gloves and spray bottles ready for a deep clean of a Galway home",
+    tags: ["Cleaning", "Guides"],
+    bodyHtml: `
+<p>"Deep clean" gets thrown around loosely, so here's the honest difference — and a one-line rule for picking: <strong>if you'd be embarrassed opening a cupboard in front of a guest, it's a deep clean.</strong></p>
+<h2>What a standard clean includes</h2>
+<p>A standard clean is the regular reset — about <strong>2 hours (€36)</strong> for most homes:</p>
+<ul>
+<li>Kitchen surfaces, hob and sink</li>
+<li>Bathroom: toilet, sink, shower/bath, mirror</li>
+<li>Floors hoovered and mopped</li>
+<li>General dusting and tidying</li>
+</ul>
+<p>It keeps a home ticking over. Weekly or fortnightly standard cleans are the "never let it slide" routine.</p>
+<h2>What a deep clean adds</h2>
+<p>A <a href="/glossary/deep-clean">deep clean</a> — usually <strong>3–4 hours (€54–€72)</strong> — gets everything above <em>plus</em> the places a quick clean never reaches:</p>
+<ul>
+<li>Inside cupboards, the fridge and the <a href="/glossary/oven-clean">oven</a></li>
+<li>Limescale off taps, shower screens and tiles</li>
+<li>Skirting boards, door frames, window sills and inside windows</li>
+<li>Under and behind furniture that moves</li>
+</ul>
+<h2>When each one makes sense</h2>
+<ul>
+<li><strong>Standard:</strong> the weekly/fortnightly keep-up, before ordinary visitors, after a busy week.</li>
+<li><strong>Deep:</strong> first clean in a long while, before or after guests staying over, seasonal <a href="/glossary/spring-clean">spring clean</a>, post-renovation dust, or when allergies flare.</li>
+<li><strong>Moving out?</strong> That's its own beast — the <a href="/glossary/end-of-tenancy-clean">end-of-tenancy clean</a> — with a landlord checklist attached. See the <a href="/blog/end-of-tenancy-cleaning-galway">full guide</a>.</li>
+</ul>
+<h2>Pricing is the same simple maths</h2>
+<p>On Vano both are the same honest rate — <strong>€18/hr</strong>, your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% — you're just booking more hours for a deep clean. One small booking fee (15%, min €4) is charged <a href="/glossary/pay-after-accept">when a helper says yes</a>, and optional <a href="/glossary/vano-cover">Vano Cover</a> (€2) covers accidental damage up to €250. Full price rundown in the <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
+<p><a href="/#book"><strong>Book a clean that fits →</strong></a></p>
+`,
+    related: ["cleaner-cost-galway", "end-of-tenancy-cleaning-galway", "laundry-service-galway-cost"],
+    faqs: [
+      { q: "What's the difference between a deep clean and a standard clean?", a: "A standard clean covers surfaces, bathroom, floors and tidying. A deep clean adds the hidden work: inside cupboards and appliances, limescale, skirting boards, and under furniture." },
+      { q: "How often should I book a deep clean?", a: "Every 2–3 months for most homes, with standard cleans keeping things ticking over in between — or whenever cupboards and corners have quietly gotten away from you." },
+      { q: "How much does each cost in Galway?", a: "At €18/hr: a standard clean is about €36 (2 hours), a deep clean €54–€72 (3–4 hours), plus a small booking fee (15%, min €4)." },
     ],
   },
 ];

@@ -806,7 +806,7 @@ export const JoinAsHelper: React.FC = () => {
                           >
                             <div className="mt-4 space-y-4 bg-background/60 rounded-xl border border-border/50 p-3">
                               <p className="text-[11px] font-medium text-foreground/70 leading-snug">
-                                💻 Tutoring on Vano is <span className="font-semibold">online and adults-only (18+)</span>. We don't offer school grinds for under-18s — that requires Garda vetting.
+                                💻 Tutoring on Vano is <span className="font-semibold">online and adults-only (18+)</span>. We don't offer school grinds for under-18s.
                               </p>
                               <div>
                                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 block">Subjects</span>

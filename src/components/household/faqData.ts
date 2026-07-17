@@ -10,7 +10,7 @@ export const FAQS = [
   },
   {
     q: 'Who actually does the work?',
-    a: 'Independent local students — ID-verified, rated after every job, and working for themselves through VANO. We stick to everyday household jobs and follow Irish rules: nothing that needs Garda vetting (childminding, care), no qualified trade work (electrics, gas, plumbing), no ladders or roofs, and no driving passengers.',
+    a: 'Independent local students — ID-verified, rated after every job, and working for themselves through VANO. We stick to everyday household jobs: no childminding or care work, nothing that needs a qualified tradesperson (electrics, gas or plumbing), no ladders or roofs, and no driving passengers.',
   },
   {
     q: 'How does payment work?',
