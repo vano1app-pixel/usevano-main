@@ -18,11 +18,8 @@ export const ClosingCta: React.FC = () => {
 
   return (
     <section className="relative bg-navy px-4 py-20 sm:py-24 text-center">
-      {/* Soft seams into the cream sections either side — same treatment as
-          the PopularCategories band, no hard colour cuts. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-cream to-transparent" aria-hidden="true" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-cream to-transparent" aria-hidden="true" />
-
+      {/* No gradient seams — the cream→navy fades rendered as muddy grey
+          smears on real phones (owner: "that looks awful"). Hard edges. */}
       <motion.div
         className="relative max-w-md mx-auto"
         initial={{ opacity: 0, y: 18 }}
