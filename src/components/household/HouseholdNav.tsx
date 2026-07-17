@@ -62,10 +62,24 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
           scrolled ? 'h-[60px]' : 'h-[72px]',
         )}
       >
-        <Link to="/home" className="flex items-center group">
+        {/* Logo + wordmark lockup. The mark alone left an awkward gap on the
+            left; the brand wordmark (Bricolage display face, matching the
+            hero headings) fills it and reinforces the name. Deliberately the
+            NAME, not the domain — a ".com" in the header reads dated and the
+            address bar already shows it. img is decorative (alt="") since the
+            adjacent text now carries the accessible name. */}
+        <Link to="/home" aria-label="VANO — home" className="flex items-center gap-2.5 group">
           <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
-            <img src={logo} alt="VANO" className="w-full h-full object-cover" />
+            <img src={logo} alt="" className="w-full h-full object-cover" />
           </div>
+          <span
+            className={cn(
+              'font-display text-[1.35rem] font-extrabold tracking-[-0.02em] leading-none transition-colors duration-300',
+              dark ? 'text-white' : 'text-navy',
+            )}
+          >
+            VANO
+          </span>
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
