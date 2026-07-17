@@ -61,7 +61,12 @@ const HouseholdHome: React.FC = () => {
             two plus the hero are the full-screen snap sections (data-snap):
             each fills the viewport, gently snaps, and carries its own scroll
             cue that walks to the next section. `relative` anchors the cue. */}
-        <div data-snap id="how" className="relative"><HowItWorks /><ScrollCue tone="dark" /></div>
+        {/* Owner call (July 2026): the three-steps section is DESKTOP-ONLY —
+            on phones it pushed the real helper faces too far down, so it's
+            hidden there and the faces follow the hero directly. When the
+            first real reviews land, ReviewCarousel (below, self-mounting)
+            fills that trust slot on phones automatically. */}
+        <div data-snap id="how" className="relative hidden sm:block"><HowItWorks /><ScrollCue tone="dark" /></div>
         <div data-snap id="helpers" className="relative"><Reveal><HelperCards /></Reveal><ScrollCue tone="dark" /></div>
         {/* Most-booked services as one-tap tiles — lands after trust; the navy
             band anchors the middle of the page between the cream sections. Tiles

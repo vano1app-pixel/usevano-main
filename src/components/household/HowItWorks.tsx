@@ -45,7 +45,9 @@ export const HowItWorks: React.FC = () => {
     // faces below come up sooner — but the section stays, because these three
     // steps carry the price/safety/pay-direct trust a first-timer needs.
     // Desktop keeps the spacious full-screen 1→2→3 journey.
-    <section className="bg-white py-12 lg:pt-28 lg:pb-20 lg:min-h-screen lg:flex lg:flex-col lg:justify-center">
+    // Cream, not white — the owner wants the landing to read as ONE warm
+    // page (the stark white band jarred against the cream hero).
+    <section className="bg-cream py-12 lg:pt-28 lg:pb-20 lg:min-h-screen lg:flex lg:flex-col lg:justify-center">
       <div className="px-4 max-w-5xl mx-auto">
         <div className="text-center mb-8 lg:mb-14">
           <p className="eyebrow mb-3">How it works</p>
