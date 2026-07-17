@@ -41,15 +41,19 @@ const lineV: Variants = {
 
 export const HowItWorks: React.FC = () => {
   return (
-    <section className="bg-white py-20 lg:pt-28 lg:pb-20 lg:min-h-screen lg:flex lg:flex-col lg:justify-center">
+    // Mobile keeps this SHORT (compact left-aligned rows) so the real helper
+    // faces below come up sooner — but the section stays, because these three
+    // steps carry the price/safety/pay-direct trust a first-timer needs.
+    // Desktop keeps the spacious full-screen 1→2→3 journey.
+    <section className="bg-white py-12 lg:pt-28 lg:pb-20 lg:min-h-screen lg:flex lg:flex-col lg:justify-center">
       <div className="px-4 max-w-5xl mx-auto">
-        <div className="text-center mb-10 lg:mb-14">
+        <div className="text-center mb-8 lg:mb-14">
           <p className="eyebrow mb-3">How it works</p>
           <h2 className="display-lg text-foreground">Help in three simple steps</h2>
         </div>
 
         <motion.ol
-          className="relative grid gap-10 sm:grid-cols-3 sm:gap-8"
+          className="relative grid gap-5 sm:grid-cols-3 sm:gap-8"
           variants={container}
           initial="hidden"
           whileInView="show"
@@ -65,8 +69,10 @@ export const HowItWorks: React.FC = () => {
             style={{ background: 'linear-gradient(90deg, transparent, hsl(43 90% 60% / 0.55) 14%, hsl(43 90% 60% / 0.55) 86%, transparent)' }}
           />
           {STEPS.map((s) => (
-            <motion.li key={s.n} variants={stepV} className="group text-center sm:text-left">
-              <span className="relative inline-flex">
+            // Mobile: [number] [title + pills] on one compact row.
+            // Desktop: stacked block (number, then title, then pills).
+            <motion.li key={s.n} variants={stepV} className="group flex items-start gap-4 text-left sm:block sm:gap-0">
+              <span className="relative inline-flex shrink-0">
                 <motion.span
                   variants={ringV}
                   aria-hidden="true"
@@ -76,17 +82,19 @@ export const HowItWorks: React.FC = () => {
                   {s.n}
                 </span>
               </span>
-              <h3 className="mt-4 text-lg font-bold text-foreground">{s.title}</h3>
-              <ul className="mt-3 flex flex-col gap-1.5 items-center sm:items-start">
-                {s.lines.map((line) => (
-                  <li
-                    key={line}
-                    className="inline-flex items-center rounded-full bg-secondary border border-border px-3 py-1 text-xs font-semibold text-foreground/80"
-                  >
-                    {line}
-                  </li>
-                ))}
-              </ul>
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold text-foreground sm:mt-4">{s.title}</h3>
+                <ul className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:flex-col sm:items-start">
+                  {s.lines.map((line) => (
+                    <li
+                      key={line}
+                      className="inline-flex items-center rounded-full bg-secondary border border-border px-3 py-1 text-xs font-semibold text-foreground/80"
+                    >
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </motion.li>
           ))}
         </motion.ol>
