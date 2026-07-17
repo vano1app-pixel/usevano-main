@@ -17,9 +17,9 @@ export const ClosingCta: React.FC = () => {
   };
 
   return (
-    <section className="relative bg-navy px-4 py-20 sm:py-24 text-center">
-      {/* No gradient seams — the cream→navy fades rendered as muddy grey
-          smears on real phones (owner: "that looks awful"). Hard edges. */}
+    <section className="relative bg-navy rounded-[2rem] sm:rounded-[3rem] px-4 py-20 sm:py-24 text-center">
+      {/* Rounded-slab seam (see PopularCategories) — curved corners into the
+          cream, no gradients (they smeared grey on real phones). */}
       <motion.div
         className="relative max-w-md mx-auto"
         initial={{ opacity: 0, y: 18 }}

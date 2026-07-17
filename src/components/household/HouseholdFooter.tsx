@@ -36,9 +36,9 @@ const FOOTER_LINK =
 
 export const HouseholdFooter: React.FC = () => {
   return (
-    <footer className="relative bg-navy text-white px-4 pt-12 pb-28 md:pb-12">
-      {/* No gradient seam — the cream→navy fade rendered as a muddy grey
-          smear on real phones (owner: "that looks awful"). Hard edge. */}
+    <footer className="relative bg-navy text-white rounded-t-[2rem] sm:rounded-t-[3rem] px-4 pt-14 pb-28 md:pb-12">
+      {/* Rounded-slab seam on top only (the bottom meets the screen edge) —
+          curved into the cream, no gradients (they smeared on real phones). */}
       <div className="relative max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8 mb-10">
           <Link to="/home" className="inline-block">
