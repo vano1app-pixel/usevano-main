@@ -38,7 +38,7 @@ export const BottomNav: React.FC = () => {
   return (
     <nav
       aria-label="Primary"
-      className="app-bottom-nav fixed bottom-0 left-0 right-0 z-40 md:hidden safe-area-bottom border-t border-border/60 bg-background/90 backdrop-blur-xl backdrop-saturate-[1.2] shadow-[0_-8px_24px_-12px_hsl(var(--shadow-color)/0.18)]"
+      className="app-bottom-nav fixed bottom-0 left-0 right-0 z-40 md:hidden safe-area-bottom border-t border-border/60 bg-cream/90 backdrop-blur-xl backdrop-saturate-[1.2] shadow-[0_-8px_24px_-12px_hsl(var(--shadow-color)/0.18)]"
     >
       <ul className="flex items-stretch justify-around px-2">
         {TABS.map(({ to, label, icon: Icon, match }) => {
