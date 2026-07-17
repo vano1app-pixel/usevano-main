@@ -733,7 +733,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           Time + duration below are pre-picked, so number + address is
           all a new visitor has to type. */}
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5 flex items-center gap-1.5">
           Your phone
           <AnimatePresence>
             {phoneValid && (
@@ -760,12 +760,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
           )}
         />
-        <p className="text-xs leading-relaxed text-muted-foreground mt-1.5">We'll text you when a helper says yes · Outside Ireland? Add your country code (+44…)</p>
+        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">We'll text you when a helper says yes · Outside Ireland? Add your country code (+44…)</p>
       </div>
 
       {/* Address — Eircode search or current location */}
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5 flex items-center gap-1.5">
           Where?
           <AnimatePresence>
             {addressValid && (
@@ -791,9 +791,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           onTextChange={(t) => { setAddress(t); setCoords(null); if (addressError) setAddressError(false); if (error) setError(null); }}
           onBlur={() => {}}
           placeholder="Address or Eircode…"
-          showMapPreview={false}
+          showMapPreview
         />
-        <p className="text-xs text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
+        <p className="text-[13px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
       </div>
     </>
   );
@@ -1172,10 +1172,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             animate="show"
             exit="exit"
           >
-            {/* Desktop = two columns (who/when/where | the money), so the whole
-                booking sits on one screen with zero scrolling. Mobile keeps the
-                single top-to-bottom column. */}
-            <div className="space-y-5 sm:grid sm:grid-cols-2 sm:items-start sm:gap-x-6 sm:space-y-0">
+            {/* ONE calm top-to-bottom column on every screen (Deliveroo/Uber
+                checkout pattern): details → map → when → price → book. One
+                reading order, capped width on desktop so it never sprawls. */}
+            <div className="space-y-5 sm:max-w-lg sm:mx-auto">
             <div className="space-y-5">
             {/* Returning customer → one-tap confirm: the "welcome back" strip
                 and the remembered phone + address live in ONE card (they used
@@ -1191,13 +1191,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   className="rounded-xl border border-sage/25 bg-white overflow-hidden"
                 >
                   <div className="flex items-center justify-between gap-3 bg-sage/8 border-b border-sage/15 px-4 py-2">
-                    <p className="text-[11px] text-foreground/70 truncate">
+                    <p className="text-[13px] text-foreground/70 truncate">
                       <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
                     </p>
                     <button
                       type="button"
                       onClick={forgetMe}
-                      className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-2.5 -mx-3 -my-2.5"
+                      className="text-[13px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-2.5 -mx-3 -my-2.5"
                     >
                       Clear
                     </button>
@@ -1220,7 +1220,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         <span className="truncate">{address || 'Add your address'}</span>
                       </span>
                     </span>
-                    <span className="text-[11px] font-semibold text-sage-dark flex-shrink-0" aria-hidden="true">
+                    <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0" aria-hidden="true">
                       Edit
                     </span>
                   </button>
@@ -1266,7 +1266,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   <span className="font-semibold">{when === 'Now' ? 'ASAP' : when}</span>
                   {size && <span className="text-muted-foreground truncate">· {size}</span>}
                 </span>
-                <span className="text-xs font-semibold text-sage-dark flex-shrink-0">{showWhen ? 'Done' : 'Change'}</span>
+                <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">{showWhen ? 'Done' : 'Change'}</span>
               </button>
 
               <AnimatePresence initial={false}>
@@ -1279,7 +1279,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     className="overflow-hidden"
                   >
                     <div className="px-4 pb-3.5">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5">When?</p>
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {timeSlots.map(opt => (
                           <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
@@ -1301,7 +1301,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       {/* How long? — sensible default pre-selected */}
                       {cat.sizes && (
                         <div className="mt-4">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                          <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5">
                             {cat.sizeLabel ?? 'How long?'}
                           </p>
                           <div className="flex flex-wrap gap-2">
@@ -1333,7 +1333,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   <span className="font-semibold">{city}</span>
                   <span className="text-muted-foreground text-xs truncate">· {cityAuto ? 'from your address' : 'your area'}</span>
                 </span>
-                <span className="text-xs font-semibold text-sage-dark flex-shrink-0">{showArea ? 'Done' : 'Change'}</span>
+                <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">{showArea ? 'Done' : 'Change'}</span>
               </button>
 
               <AnimatePresence initial={false}>
@@ -1378,21 +1378,6 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               </AnimatePresence>
             </motion.div>
 
-            {/* Desktop only: the legal lines live at the foot of the LEFT
-                column (the mobile copies below carry them on phones), so the
-                two columns end near the same height and nothing scrolls. */}
-            <div className="hidden sm:block space-y-2.5 pt-1">
-              <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
-                Booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
-              </motion.p>
-              <motion.p variants={listItem} className="text-center text-[11px] leading-relaxed text-muted-foreground">
-                By booking you agree to VANO's{' '}
-                <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
-                {' '}— your helper is an independent provider you pay directly, and{' '}
-                <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
-                {' '}is there if you add it.
-              </motion.p>
-            </div>
             </div>
 
             <div className="space-y-5">
@@ -1402,72 +1387,95 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 (+€2) instead of changing nothing on screen. Direct-pay: the
                 job money goes to the helper (100%); the card is only ever
                 charged the fee (+ Cover), and only at accept. */}
-            <motion.div variants={listItem} className="space-y-2.5 pt-1">
+            <motion.div variants={listItem} className="space-y-3 pt-1">
               {priceCents && (
-                <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
+                <div className="px-4 py-4 rounded-2xl bg-foreground/[0.04] border border-foreground/10">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-foreground/60 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                    <AnimatedPrice cents={priceCents} className="text-lg font-bold text-foreground flex-shrink-0" />
+                    <span className="text-[15px] text-foreground/70 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'As soon as possible' : when}{size ? ` · ${size}` : ''}</span>
+                    <AnimatedPrice cents={priceCents} className="text-xl font-bold text-foreground flex-shrink-0" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Paid to your helper directly — they keep 100%</p>
+                  <p className="text-[13px] text-muted-foreground mt-1">Paid straight to your helper — they keep 100%</p>
 
-                  <div className="flex items-center justify-between gap-3 mt-2 border-t border-foreground/8 pt-2">
-                    <span className="text-[11px] text-muted-foreground">VANO booking fee</span>
-                    <AnimatedPrice cents={computeVanoFeeCents(priceCents)} className="text-xs font-semibold text-foreground flex-shrink-0" />
+                  <div className="flex items-center justify-between gap-3 mt-3 border-t border-foreground/10 pt-3">
+                    <span className="text-sm text-foreground/70">VANO booking fee</span>
+                    <AnimatedPrice cents={computeVanoFeeCents(priceCents)} className="text-sm font-semibold text-foreground flex-shrink-0" />
                   </div>
 
-                  {/* Optional Vano Cover — customer-elected, flat €2 */}
-                  <label className="flex items-center justify-between gap-3 mt-1.5 py-0.5 cursor-pointer select-none">
-                    <span className="flex items-center gap-2 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={coverOpted}
-                        onChange={(e) => { setCoverOpted(e.target.checked); haptic(8); }}
-                        className="peer sr-only"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-150',
-                          'peer-focus-visible:ring-2 peer-focus-visible:ring-gold',
-                          coverOpted ? 'border-sage bg-sage' : 'border-foreground/25 bg-white',
-                        )}
+                  <AnimatePresence initial={false}>
+                    {coverOpted && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: SHEET_EASE }}
+                        className="overflow-hidden"
                       >
-                        <AnimatePresence initial={false}>
-                          {coverOpted && (
-                            <motion.span
-                              initial={{ scale: 0.4, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0.4, opacity: 0 }}
-                              transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                              className="inline-flex"
-                            >
-                              <Check className="h-3 w-3 text-white" strokeWidth={4} />
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      </span>
-                      <span className="text-[11px] text-muted-foreground min-w-0">
-                        <span className="font-semibold text-foreground">Vano Cover</span> — covers accidental damage up to €250 ·{' '}
-                        <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>how it works</a>
-                      </span>
-                    </span>
-                    <span className={cn('text-xs font-semibold tabular-nums flex-shrink-0 transition-colors duration-150', coverOpted ? 'text-sage-dark' : 'text-muted-foreground')}>
-                      +{fmt(VANO_COVER_CENTS)}
-                    </span>
-                  </label>
+                        <div className="flex items-center justify-between gap-3 mt-2">
+                          <span className="text-sm text-foreground/70">Vano Cover</span>
+                          <span className="text-sm font-semibold text-foreground flex-shrink-0">+{fmt(VANO_COVER_CENTS)}</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* The only money that ever touches the card — rolls when the
                       duration or Cover changes it (the "price builds up" beat) */}
-                  <div className="flex items-center justify-between gap-3 mt-1.5 border-t border-foreground/8 pt-2">
-                    <span className="text-xs font-semibold text-foreground/75">You pay this when a helper says yes</span>
+                  <div className="flex items-center justify-between gap-3 mt-3 border-t border-foreground/10 pt-3">
+                    <span className="text-[15px] font-bold text-foreground">You pay when a helper says yes</span>
                     <AnimatedPrice
                       announce
                       cents={computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
-                      className="text-sm font-bold text-sage-dark flex-shrink-0"
+                      className="text-lg font-bold text-sage-dark flex-shrink-0"
                     />
                   </div>
                 </div>
+              )}
+
+              {/* Vano Cover — its OWN clear, tappable card with a big visible
+                  tick, right under the price. It used to be a tiny checkbox
+                  buried in the fee breakdown ("hidden, no tick"). */}
+              {priceCents && (
+                <button
+                  type="button"
+                  onClick={() => { setCoverOpted(v => !v); haptic(8); }}
+                  aria-pressed={coverOpted}
+                  className={cn(
+                    'w-full flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors duration-150',
+                    coverOpted ? 'border-sage bg-sage-light' : 'border-border bg-white hover:bg-secondary/40',
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150',
+                      coverOpted ? 'border-sage bg-sage' : 'border-foreground/30 bg-white',
+                    )}
+                  >
+                    <AnimatePresence initial={false}>
+                      {coverOpted && (
+                        <motion.span
+                          initial={{ scale: 0.4, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.4, opacity: 0 }}
+                          transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                          className="inline-flex"
+                        >
+                          <Check className="h-4 w-4 text-white" strokeWidth={3.5} />
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="text-[15px] font-bold text-foreground">Add Vano Cover</span>
+                      <span className="text-sm font-bold text-sage-dark flex-shrink-0">+{fmt(VANO_COVER_CENTS)}</span>
+                    </span>
+                    <span className="block text-[13px] text-muted-foreground mt-0.5">
+                      Covers accidental damage up to €250 ·{' '}
+                      <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>how it works</a>
+                    </span>
+                  </span>
+                </button>
               )}
 
               {referralCode && (
@@ -1502,23 +1510,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </div>
             </div>
 
-            {/* One fact each — "only charged at accept" + the money-back
-                guarantee already live on the price card and the docked bar,
-                so this line only carries what they don't. (Phones only — the
-                desktop two-column layout carries these in the left column.) */}
-            <motion.p variants={listItem} className="sm:hidden text-center text-[13px] leading-relaxed text-muted-foreground">
-              Booking just reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
-            </motion.p>
-            {/* Contract moment: the Terms (incl. "your helper is an independent
-                provider, VANO is the platform") must be incorporated at the
-                point of sale, not just linked in the footer. */}
-            <motion.p variants={listItem} className="sm:hidden text-center text-xs leading-relaxed text-muted-foreground">
-              By booking you agree to VANO's{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
-              {' '}— your helper is an independent provider you pay directly, and{' '}
-              <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
-              {' '}is there if you add it.
-            </motion.p>
+            {/* The one shared foot-of-sheet note (single column now, so one
+                copy). Plain reassurance + the contract moment: the Terms must
+                be incorporated at the point of sale, not just linked in the
+                footer. */}
+            <motion.div variants={listItem} className="sm:max-w-lg sm:mx-auto space-y-2 pt-1">
+              <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
+                Booking only reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
+              </p>
+              <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
+                By tapping Book you agree to VANO's{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                {' '}— your helper is an independent person you pay directly, and{' '}
+                <a href="/cover" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+                {' '}is there if you add it.
+              </p>
+            </motion.div>
           </motion.form>
           )}
           </AnimatePresence>
