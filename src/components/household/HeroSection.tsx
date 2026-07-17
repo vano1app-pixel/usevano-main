@@ -74,14 +74,14 @@ export const HeroSection: React.FC = () => {
         >
           <ReviewBadges inline />
           {!helperReady ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3 py-1.5 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-foreground/15 flex-shrink-0" aria-hidden="true" />
-              <span className="w-28 h-3 rounded-full bg-secondary relative overflow-hidden">
+              <span className="w-28 h-3.5 rounded-full bg-secondary relative overflow-hidden">
                 <span className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-foreground/10 to-transparent" />
               </span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3 py-1.5 text-xs font-medium text-foreground/80 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 text-sm font-medium text-foreground/90 shadow-sm">
               <span className="relative flex h-2 w-2 flex-shrink-0" aria-hidden="true">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-50 animate-ping" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />

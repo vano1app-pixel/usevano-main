@@ -1758,7 +1758,7 @@ export const CategoryGrid: React.FC = () => {
               <span className="block text-sm font-bold text-foreground truncate">
                 Book your usual{usual.price ? ` · ${usual.price}` : ''}
               </span>
-              <span className="block text-[11px] text-muted-foreground truncate">
+              <span className="block text-[13px] text-foreground/70 truncate">
                 {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved — one tap
               </span>
             </span>
@@ -1792,16 +1792,16 @@ export const CategoryGrid: React.FC = () => {
               >
                 {/* Cleaning wears the same "Most booked" crown as the podium */}
                 {c.slug === 'cleaning' && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gold px-2 py-0.5 text-[8.5px] font-bold uppercase tracking-wide text-navy whitespace-nowrap shadow-sm">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy whitespace-nowrap shadow-sm">
                     Most booked
                   </span>
                 )}
                 <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
-                <span className="mt-1.5 text-[13px] sm:text-base font-bold text-foreground leading-tight">{c.label}</span>
+                <span className="mt-1.5 text-sm sm:text-base font-bold text-foreground leading-tight">{c.label}</span>
                 {fromCents != null && (
-                  <span className="text-[11px] sm:text-[13px] font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
+                  <span className="text-[13px] sm:text-sm font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
                 )}
-                <span className="hidden sm:block text-[11px] text-muted-foreground leading-tight text-center mt-0.5 px-1">{c.hint}</span>
+                <span className="hidden sm:block text-[12px] text-foreground/65 leading-snug text-center mt-0.5 px-1">{c.hint}</span>
               </motion.button>
             );
           })}
@@ -1821,9 +1821,9 @@ export const CategoryGrid: React.FC = () => {
             className="tile-float relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-navy bg-navy px-1.5 py-2.5 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">✨</span>
-            <span className="mt-1.5 text-[13px] sm:text-base font-bold text-white leading-tight">Anything else</span>
-            <span className="text-[11px] sm:text-[13px] font-medium text-white/70 leading-none">just ask</span>
-            <span className="hidden sm:block text-[11px] text-white/55 leading-tight text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
+            <span className="mt-1.5 text-sm sm:text-base font-bold text-white leading-tight">Anything else</span>
+            <span className="text-[13px] sm:text-sm font-medium text-white/85 leading-none">just ask</span>
+            <span className="hidden sm:block text-[12px] text-white/70 leading-snug text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
           </motion.button>
         </motion.div>
       </div>

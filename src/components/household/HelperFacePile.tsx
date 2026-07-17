@@ -90,12 +90,12 @@ export const HelperFacePile: React.FC = () => {
             />
           ))}
         </div>
-        <span className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+        <span className="inline-flex items-center gap-1.5 text-[13px] sm:text-sm font-medium text-foreground/75 group-hover:text-foreground transition-colors">
           {/* Shield only when the claim is actually "ID-verified" — a MapPin
               otherwise, so the icon never implies verification we don't have. */}
           {verified
-            ? <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" aria-hidden="true" />
-            : <MapPin className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" aria-hidden="true" />}
+            ? <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
+            : <MapPin className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />}
           {label}
         </span>
       </a>
