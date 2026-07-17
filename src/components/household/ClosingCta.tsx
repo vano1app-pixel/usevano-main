@@ -32,7 +32,7 @@ export const ClosingCta: React.FC = () => {
           Book help in 30 seconds
         </h2>
         <p className="text-white/70 text-sm sm:text-base mb-8 text-pretty leading-relaxed">
-          From €15, same-day in Galway — and you're only charged when a helper accepts.
+          From €15, same-day in Galway. You only pay once a helper says yes.
         </p>
         <a
           href="#book"

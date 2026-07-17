@@ -64,17 +64,17 @@ export const ReviewBadges: React.FC<{ inline?: boolean }> = ({ inline = false })
               ? `${name}: rated ${rating} out of 5${count ? ` from ${count} reviews` : ''} — opens in a new tab`
               : `Review us on ${name} — opens in a new tab`
           }
-          className="group inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3 py-1.5 text-xs font-medium text-foreground/80 shadow-sm transition-colors duration-200 hover:border-foreground/25"
+          className="group inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 text-sm font-medium text-foreground/90 shadow-sm transition-colors duration-200 hover:border-foreground/25"
         >
           <Star
-            className="w-3.5 h-3.5 flex-shrink-0"
+            className="w-4 h-4 flex-shrink-0"
             style={{ color: brand, fill: brand }}
             aria-hidden="true"
           />
           {rating ? (
             <span className="tabular-nums font-semibold text-foreground">{rating.toFixed(1)}</span>
           ) : null}
-          <span className="text-foreground/70 group-hover:text-foreground transition-colors">
+          <span className="text-foreground/85 group-hover:text-foreground transition-colors">
             {rating ? `on ${name}` : name}
           </span>
           {rating && count ? (

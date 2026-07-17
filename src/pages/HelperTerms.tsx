@@ -149,8 +149,8 @@ const HelperTerms = () => (
               future ask for proof of your own liability cover before you can take those jobs.
             </li>
             <li>
-              Only take jobs you can genuinely do safely. Some work is never on VANO: anything
-              needing Garda vetting (children, vulnerable adults), qualified trades (electrics,
+              Only take jobs you can genuinely do safely. Some work is never on VANO: any work
+              with children or vulnerable adults, qualified trades (electrics,
               gas, plumbing), work at height, or driving passengers.
             </li>
             <li>
