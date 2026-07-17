@@ -760,7 +760,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
           )}
         />
-        <p className="text-xs leading-relaxed text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
+        <p className="text-xs leading-relaxed text-muted-foreground mt-1.5">We'll text you when a helper says yes · Outside Ireland? Add your country code (+44…)</p>
       </div>
 
       {/* Address — Eircode search or current location */}
@@ -1448,7 +1448,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         </AnimatePresence>
                       </span>
                       <span className="text-[11px] text-muted-foreground min-w-0">
-                        <span className="font-semibold text-foreground">Vano Cover</span> — damage up to €250 ·{' '}
+                        <span className="font-semibold text-foreground">Vano Cover</span> — covers accidental damage up to €250 ·{' '}
                         <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>how it works</a>
                       </span>
                     </span>
@@ -1460,7 +1460,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   {/* The only money that ever touches the card — rolls when the
                       duration or Cover changes it (the "price builds up" beat) */}
                   <div className="flex items-center justify-between gap-3 mt-1.5 border-t border-foreground/8 pt-2">
-                    <span className="text-xs font-semibold text-foreground/75">Charged when a helper accepts</span>
+                    <span className="text-xs font-semibold text-foreground/75">You pay this when a helper says yes</span>
                     <AnimatedPrice
                       announce
                       cents={computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
@@ -1557,7 +1557,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 : <>
                     {/* Two nowrap phrases: a narrow screen breaks at the
                         separator, never mid-word ("money-/back"). */}
-                    <span className="whitespace-nowrap">Only charged when a helper accepts</span>
+                    <span className="whitespace-nowrap">You only pay when a helper says yes</span>
                     <span className="whitespace-nowrap">· money-back guarantee</span>
                   </>}
             </motion.span>
@@ -1614,7 +1614,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       >
                         <ShieldCheck className="w-5 h-5" strokeWidth={2.5} />
                       </motion.span>
-                      Securing your booking…
+                      Sending your booking…
                     </>
                   : loading
                   ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>

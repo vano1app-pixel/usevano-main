@@ -80,10 +80,10 @@ export const PopularCategories: React.FC = () => {
         >
           <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Popular services</p>
           <h2 className="text-3xl lg:text-4xl font-bold text-white text-balance" style={{ letterSpacing: '-0.02em' }}>
-            Our most-booked help
+            The help people book most
           </h2>
           <p className="text-white/70 text-sm sm:text-base mt-3 max-w-md mx-auto text-pretty">
-            Tap a step to book in seconds — or hit “Anything else” up top.
+            Tap any job to book in seconds — or choose “Anything else” at the top.
           </p>
         </motion.div>
 
@@ -173,7 +173,7 @@ export const PopularCategories: React.FC = () => {
         </motion.div>
 
         <p className="text-center text-white/60 text-sm mt-10">
-          No payment until a helper accepts · money-back guarantee
+          You only pay once a helper says yes · money-back guarantee
         </p>
       </div>
     </section>

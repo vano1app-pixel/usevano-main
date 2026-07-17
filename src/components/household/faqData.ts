@@ -14,7 +14,7 @@ export const FAQS = [
   },
   {
     q: 'How does payment work?',
-    a: 'Booking is free — when a helper accepts, a small VANO booking fee by card confirms it. The job itself you pay your helper directly once it\'s done, by Revolut or cash — they keep 100%. The price is agreed upfront and locked in, no surprise charges after.',
+    a: 'Booking is free. When a helper says yes, we charge one small booking fee to your card — that is all VANO ever charges you. You pay for the job itself straight to your helper when it is done, by cash or the Revolut app — they keep 100%. The price is agreed upfront, so there are no surprise charges after.',
   },
   {
     q: 'What if something gets broken or damaged?',

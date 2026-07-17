@@ -14,9 +14,9 @@ import { motion, type Variants } from 'framer-motion';
  */
 
 const STEPS = [
-  { n: '1', title: 'Tap what you need', lines: ['Pick a job — no typing', 'See a fair price'] },
-  { n: '2', title: 'Book in seconds',      lines: ['Drop your number', 'Small fee only when a helper accepts'] },
-  { n: '3', title: 'An ID-verified student does it', lines: ['Shows up & does the job', 'Pay them directly when it’s done'] },
+  { n: '1', title: 'Pick the job you need', lines: ['Just tap — no typing', 'See the price first'] },
+  { n: '2', title: 'Add your phone number', lines: ['Takes a few seconds', 'You only pay a small fee once someone says yes'] },
+  { n: '3', title: 'A checked local student does it', lines: ['They come and do the job', 'You pay them directly when it’s done'] },
 ];
 
 const container: Variants = {
@@ -51,7 +51,7 @@ export const HowItWorks: React.FC = () => {
       <div className="px-4 max-w-5xl mx-auto">
         <div className="text-center mb-8 lg:mb-14">
           <p className="eyebrow mb-3">How it works</p>
-          <h2 className="display-lg text-foreground">Help in three simple steps</h2>
+          <h2 className="display-lg text-foreground">Just 3 easy steps</h2>
         </div>
 
         <motion.ol

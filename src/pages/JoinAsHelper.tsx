@@ -978,7 +978,7 @@ export const JoinAsHelper: React.FC = () => {
         <section className="px-4 py-12 bg-sage-light">
           <div className="max-w-lg mx-auto">
             <p className="eyebrow mb-3">What we need from you</p>
-            <h2 className="text-2xl font-semibold text-foreground mb-6">Requirements</h2>
+            <h2 className="text-2xl font-semibold text-foreground mb-6">What you need to join</h2>
             <ul className="space-y-3">
               {REQUIREMENTS.map((req) => (
                 <li key={req} className="flex items-center gap-3">
