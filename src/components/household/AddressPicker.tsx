@@ -1,9 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, LocateFixed, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentPosition, isPermissionDenied } from '@/lib/native/geolocation';
+
+// Leaflet is heavy — keep it OUT of the eager homepage bundle. The draggable
+// map only mounts once an address is confirmed, so lazy-load it then.
+const AddressMap = React.lazy(() => import('./AddressMap'));
 
 // Shared address picker — Nominatim autocomplete (Ireland only, handles
 // eircodes) + "use my current location" via browser geolocation with
@@ -36,6 +40,20 @@ function formatNominatimAddress(r: NominatimResult): string {
   const county = a.county ?? '';
   const parts = [street, locality, county].filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : r.display_name;
+}
+
+// Reverse geocode a point → formatted address + raw parts. Shared by "use my
+// location" and the draggable map pin. Throws on failure so callers can toast.
+async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: string; address?: NominatimResult['address'] }> {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+    { headers: { 'Accept-Language': 'en' } },
+  );
+  const result: NominatimResult = await res.json();
+  if (!res.ok || (!result?.display_name && !result?.address)) {
+    throw new Error('reverse geocode failed');
+  }
+  return { formatted: formatNominatimAddress(result), address: result.address };
 }
 
 export interface AddressPickerProps {
@@ -73,6 +91,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [locating, setLocating] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [pinBusy, setPinBusy] = useState(false);
   const [open, setOpen] = useState(false);
   // Set when "Change" is tapped on the confirmed row, so the input can grab
   // focus the moment it re-renders.
@@ -128,6 +147,22 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // The pin was dragged/tapped to a new point — snap the address text to it.
+  // If the reverse geocode fails we still keep the new coords (a helper can be
+  // sent to a lat/lng), just leaving the last address text in place.
+  async function pinMoved(lat: number, lng: number) {
+    setPinBusy(true);
+    try {
+      const { formatted, address } = await reverseGeocode(lat, lng);
+      setQuery(formatted);
+      onAddress(formatted, lat, lng, address);
+    } catch {
+      onAddress(query, lat, lng);
+    } finally {
+      setPinBusy(false);
+    }
+  }
+
   function selectSuggestion(s: NominatimResult) {
     const formatted = formatNominatimAddress(s);
     setQuery(formatted);
@@ -144,22 +179,14 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        { headers: { 'Accept-Language': 'en' } },
-      );
-      // Reverse geocode can come back as {error: "Unable to geocode"} — treat
-      // that as a failure (→ the catch's "type your address" toast) instead of
-      // confirming an address of "undefined".
-      const result: NominatimResult = await res.json();
-      if (!res.ok || (!result?.display_name && !result?.address)) {
-        throw new Error('reverse geocode failed');
-      }
-      const formatted = formatNominatimAddress(result);
+      // Reverse geocode can come back as {error: "Unable to geocode"} — that
+      // throws inside reverseGeocode → the catch's "type your address" toast,
+      // instead of confirming an address of "undefined".
+      const { formatted, address } = await reverseGeocode(lat, lng);
       setQuery(formatted);
       setSuggestions([]);
       setOpen(false);
-      onAddress(formatted, lat, lng, result.address);
+      onAddress(formatted, lat, lng, address);
     } catch (err) {
       const isDenied = isPermissionDenied(err);
       toast({
@@ -277,24 +304,32 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Map preview once address is confirmed */}
+      {/* Draggable map once an address is confirmed — the Deliveroo "is the
+          pin on your door?" moment. Drag the pin (or tap the map) to correct
+          it; the address text snaps to wherever it lands. */}
       <AnimatePresence>
         {showMapPreview && coords && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 120 }}
+            animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-2 rounded-xl overflow-hidden border border-border/40"
+            className="mt-2 overflow-hidden"
           >
-            <iframe
-              key={`${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`}
-              title="Address preview"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.006},${coords.lat - 0.004},${coords.lng + 0.006},${coords.lat + 0.004}&layer=mapnik&marker=${coords.lat},${coords.lng}`}
-              className="w-full border-0"
-              style={{ height: 120 }}
-              loading="lazy"
-            />
+            <div className="rounded-xl overflow-hidden border border-border/50 relative">
+              <Suspense fallback={<div className="h-[190px] w-full bg-secondary animate-pulse" aria-hidden="true" />}>
+                <AddressMap lat={coords.lat} lng={coords.lng} onMove={pinMoved} />
+              </Suspense>
+              {pinBusy && (
+                <span className="absolute top-2 right-2 z-[400] inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-sm">
+                  <Loader2 size={12} className="animate-spin" /> Updating…
+                </span>
+              )}
+            </div>
+            <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-muted-foreground">
+              <MapPin size={13} className="flex-shrink-0 text-sage-dark" />
+              Drag the pin to your exact door if it's not quite right.
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
