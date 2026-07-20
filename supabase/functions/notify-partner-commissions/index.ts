@@ -70,14 +70,16 @@ serve(async (req) => {
       supabase.from('referral_codes').select('id, code, owner_email, owner_name').in('id', codeIds),
       helperIds.length  ? supabase.from('household_helpers').select('id, name').in('id', helperIds)   : Promise.resolve({ data: [] }),
       bookingIds.length ? supabase.from('household_bookings').select('id, category').in('id', bookingIds) : Promise.resolve({ data: [] }),
-      supabase.from('referral_commissions').select('code_id, amount_cents').in('code_id', codeIds),
+      supabase.from('referral_commissions').select('code_id, amount_cents, status').in('code_id', codeIds),
     ]);
     const codeOf = new Map(((codesRes.data ?? []) as { id: string; code: string; owner_email: string | null; owner_name: string | null }[]).map((c) => [c.id, c]));
     const nameOf = new Map(((helpersRes.data ?? []) as { id: string; name: string | null }[]).map((h) => [h.id, (h.name ?? '').trim().split(/\s+/)[0] || 'a student']));
     const catOf  = new Map(((bookingsRes.data ?? []) as { id: string; category: string | null }[]).map((b) => [b.id, b.category ?? 'custom']));
     const lifetime = new Map<string, number>();
-    for (const t of (totalsRes.data ?? []) as { code_id: string; amount_cents: number }[]) {
+    const pendingOf = new Map<string, number>();
+    for (const t of (totalsRes.data ?? []) as { code_id: string; amount_cents: number; status: string }[]) {
       lifetime.set(t.code_id, (lifetime.get(t.code_id) ?? 0) + (t.amount_cents ?? 0));
+      if (t.status !== 'paid') pendingOf.set(t.code_id, (pendingOf.get(t.code_id) ?? 0) + (t.amount_cents ?? 0));
     }
 
     // One digest per partner.
@@ -133,6 +135,32 @@ serve(async (req) => {
         else console.warn('[notify-partner-commissions] resend error', resp.status, (await resp.text()).slice(0, 200));
       } catch (e) {
         console.warn('[notify-partner-commissions] send failed', e);
+      }
+    }
+
+    // Owner ledger digest — payouts to partners are MANUAL, so every time new
+    // commission lands the owner gets one email saying exactly who is owed
+    // what and where to reach them. Best-effort; never blocks the run.
+    const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
+    if (adminEmail && resendKey && byCode.size > 0) {
+      const lines = [...byCode.entries()].map(([codeId, group]) => {
+        const c = codeOf.get(codeId);
+        const newCents = group.reduce((s, r) => s + ((r.amount_cents as number) ?? 0), 0);
+        return `${c?.owner_email ?? 'no email'} (${c?.code ?? codeId.slice(0, 8)}): +${euros(newCents)} new · owes ${euros(pendingOf.get(codeId) ?? 0)} pending total`;
+      });
+      const text =
+        `Partners just earned commission. You pay partners manually — here's the live ledger:\n\n` +
+        `${lines.join('\n')}\n\n` +
+        `To settle: transfer the pending amount (Revolut/bank), then mark their rows paid ` +
+        `(referral_commissions → status 'paid') so the balance resets.`;
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: resendFrom, to: [adminEmail], subject: `Partner commissions ledger — new earnings this hour`, text }),
+        });
+      } catch (e) {
+        console.warn('[notify-partner-commissions] admin digest failed', e);
       }
     }
 
