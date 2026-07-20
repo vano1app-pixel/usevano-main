@@ -60,7 +60,7 @@ const shareText = (link: string, pct: number) =>
  * "Refer students & earn" — a self-serve partner card for a student union,
  * society, or anyone recruiting helpers. Enter an email, get a shareable code;
  * when a student signs up with it and completes paid jobs, you earn a commission
- * (default 5% of the job, out of VANO's cut — the student's pay is untouched).
+ * (default 3% of the job, out of VANO's cut — the student's pay is untouched).
  * No login: codes aren't secrets, and the email just keys your earnings.
  */
 export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className }) => {
@@ -121,7 +121,7 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
           <p className="text-sm font-bold text-foreground">Refer students &amp; earn</p>
           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
             Share your link once — every time a student you brought in completes a job, you
-            automatically earn {info ? `${info.commission_pct}%` : '5%'} of it. We email you each time money lands.
+            automatically earn {info ? `${info.commission_pct}%` : '3%'} of it. We email you each time money lands.
           </p>
         </div>
       </div>
