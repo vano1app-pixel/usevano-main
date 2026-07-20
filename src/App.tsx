@@ -29,6 +29,7 @@ const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"))
 const JobAccepted = lazyWithRetry(() => import("./pages/JobAccepted"));
 const StudentAccount = lazyWithRetry(() => import("./pages/StudentAccount"));
 const JoinAsHelper = lazyWithRetry(() => import("./pages/JoinAsHelper"));
+const Partners = lazyWithRetry(() => import("./pages/Partners"));
 const VerifyHelper = lazyWithRetry(() => import("./pages/VerifyHelper"));
 const HelperPublicProfile = lazyWithRetry(() => import("./pages/HelperPublicProfile"));
 const HouseholdAdmin = lazyWithRetry(() => import("./pages/HouseholdAdmin"));
@@ -126,6 +127,7 @@ const App = () => {
             <Route path="/accepted" element={<P><JobAccepted /></P>} />
             <Route path="/student-account" element={<P><StudentAccount /></P>} />
             <Route path="/join" element={<P><JoinAsHelper /></P>} />
+            <Route path="/partners" element={<P><Partners /></P>} />
             <Route path="/verify-helper" element={<P><VerifyHelper /></P>} />
             {/* Legacy orphan — nothing links here. Redirect to the live helper
                 home instead of rendering the stale HelperProfile page. */}

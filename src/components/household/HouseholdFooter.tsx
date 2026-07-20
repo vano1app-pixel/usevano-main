@@ -16,6 +16,7 @@ const SERVICE_LINKS = [
 
 const NAV_LINKS = [
   { label: 'Join as helper', href: '/join',                                          external: false },
+  { label: 'Partners',       href: '/partners',                                      external: false },
   { label: 'Blog',           href: '/blog',                                          external: false },
   { label: 'Glossary',       href: '/glossary',                                      external: false },
   { label: 'Instagram',      href: TEAM_INSTAGRAM_URL,                               external: true  },
