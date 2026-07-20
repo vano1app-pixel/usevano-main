@@ -1811,7 +1811,7 @@ export const CategoryGrid: React.FC = () => {
                 {fromCents != null && (
                   <span className="text-[13px] sm:text-sm lg:text-base font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
                 )}
-                <span className="hidden sm:block text-[13px] lg:text-sm text-foreground/75 leading-snug text-center mt-0.5 px-1">{c.hint}</span>
+                <span className="hidden sm:block text-sm lg:text-[15px] text-foreground/75 leading-snug text-center mt-0.5 px-1">{c.hint}</span>
               </motion.button>
             );
           })}
@@ -1833,7 +1833,7 @@ export const CategoryGrid: React.FC = () => {
             <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">✨</span>
             <span className="mt-1.5 text-sm sm:text-base lg:text-lg font-bold text-white leading-tight">Anything else</span>
             <span className="text-[13px] sm:text-sm lg:text-base font-medium text-white/90 leading-none">just ask</span>
-            <span className="hidden sm:block text-[13px] lg:text-sm text-white/80 leading-snug text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
+            <span className="hidden sm:block text-sm lg:text-[15px] text-white/80 leading-snug text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
           </motion.button>
         </motion.div>
       </div>
