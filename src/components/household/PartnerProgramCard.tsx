@@ -3,23 +3,54 @@ import { motion } from 'framer-motion';
 import { Check, Copy, Share2, Users, Coins, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+interface CommissionEvent {
+  amount_cents: number;
+  status:       string;
+  created_at:   string;
+  helper_name:  string | null;
+  category:     string | null;
+}
+
 interface PartnerInfo {
-  code:           string;
-  link:           string;
-  commission_pct: number;
-  signups:        number;
-  jobs:           number;
-  pending_cents:  number;
-  paid_cents:     number;
-  total_cents:    number;
+  code:              string;
+  link:              string;
+  commission_pct:    number;
+  signups:           number;
+  jobs:              number;
+  pending_cents:     number;
+  paid_cents:        number;
+  total_cents:       number;
+  // Tracker extras (July 2026) — optional so an older cached function
+  // response can never crash the card.
+  this_month_cents?: number;
+  active_helpers?:   number;
+  recent?:           CommissionEvent[];
 }
 
 const EMAIL_KEY = 'vano_partner_email';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Same category → emoji/label language as the live-activity ticker.
+const CAT_EMOJI: Record<string, string> = {
+  cleaning: '🧹', shopping: '🧺', 'dog-walk': '🐾', garden: '🌿',
+  moving: '📦', tutoring: '📚', custom: '✨',
+};
+const CAT_LABEL: Record<string, string> = {
+  cleaning: 'Cleaning', shopping: 'Laundry', 'dog-walk': 'Pet care',
+  garden: 'Garden', moving: 'Moving', tutoring: 'Tutoring', custom: 'Custom job',
+};
+
 function euros(cents: number): string {
   const v = cents / 100;
   return Number.isInteger(v) ? `€${v}` : `€${v.toFixed(2)}`;
+}
+
+function shortDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-IE', { day: 'numeric', month: 'short' });
+  } catch {
+    return '';
+  }
 }
 
 const shareText = (link: string, pct: number) =>
@@ -89,8 +120,8 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
         <div>
           <p className="text-sm font-bold text-foreground">Refer students &amp; earn</p>
           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-            Running a student union or society? Get a code — when students you bring in complete
-            jobs, you earn {info ? `${info.commission_pct}%` : '5%'} of each job, paid out to you.
+            Share your link once — every time a student you brought in completes a job, you
+            automatically earn {info ? `${info.commission_pct}%` : '5%'} of it. We email you each time money lands.
           </p>
         </div>
       </div>
@@ -113,20 +144,59 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
         </form>
       ) : (
         <>
+          {/* The headline number — money earned so far, front and centre. */}
+          <div className="rounded-2xl bg-navy px-4 py-4 mb-2.5 text-center relative overflow-hidden">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">Earned so far</p>
+            <p className="text-3xl font-extrabold text-white tabular-nums leading-tight mt-0.5">{euros(info.total_cents)}</p>
+            {(info.this_month_cents ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1 mt-1.5 rounded-full bg-sage/25 px-2.5 py-0.5 text-[11px] font-semibold text-sage-light">
+                +{euros(info.this_month_cents ?? 0)} this month
+              </span>
+            )}
+          </div>
+
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <div className="rounded-xl bg-white border border-border px-3 py-2.5 text-center">
-              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Users className="w-3 h-3" />Signups</p>
-              <p className="text-lg font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{info.signups}</p>
+          <div className="grid grid-cols-2 gap-2 mb-2.5">
+            <div className="rounded-xl bg-white border border-border px-3 py-2 text-center">
+              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Users className="w-3 h-3" />Students joined</p>
+              <p className="text-base font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{info.signups}</p>
             </div>
-            <div className="rounded-xl bg-white border border-border px-3 py-2.5 text-center">
-              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Coins className="w-3 h-3" />Pending</p>
-              <p className="text-lg font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{euros(info.pending_cents)}</p>
+            <div className="rounded-xl bg-white border border-border px-3 py-2 text-center">
+              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Coins className="w-3 h-3" />Jobs earned on</p>
+              <p className="text-base font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{info.jobs}</p>
             </div>
-            <div className="rounded-xl bg-white border border-border px-3 py-2.5 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Paid</p>
-              <p className="text-lg font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{euros(info.paid_cents)}</p>
+            <div className="rounded-xl bg-white border border-border px-3 py-2 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Pending</p>
+              <p className="text-base font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{euros(info.pending_cents)}</p>
             </div>
+            <div className="rounded-xl bg-white border border-border px-3 py-2 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Paid out</p>
+              <p className="text-base font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{euros(info.paid_cents)}</p>
+            </div>
+          </div>
+
+          {/* Recent earnings feed — money landing while you did nothing. */}
+          <div className="rounded-xl bg-white border border-border px-3 py-2.5 mb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1.5">Recent earnings</p>
+            {(info.recent?.length ?? 0) > 0 ? (
+              <ul className="divide-y divide-border/60">
+                {(info.recent ?? []).map((ev, i) => (
+                  <li key={i} className="flex items-center gap-2 py-1.5">
+                    <span className="text-base leading-none flex-shrink-0" aria-hidden="true">{CAT_EMOJI[ev.category ?? ''] ?? '✨'}</span>
+                    <span className="flex-1 min-w-0 text-[13px] text-foreground truncate">
+                      {CAT_LABEL[ev.category ?? ''] ?? 'Job'}{ev.helper_name ? ` · ${ev.helper_name}` : ''}
+                    </span>
+                    <span className="text-[13px] font-bold text-sage-dark tabular-nums flex-shrink-0">+{euros(ev.amount_cents)}</span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0 w-12 text-right">{shortDate(ev.created_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Nothing yet — the moment a student you invited finishes a job, your cut
+                lands here <span className="font-semibold text-foreground">automatically</span> and we email you.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
