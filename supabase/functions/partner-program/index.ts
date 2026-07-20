@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Partner / referral program: returns (creating on first call) the shareable
 // code for a recruiter — a student union, society, or an existing helper — that
 // brings students onto VANO, plus their live earnings. When a recruited helper
-// completes a paid job, a DB trigger accrues commission (default 5% of the job,
+// completes a paid job, a DB trigger accrues commission (default 3% of the job,
 // out of VANO's cut). Codes aren't secrets, so a guest entry point is fine.
 
 const FALLBACK_ORIGINS = [
@@ -183,7 +183,7 @@ serve(async (req) => {
       JSON.stringify({
         code: codeRow.code,
         link: `${siteUrl}/join?ref=${codeRow.code}`,
-        commission_pct: (codeRow.commission_bps ?? 500) / 100,
+        commission_pct: (codeRow.commission_bps ?? 300) / 100,
         signups: signups ?? 0,
         jobs,
         pending_cents: pendingCents,

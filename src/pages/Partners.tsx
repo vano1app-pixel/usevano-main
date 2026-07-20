@@ -10,7 +10,7 @@ import { PartnerProgramCard } from '@/components/household/PartnerProgramCard';
  * /partners — the recruiter-facing door for the partner programme. Audience is
  * NOT customers and NOT applicants: it's the people who can bring students in
  * bulk (student unions, societies, class reps) plus helpers who want to recruit
- * friends. One page: the promise (5% of every job, automatically), how it
+ * friends. One page: the promise (3% of every job, automatically), how it
  * works, the honest money facts (paid from VANO's fee — students keep 100%),
  * and the live PartnerProgramCard as the sign-up + tracker.
  */
@@ -29,7 +29,7 @@ const STEPS = [
   {
     icon: Coins,
     title: 'Earn on every job',
-    body: 'Each time one of your students completes a job, 5% of that job lands in your balance. Automatically, every job, for as long as they work.',
+    body: 'Each time one of your students completes a job, 3% of that job lands in your balance. Automatically, every job, for as long as they work.',
   },
 ];
 
@@ -54,8 +54,8 @@ const FACTS = [
 const Partners: React.FC = () => (
   <div className="bg-cream min-h-screen">
     <SEOHead
-      title="VANO partners — earn 5% of every job your students do"
-      description="Know students in Galway? Share one link. When a student you invited completes jobs on VANO, you automatically earn 5% of each job — tracked live, paid to you."
+      title="VANO partners — earn 3% of every job your students do"
+      description="Know students in Galway? Share one link. When a student you invited completes jobs on VANO, you automatically earn 3% of each job — tracked live, paid to you."
       url="https://vanojobs.com/partners"
     />
     <HouseholdNav />
@@ -77,7 +77,7 @@ const Partners: React.FC = () => (
           transition={{ delay: 0.06, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           className="display-lg text-foreground text-balance tracking-tight text-3xl sm:text-5xl mb-4"
         >
-          Know students? Earn 5% of every job they do.
+          Know students? Earn 3% of every job they do.
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 10 }}
@@ -146,7 +146,7 @@ const Partners: React.FC = () => (
         <div className="surface-float rounded-2xl bg-white px-5 py-4 mt-6 inline-block">
           <p className="text-sm text-foreground/70">
             One student doing <span className="font-semibold text-foreground">two €36 cleans a week</span> earns
-            you <span className="font-bold text-sage-dark tabular-nums">€3.60 a week</span> —
+            you <span className="font-bold text-sage-dark tabular-nums">€2.16 a week</span> —
             per student, while you do nothing.
           </p>
         </div>
