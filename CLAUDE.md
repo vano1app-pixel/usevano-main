@@ -527,7 +527,15 @@ on a unique `booking_id` index so a booking can never accrue twice).
 `notify-partner-commissions` (hourly cron) emails partners a "you just
 earned €X" digest, idempotent via `referral_commissions.notified_at`
 (stamped BEFORE sending). Payouts to partners remain MANUAL — the status
-flag is the ledger; there is no automated transfer.
+flag is the ledger; there is no automated transfer. Commission is 3%
+(300 bps, owner call 2026-07-20: at 5% a €36 clean netted Vano under the
+€4/job floor). **The customer Give €5 Get €5 loop is PARKED as a
+promotion** (owner call, same day — the 3% partner programme is THE
+promoted growth loop): `ReferralShareCard` is unmounted from /account
+and /track, but the checkout welcome/redeem logic, the hero
+`ReferralWelcomeBanner` and `get-referral-code` all stay live so
+already-shared links and earned credits keep their promise. Don't
+remount the card without the owner.
 
 ## Platform shell — native apps, PWA, SEO, analytics
 - **Native (Capacitor 8)**: `ios/` + `android/` wrap the same `dist/` build
