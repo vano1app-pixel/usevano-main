@@ -115,16 +115,15 @@ export const HeroSection: React.FC = () => {
 
         {/* Desktop-only subline: on a monitor the lone headline floated in
             cream and the page read half-finished — one plain sentence gives
-            the hero mass and tells an older visitor exactly what to do next.
-            Hidden on phones, where the tight stack already works. */}
+            the hero mass and states the whole promise (tap → a vetted student
+            does it). Hidden on phones, where the tight stack already works. */}
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.14, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           className="hidden sm:block text-base lg:text-lg text-foreground/70 max-w-2xl mx-auto mb-7 lg:mb-9"
         >
-          Cleaning, laundry, garden, moving and more — same-day in Galway.
-          Tap a job below to book in about a minute.
+          Tap what you need done — an ID-checked student does the job.
         </motion.p>
 
         {/* The one front door — white search bar at centre under a warm amber
