@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -56,6 +56,20 @@ interface Payout {
   city?: string;
 }
 
+/** Per-partner commission summary from admin-partner-payouts (the manual 3% ledger). */
+interface PartnerSummary {
+  code_id: string;
+  code: string;
+  owner_name: string | null;
+  owner_email: string | null;
+  owner_phone: string | null;
+  pending_cents: number;
+  pending_count: number;
+  paid_cents: number;
+  paid_count: number;
+  last_earned_at: string | null;
+}
+
 const CAT_LABELS: Record<string, string> = {
   shopping: 'Shopping', 'dog-walk': 'Dog Walk', garden: 'Garden',
   moving: 'Moving', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'Other',
@@ -86,10 +100,33 @@ export default function HouseholdAdmin() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [helpers, setHelpers] = useState<Helper[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [partners, setPartners] = useState<PartnerSummary[]>([]);
+  const [partnersError, setPartnersError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [actioning, setActioning] = useState<string | null>(null);
 
-  const loadAll = async () => {
+  // Partner commission ledger — reads via the admin edge function because the
+  // referral tables are service-role only (no client RLS grants). A failure
+  // here must never blank the whole admin, so it fails into partnersError.
+  // (useCallback keeps loadAll stable in the eyes of the mount effect's
+  // exhaustive-deps analysis.)
+  const loadPartners = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-partner-payouts', {
+        body: { action: 'list' },
+      });
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error(await extractFnError(data, error, 'Could not load partner commissions.'));
+      }
+      setPartners(((data as { partners?: PartnerSummary[] } | null)?.partners) ?? []);
+      setPartnersError(null);
+    } catch (e: unknown) {
+      setPartnersError(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  const loadAll = useCallback(async () => {
+    void loadPartners();
     const [{ data: b }, { data: h }, { data: p }] = await Promise.all([
       db.from('household_bookings')
         .select('id, customer_name, customer_phone, customer_email, category, city, scheduled_date, status, price_estimate_cents, created_at, student_id, booking_data')
@@ -126,7 +163,7 @@ export default function HouseholdAdmin() {
     setHelpers(helperList);
     setPayouts(enriched);
     setLoading(false);
-  };
+  }, [loadPartners]);
 
   useEffect(() => {
     (async () => {
@@ -137,7 +174,7 @@ export default function HouseholdAdmin() {
       }
       await loadAll();
     })();
-  }, [navigate]);
+  }, [navigate, loadAll]);
 
   const handleRefund = async (bookingId: string) => {
     if (!window.confirm('Cancel this booking and issue a Stripe refund?')) return;
@@ -246,6 +283,38 @@ export default function HouseholdAdmin() {
     }
   };
 
+  // Records that a partner was ACTUALLY paid (Revolut/bank — money moves
+  // outside the app). expected_cents makes a stale screen refuse rather than
+  // over-mark if a new commission accrued since the list loaded.
+  const handleMarkPartnerPaid = async (p: PartnerSummary) => {
+    const who = p.owner_name || p.owner_email || p.code;
+    const amount = `€${(p.pending_cents / 100).toFixed(2)}`;
+    if (!window.confirm(
+      `Mark ${amount} as paid to ${who}?\n\nOnly do this AFTER you've actually sent them the money (Revolut / bank transfer). This flips ${p.pending_count} pending commission${p.pending_count === 1 ? '' : 's'} to paid.`,
+    )) return;
+    setActioning(p.code_id);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-partner-payouts', {
+        body: { action: 'mark_paid', code_id: p.code_id, expected_cents: p.pending_cents },
+      });
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error(await extractFnError(data, error, 'Could not mark the commissions paid.'));
+      }
+      const paidCents = Number((data as { amount_cents?: number } | null)?.amount_cents) || 0;
+      toast({
+        title: `Recorded €${(paidCents / 100).toFixed(2)} paid to ${who}`,
+        description: 'The ledger now shows them as settled.',
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: 'Not marked paid', description: msg, variant: 'destructive' });
+    } finally {
+      // Re-pull either way — a 409 means the on-screen number was stale.
+      await loadPartners();
+      setActioning(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -261,11 +330,14 @@ export default function HouseholdAdmin() {
   const pendingPayouts   = payouts.filter((p) => p.status === 'pending');
   const pendingHelpers   = helpers.filter((h) => h.status === 'pending' || h.status === 'pending_review');
   const totalPendingCents = pendingPayouts.reduce((s, p) => s + p.amount_cents, 0);
+  const partnersOwed = partners.filter((p) => p.pending_cents > 0);
+  const partnerPendingCents = partnersOwed.reduce((s, p) => s + p.pending_cents, 0);
+  const payoutActionCount = pendingPayouts.length + partnersOwed.length;
 
   const TABS = [
     { id: 'bookings' as const, label: `Bookings (${bookings.length})` },
     { id: 'students' as const, label: `Students (${helpers.length})` },
-    { id: 'payouts'  as const, label: `Payouts${pendingPayouts.length > 0 ? ` (${pendingPayouts.length})` : ''}` },
+    { id: 'payouts'  as const, label: `Payouts${payoutActionCount > 0 ? ` (${payoutActionCount})` : ''}` },
     { id: 'health'   as const, label: 'Health' },
   ];
 
@@ -294,13 +366,15 @@ export default function HouseholdAdmin() {
       </div>
 
       {/* Alerts */}
-      {(pendingHelpers.length > 0 || pendingPayouts.length > 0) && (
+      {(pendingHelpers.length > 0 || pendingPayouts.length > 0 || partnerPendingCents > 0) && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-2 text-xs text-amber-800">
           <AlertTriangle size={13} className="flex-shrink-0" />
           <span>
-            {pendingHelpers.length > 0 && `${pendingHelpers.length} helper${pendingHelpers.length > 1 ? 's' : ''} awaiting approval`}
-            {pendingHelpers.length > 0 && pendingPayouts.length > 0 && ' · '}
-            {pendingPayouts.length > 0 && `€${(totalPendingCents / 100).toFixed(2)} in pending payouts`}
+            {[
+              pendingHelpers.length > 0 && `${pendingHelpers.length} helper${pendingHelpers.length > 1 ? 's' : ''} awaiting approval`,
+              pendingPayouts.length > 0 && `€${(totalPendingCents / 100).toFixed(2)} in pending payouts`,
+              partnerPendingCents > 0 && `€${(partnerPendingCents / 100).toFixed(2)} owed to partners`,
+            ].filter(Boolean).join(' · ')}
           </span>
         </div>
       )}
@@ -478,6 +552,74 @@ export default function HouseholdAdmin() {
         {/* ── Payouts tab ── */}
         {tab === 'payouts' && (
           <>
+            {/* Partner commissions — the LIVE ledger under direct-pay. Money
+                moves manually (owner sends Revolut/bank), this records it. */}
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-1">
+              Partner commissions · 3% recruit-a-student
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4">
+                <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wide mb-1">Owed to partners</p>
+                <p className="text-2xl font-bold text-foreground">€{(partnerPendingCents / 100).toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{partnersOwed.length} partner{partnersOwed.length !== 1 ? 's' : ''} to pay</p>
+              </div>
+              <div className="rounded-2xl bg-sage-light border border-sage/20 p-4">
+                <p className="text-[11px] font-semibold text-sage uppercase tracking-wide mb-1">Paid to partners</p>
+                <p className="text-2xl font-bold text-foreground">
+                  €{(partners.reduce((s, p) => s + p.paid_cents, 0) / 100).toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{partners.reduce((s, p) => s + p.paid_count, 0)} commissions settled</p>
+              </div>
+            </div>
+
+            {partnersError ? (
+              <p className="text-center text-destructive/80 py-6 text-sm">{partnersError}</p>
+            ) : partners.length === 0 ? (
+              <p className="text-center text-muted-foreground py-6 text-sm">
+                No partner commissions yet — they appear when a recruited helper completes a job.
+              </p>
+            ) : (
+              <div className="rounded-2xl border border-border overflow-hidden">
+                {partners.map((p, i) => (
+                  <div
+                    key={p.code_id}
+                    className={cn('flex items-center justify-between px-4 py-3.5 gap-3', i !== partners.length - 1 && 'border-b border-border/40')}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {p.owner_name || p.owner_email || p.code}
+                        <span className="ml-1.5 text-xs font-mono font-normal text-muted-foreground">{p.code}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {p.pending_count > 0 ? `${p.pending_count} job${p.pending_count !== 1 ? 's' : ''} unpaid` : 'All settled'}
+                        {p.paid_cents > 0 && ` · €${(p.paid_cents / 100).toFixed(2)} paid before`}
+                        {(p.owner_phone || p.owner_email) && ` · ${p.owner_phone || p.owner_email}`}
+                      </p>
+                    </div>
+                    {p.pending_cents > 0 ? (
+                      <button
+                        onClick={() => void handleMarkPartnerPaid(p)}
+                        disabled={actioning === p.code_id}
+                        className="flex-shrink-0 text-xs bg-sage/10 text-sage border border-sage/30 px-3 py-1.5 rounded-full font-semibold hover:bg-sage/20 disabled:opacity-50 flex items-center gap-1 transition-colors"
+                      >
+                        {actioning === p.code_id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                        Mark €{(p.pending_cents / 100).toFixed(2)} paid
+                      </button>
+                    ) : (
+                      <span className="flex-shrink-0 text-xs text-sage font-semibold flex items-center gap-1">
+                        <CheckCircle2 size={12} /> Settled
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Legacy escrow payouts to helpers — idle under direct-pay, kept
+                until every in-flight escrow booking has completed. */}
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-4">
+              Helper payouts · legacy escrow
+            </p>
             {/* Summary */}
             <div className="grid grid-cols-2 gap-3 mb-2">
               <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4">
