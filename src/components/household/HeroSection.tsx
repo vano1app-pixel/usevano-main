@@ -57,7 +57,7 @@ export const HeroSection: React.FC = () => {
         />
       </div>
 
-      <div className="relative mx-auto w-full max-w-5xl text-center">
+      <div className="relative mx-auto w-full max-w-5xl lg:max-w-6xl text-center">
 
         <div className="flex justify-center">
           <ReferralWelcomeBanner />
@@ -98,7 +98,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="display-lg text-foreground text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.4rem] mb-5 sm:mb-8"
+          className="display-lg text-foreground text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.8rem] mb-5 sm:mb-4"
         >
           Get help at home from a{' '}
           <span className="relative inline-block">
@@ -112,6 +112,20 @@ export const HeroSection: React.FC = () => {
             />
           </span>.
         </motion.h1>
+
+        {/* Desktop-only subline: on a monitor the lone headline floated in
+            cream and the page read half-finished — one plain sentence gives
+            the hero mass and tells an older visitor exactly what to do next.
+            Hidden on phones, where the tight stack already works. */}
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.14, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="hidden sm:block text-base lg:text-lg text-foreground/70 max-w-2xl mx-auto mb-7 lg:mb-9"
+        >
+          Cleaning, laundry, garden, moving and more — same-day in Galway.
+          Tap a job below to book in about a minute.
+        </motion.p>
 
         {/* The one front door — white search bar at centre under a warm amber
             halo (two-stop gold→amber) so it glows as the focal point. */}

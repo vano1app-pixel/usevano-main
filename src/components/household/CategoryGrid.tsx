@@ -1746,7 +1746,7 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <>
-      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl sm:max-w-5xl scroll-mt-24">
+      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl sm:max-w-5xl lg:max-w-6xl scroll-mt-24">
         {/* ── The tap tiles — the one front door ──────────────────────────────
             One tap opens the booking sheet: page 1 "what kind?" (sub-services
             from the vetted catalogue), page 2 phone/address/when → book. */}
@@ -1778,7 +1778,7 @@ export const CategoryGrid: React.FC = () => {
           // Phones: the tight 3×2 grid. Desktop: ONE Airbnb-style row of six,
           // so the whole hero (heading → tiles → reassurance) fits a laptop
           // viewport with no scrolling.
-          className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3"
+          className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 lg:gap-4"
           initial="hidden"
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
@@ -1798,7 +1798,7 @@ export const CategoryGrid: React.FC = () => {
                 // Desktop (lg:) sizes run a step bigger than the usual scale on
                 // purpose — the paying customer skews 35+ and the tiles are the
                 // whole front door, so they must read from armchair distance.
-                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 {/* Cleaning wears the same "Most booked" crown as the podium */}
                 {c.slug === 'cleaning' && (
@@ -1828,7 +1828,7 @@ export const CategoryGrid: React.FC = () => {
             // The one NAVY tile on the light hero — the brand colour marks the
             // special "ask for anything" door (it was glass-on-navy before the
             // hero went light).
-            className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">✨</span>
             <span className="mt-1.5 text-sm sm:text-base lg:text-lg font-bold text-white leading-tight">Anything else</span>
