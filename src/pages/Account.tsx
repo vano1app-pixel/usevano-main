@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
-import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { PartnerProgramCard } from '@/components/household/PartnerProgramCard';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { teamWhatsAppHref } from '@/lib/contact';
@@ -179,12 +178,10 @@ const Account: React.FC = () => {
           </div>
         )}
 
-        {/* Referral credit — only renders for people who've booked */}
-        <div className="mb-4">
-          <ReferralShareCard phone={mem?.phone ?? null} />
-        </div>
-
-        {/* Partner program — recruit students (e.g. a union) and earn commission */}
+        {/* Partner program — THE growth loop (owner call, July 2026): recruit
+            students, earn 3% of every job they do. The old Give €5 Get €5
+            customer card is parked — its checkout credits still honour, but
+            the promotion slot belongs to the network-effect play. */}
         <div className="mb-4">
           <PartnerProgramCard />
         </div>

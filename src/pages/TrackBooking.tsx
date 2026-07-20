@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
-import { ReferralShareCard } from '@/components/household/ReferralShareCard';
+import { PartnerProgramCard } from '@/components/household/PartnerProgramCard';
 import { BeforeAfterCard } from '@/components/household/BeforeAfterCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { IosInstallTip } from '@/components/IosInstallTip';
@@ -2147,15 +2147,10 @@ const TrackBooking = () => {
           completed={isCompleted}
         />
 
-        {/* The just-finished customer is the highest-intent sharer — the €5
-            referral rides directly under the completion card (named after
-            their helper), not buried below the chat thread. */}
-        {isCompleted && (
-          <ReferralShareCard
-            className="mt-4"
-            heading={helperName ? `Loved ${helperName}'s work? Give €5, get €5` : 'Happy with the job? Give €5, get €5'}
-          />
-        )}
+        {/* The just-finished customer is the highest-attention moment — spend
+            it on the 3% partner programme (the network-effect loop) instead of
+            the parked Give €5 Get €5 card. */}
+        {isCompleted && <PartnerProgramCard className="mt-4" />}
 
         {/* Chat */}
         {booking.student_id && (
@@ -2208,9 +2203,6 @@ const TrackBooking = () => {
           />
         )}
 
-        {/* Give €5, get €5 during the wait — once the job completes, the card
-            moves up beside the rating (see above) so it isn't rendered twice */}
-        {!isCompleted && <ReferralShareCard className="mt-8" />}
       </main>
 
       {/* Map panel — helper's live position when shared, else the job location */}
