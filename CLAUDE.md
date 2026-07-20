@@ -527,7 +527,11 @@ on a unique `booking_id` index so a booking can never accrue twice).
 `notify-partner-commissions` (hourly cron) emails partners a "you just
 earned €X" digest, idempotent via `referral_commissions.notified_at`
 (stamped BEFORE sending). Payouts to partners remain MANUAL — the status
-flag is the ledger; there is no automated transfer. Commission is 3%
+flag is the ledger; there is no automated transfer. The owner settles up
+from the admin payouts tab: `admin-partner-payouts` (JWT + `user_roles`
+admin check inside, like admin-complete-household-job) lists who's owed
+what and "Mark €X paid" flips the pending rows (snapshot-then-update +
+an `expected_cents` guard so a stale screen can't over-mark). Commission is 3%
 (300 bps, owner call 2026-07-20: at 5% a €36 clean netted Vano under the
 €4/job floor). **The customer Give €5 Get €5 loop is PARKED as a
 promotion** (owner call, same day — the 3% partner programme is THE
