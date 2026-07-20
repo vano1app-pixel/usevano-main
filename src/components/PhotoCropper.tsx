@@ -210,37 +210,69 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
     if (activePointers.current.size < 2) lastPinchDist.current = null;
   };
 
-  const confirm = () => {
+  // Fall back to the already-bounded (≤SAFE_MAX_EDGE) image the cropper is
+  // showing, so a photo STILL saves — just uncropped — when the precise crop
+  // can't be produced. The circular avatar / object-cover cards frame it
+  // sensibly anyway.
+  const fallbackToFullImage = useCallback(async () => {
+    if (!safeSrc) { setFailed(true); return; }
+    try {
+      const blob = await fetch(safeSrc).then(r => r.blob());
+      onCropped(
+        new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' }),
+        URL.createObjectURL(blob),
+      );
+    } catch {
+      // Even the fallback couldn't produce a file — fail visibly, never a
+      // dead "Use photo" button that silently changes nothing.
+      setFailed(true);
+    }
+  }, [safeSrc, onCropped]);
+
+  // "Use photo" must ALWAYS produce a file or show the fail card — never a
+  // silent no-op. A silent return here left the picked photo unattached, so
+  // the account save succeeded (200) while the picture never changed (the
+  // "my picture won't change" report): the crop was lost between pick and save.
+  const confirm = async () => {
     const img  = imgRef.current;
     const area = cropAreaRef.current;
-    if (!img || !area) return;
+    try {
+      if (!img || !area) throw new Error('cropper not ready');
 
-    const imgRect  = img.getBoundingClientRect();
-    const areaRect = area.getBoundingClientRect();
-    const cx = areaRect.left + areaRect.width  / 2;
-    const cy = areaRect.top  + areaRect.height / 2;
+      const imgRect  = img.getBoundingClientRect();
+      const areaRect = area.getBoundingClientRect();
+      const cx = areaRect.left + areaRect.width  / 2;
+      const cy = areaRect.top  + areaRect.height / 2;
 
-    const scaleX = img.naturalWidth  / imgRect.width;
-    const scaleY = img.naturalHeight / imgRect.height;
-    const srcX = (cx - CROP_R - imgRect.left) * scaleX;
-    const srcY = (cy - CROP_R - imgRect.top)  * scaleY;
-    const srcW = CROP_D * scaleX;
-    const srcH = CROP_D * scaleY;
+      const scaleX = img.naturalWidth  / imgRect.width;
+      const scaleY = img.naturalHeight / imgRect.height;
+      const srcX = (cx - CROP_R - imgRect.left) * scaleX;
+      const srcY = (cy - CROP_R - imgRect.top)  * scaleY;
+      const srcW = CROP_D * scaleX;
+      const srcH = CROP_D * scaleY;
+      // Guard the canvas call: non-finite / non-positive source dims make
+      // drawImage throw (IndexSizeError), which used to kill confirm silently.
+      if (![srcX, srcY, srcW, srcH].every(Number.isFinite) || srcW <= 0 || srcH <= 0) {
+        throw new Error('bad crop geometry');
+      }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = OUTPUT_SIZE;
-    canvas.height = OUTPUT_SIZE;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    // Fill first so any letterboxed edge is white, never transparent→black.
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-    ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+      const canvas = document.createElement('canvas');
+      canvas.width = OUTPUT_SIZE;
+      canvas.height = OUTPUT_SIZE;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no 2d context');
+      // Fill first so any letterboxed edge is white, never transparent→black.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
 
-    canvas.toBlob(blob => {
-      if (!blob) return;
+      const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+      if (!blob) throw new Error('encode failed');
       onCropped(new File([blob], 'photo.jpg', { type: 'image/jpeg' }), URL.createObjectURL(blob));
-    }, 'image/jpeg', 0.9);
+    } catch (err) {
+      console.warn('[PhotoCropper] crop failed — saving full image instead', err);
+      await fallbackToFullImage();
+    }
   };
 
   return (

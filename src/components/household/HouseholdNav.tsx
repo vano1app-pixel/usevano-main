@@ -88,8 +88,10 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
           <Link
             to="/bookings"
             className={cn(
-              'hidden md:inline-flex items-center px-2 py-2 text-sm font-medium transition-colors duration-150 whitespace-nowrap',
-              dark ? 'text-white/70 hover:text-white' : 'text-foreground/60 hover:text-foreground',
+              // 15px + 75% ink on desktop — the old 14px/60% links were the
+              // first thing older customers reported struggling to see.
+              'hidden md:inline-flex items-center px-2.5 py-2 text-sm md:text-[15px] font-medium transition-colors duration-150 whitespace-nowrap',
+              dark ? 'text-white/80 hover:text-white' : 'text-foreground/75 hover:text-foreground',
             )}
           >
             Bookings
@@ -101,8 +103,8 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
           <Link
             to="/join"
             className={cn(
-              'inline-flex items-center px-2 py-2 text-sm font-medium transition-colors duration-150 whitespace-nowrap',
-              dark ? 'text-white/70 hover:text-white' : 'text-foreground/60 hover:text-foreground',
+              'inline-flex items-center px-2 md:px-2.5 py-2 text-sm md:text-[15px] font-medium transition-colors duration-150 whitespace-nowrap',
+              dark ? 'text-white/80 hover:text-white' : 'text-foreground/75 hover:text-foreground',
             )}
           >
             Join as a helper
@@ -116,7 +118,7 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Chat on WhatsApp"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-px hover:shadow-md active:scale-95"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3.5 py-2 md:px-4 md:py-2.5 text-sm md:text-[15px] font-semibold text-white shadow-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-px hover:shadow-md active:scale-95"
           >
             <MessageCircle className="w-4 h-4" />
             WhatsApp us
@@ -128,14 +130,14 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
             to={accountHref}
             aria-label="My account"
             className={cn(
-              'flex items-center justify-center w-9 h-9 rounded-full',
+              'flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-full',
               'transition-[background-color,border-color] duration-150 active:scale-95',
               dark
                 ? 'border border-white/25 bg-white/10 hover:bg-white/20 hover:border-white/40'
                 : 'border border-foreground/20 bg-foreground/5 hover:bg-foreground/10 hover:border-foreground/35',
             )}
           >
-            <UserCircle2 className={cn('w-5 h-5', dark ? 'text-white/70' : 'text-foreground/60')} />
+            <UserCircle2 className={cn('w-5 h-5 md:w-[22px] md:h-[22px]', dark ? 'text-white/80' : 'text-foreground/70')} />
           </Link>
         </div>
       </div>

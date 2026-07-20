@@ -12,6 +12,19 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.delete-helper-account]
     verify_jwt = false
+  # The phone-gated profile READ + SAVE + subscription-cancel. These MUST be
+  # false: the account page authenticates with the anon/publishable key (not a
+  # user JWT) and proves identity in-code via the account_token. With the new
+  # sb_publishable_ keys the gateway rejects a non-JWT bearer as "Invalid JWT"
+  # when verify_jwt is true, so an unpinned function (which defaults to true)
+  # silently 401s every save the moment the project migrates off the legacy
+  # anon key. Auth for all three lives inside the function.
+  [functions.find-helper-by-phone]
+    verify_jwt = false
+  [functions.update-helper-profile]
+    verify_jwt = false
+  [functions.cancel-helper-subscription]
+    verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.stripe-webhook]

@@ -64,7 +64,7 @@ export const ReviewBadges: React.FC<{ inline?: boolean }> = ({ inline = false })
               ? `${name}: rated ${rating} out of 5${count ? ` from ${count} reviews` : ''} — opens in a new tab`
               : `Review us on ${name} — opens in a new tab`
           }
-          className="group inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 text-sm font-medium text-foreground/90 shadow-sm transition-colors duration-200 hover:border-foreground/25"
+          className="group inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-[15px] font-medium text-foreground/90 shadow-sm transition-colors duration-200 hover:border-foreground/25"
         >
           <Star
             className="w-4 h-4 flex-shrink-0"

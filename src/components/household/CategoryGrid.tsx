@@ -1746,7 +1746,7 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <>
-      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl sm:max-w-5xl scroll-mt-24">
+      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl sm:max-w-5xl lg:max-w-6xl scroll-mt-24">
         {/* ── The tap tiles — the one front door ──────────────────────────────
             One tap opens the booking sheet: page 1 "what kind?" (sub-services
             from the vetted catalogue), page 2 phone/address/when → book. */}
@@ -1758,18 +1758,18 @@ export const CategoryGrid: React.FC = () => {
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             whileTap={{ scale: 0.98 }}
             onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, direct: true }); }}
-            className="tile-float mb-2.5 flex w-full sm:max-w-xl sm:mx-auto items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="tile-float mb-2.5 sm:mb-3 flex w-full sm:max-w-xl sm:mx-auto items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 sm:py-3.5 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="text-2xl sm:text-3xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
             <span className="flex-1 min-w-0">
-              <span className="block text-sm font-bold text-foreground truncate">
+              <span className="block text-sm sm:text-base font-bold text-foreground truncate">
                 Book your usual{usual.price ? ` · ${usual.price}` : ''}
               </span>
-              <span className="block text-[13px] text-foreground/70 truncate">
+              <span className="block text-[13px] sm:text-sm text-foreground/75 truncate">
                 {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved — one tap
               </span>
             </span>
-            <span className="text-gold text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+            <span className="text-gold text-lg sm:text-xl font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
           </motion.button>
         )}
         <motion.div
@@ -1778,7 +1778,7 @@ export const CategoryGrid: React.FC = () => {
           // Phones: the tight 3×2 grid. Desktop: ONE Airbnb-style row of six,
           // so the whole hero (heading → tiles → reassurance) fits a laptop
           // viewport with no scrolling.
-          className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3"
+          className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 lg:gap-4"
           initial="hidden"
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
@@ -1795,20 +1795,25 @@ export const CategoryGrid: React.FC = () => {
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                 onClick={() => { haptic(10); track('hero_tile_tap', { category: c.slug }); openSheet(c); }}
                 aria-label={`Book ${c.label}${fromCents ? ` — from ${fmt(fromCents)}` : ''}`}
-                className="tile-float relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-black/5 bg-white px-1.5 py-2.5 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                // Owner call (July 2026): tiles carry ONLY pic + name + price —
+                // same as the phone grid, just bigger. The job description
+                // (cat.hint) lives in the booking sheet header, not here.
+                // Desktop (lg:) sizes run a step bigger than the usual scale on
+                // purpose — the paying customer skews 35+ and the tiles are the
+                // whole front door, so they must read from armchair distance.
+                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 {/* Cleaning wears the same "Most booked" crown as the podium */}
                 {c.slug === 'cleaning' && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy whitespace-nowrap shadow-sm">
+                  <span className="absolute -top-2 sm:-top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-gold px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-navy whitespace-nowrap shadow-sm">
                     Most booked
                   </span>
                 )}
-                <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
-                <span className="mt-1.5 text-sm sm:text-base font-bold text-foreground leading-tight">{c.label}</span>
+                <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
+                <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-foreground leading-tight">{c.label}</span>
                 {fromCents != null && (
-                  <span className="text-[13px] sm:text-sm font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
+                  <span className="text-[13px] sm:text-base lg:text-lg font-semibold text-sage-dark tabular-nums leading-none sm:mt-0.5">from {fmt(fromCents)}</span>
                 )}
-                <span className="hidden sm:block text-[12px] text-foreground/65 leading-snug text-center mt-0.5 px-1">{c.hint}</span>
               </motion.button>
             );
           })}
@@ -1825,12 +1830,11 @@ export const CategoryGrid: React.FC = () => {
             // The one NAVY tile on the light hero — the brand colour marks the
             // special "ask for anything" door (it was glass-on-navy before the
             // hero went light).
-            className="tile-float relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-navy bg-navy px-1.5 py-2.5 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">✨</span>
-            <span className="mt-1.5 text-sm sm:text-base font-bold text-white leading-tight">Anything else</span>
-            <span className="text-[13px] sm:text-sm font-medium text-white/85 leading-none">just ask</span>
-            <span className="hidden sm:block text-[12px] text-white/70 leading-snug text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
+            <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">✨</span>
+            <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-white leading-tight">Anything else</span>
+            <span className="text-[13px] sm:text-base lg:text-lg font-medium text-white/90 leading-none sm:mt-0.5">just ask</span>
           </motion.button>
         </motion.div>
       </div>

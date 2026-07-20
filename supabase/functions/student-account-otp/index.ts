@@ -84,6 +84,55 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
   return null;
 }
 
+// One Twilio send + a short delivery probe. Twilio ACCEPTS a message (201,
+// status "queued") before it knows whether it can be delivered — WhatsApp in
+// particular dies invisibly AFTER queuing (63016: freeform message outside the
+// 24h session window, 63031: sender messaging its own number), which made this
+// function report "sent" while nothing ever arrived (July 2026: the owner's
+// account-gate codes silently vanished exactly this way). So after a queued
+// send, poll the message status briefly: failed/undelivered = a miss, letting
+// the caller fall to the next channel or answer honestly, and the warn line
+// puts the REAL Twilio error_code in the function logs.
+async function sendViaTwilio(
+  sid: string,
+  auth: string,
+  label: string,
+  params: Record<string, string>,
+): Promise<boolean> {
+  const base = `https://api.twilio.com/2010-04-01/Accounts/${sid}`;
+  try {
+    const resp = await fetch(`${base}/Messages.json`, {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(params).toString(),
+    });
+    if (!resp.ok) {
+      console.warn(`[student-account-otp][${label}] twilio error`, resp.status, (await resp.text()).slice(0, 200));
+      return false;
+    }
+    const created = await resp.json().catch(() => null) as { sid?: string } | null;
+    if (!created?.sid) return true; // accepted but unreadable — assume in flight
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 700));
+      try {
+        const check = await fetch(`${base}/Messages/${created.sid}.json`, { headers: { Authorization: auth } });
+        if (!check.ok) return true; // probe unavailable — don't punish the send
+        const msg = await check.json().catch(() => null) as { status?: string; error_code?: number | null } | null;
+        const status = msg?.status ?? '';
+        if (status === 'failed' || status === 'undelivered' || status === 'canceled') {
+          console.warn(`[student-account-otp][${label}] delivery failed`, status, 'error_code:', msg?.error_code);
+          return false;
+        }
+        if (status === 'sent' || status === 'delivered' || status === 'read') return true;
+      } catch { return true; }
+    }
+    return true; // still queued after ~3s — assume in flight
+  } catch (e) {
+    console.warn(`[student-account-otp][${label}] exception`, e);
+    return false;
+  }
+}
+
 // SMS first, WhatsApp fallback — identical rationale + shape to
 // send-student-sms-otp (an OTP must reach a cold, non-opted-in number).
 async function sendText(e164: string, body: string): Promise<'sms' | 'whatsapp' | null> {
@@ -91,32 +140,25 @@ async function sendText(e164: string, body: string): Promise<'sms' | 'whatsapp' 
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
   if (!sid || !token) return null;
   const auth = `Basic ${btoa(`${sid}:${token}`)}`;
-  const post = (params: Record<string, string>) =>
-    fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: 'POST',
-      headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(params).toString(),
-    });
 
   if (Deno.env.get('VANO_SMS_ENABLED')?.trim() === 'true') {
     const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
     if (from && !from.startsWith('whatsapp:')) {
-      try {
-        const resp = await post({ To: e164, From: from, Body: body });
-        if (resp.ok) return 'sms';
-        console.warn('[student-account-otp][sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
-      } catch (e) { console.warn('[student-account-otp][sms] exception', e); }
+      if (await sendViaTwilio(sid, auth, 'sms', { To: e164, From: from, Body: body })) return 'sms';
     }
   }
 
   const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
   if (waFrom) {
-    const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
-    try {
-      const resp = await post({ To: `whatsapp:${e164}`, From: from, Body: body });
-      if (resp.ok) return 'whatsapp';
-      console.warn('[student-account-otp][whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
-    } catch (e) { console.warn('[student-account-otp][whatsapp] exception', e); }
+    // A WhatsApp sender can never message its own number (Twilio 63031) — and
+    // the owner's helper row carries the business number, so without this
+    // guard their own account gate burns the send on a doomed channel.
+    if (waFrom.replace(/\D/g, '') === e164.replace(/\D/g, '')) {
+      console.warn('[student-account-otp][whatsapp] skipped: destination is the WhatsApp sender itself');
+    } else {
+      const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
+      if (await sendViaTwilio(sid, auth, 'whatsapp', { To: `whatsapp:${e164}`, From: from, Body: body })) return 'whatsapp';
+    }
   }
   return null;
 }
