@@ -122,6 +122,11 @@ project_id = "puomfwjtpvqedwxjxogh"
   [functions.release-household-payouts]
     verify_jwt = false
 
+  # Partner "you just earned €X" email digests — scheduler-called (hourly),
+  # no user JWT; idempotent via referral_commissions.notified_at.
+  [functions.notify-partner-commissions]
+    verify_jwt = false
+
   # House Autopilot helper matching. dispatch-autopilot-plan is called by
   # stripe-webhook with the service-role key (internal-only check inside);
   # accept-autopilot-plan is the helper's one-tap claim link (HMAC token in the

@@ -126,18 +126,56 @@ serve(async (req) => {
       .select('id', { count: 'exact', head: true })
       .eq('code_id', codeRow.id);
 
-    // Earnings split by status.
+    // Earnings split by status, plus the live-tracker extras: this-month
+    // total, distinct earning helpers, and a recent-activity feed. The feed
+    // is what makes the card read as passive income actually landing.
     const { data: commissions } = await supabase
       .from('referral_commissions')
-      .select('amount_cents, status')
-      .eq('code_id', codeRow.id);
+      .select('amount_cents, status, created_at, helper_id, booking_id')
+      .eq('code_id', codeRow.id)
+      .order('created_at', { ascending: false })
+      .limit(500);
 
-    let pendingCents = 0, paidCents = 0, jobs = 0;
+    let pendingCents = 0, paidCents = 0, jobs = 0, thisMonthCents = 0;
+    const monthStart = new Date();
+    monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
+    const activeHelpers = new Set<string>();
     for (const c of commissions ?? []) {
       const amt = (c.amount_cents as number) ?? 0;
       jobs++;
       if (c.status === 'paid') paidCents += amt; else pendingCents += amt;
+      if (c.created_at && new Date(c.created_at as string) >= monthStart) thisMonthCents += amt;
+      if (c.helper_id) activeHelpers.add(c.helper_id as string);
     }
+
+    // Enrich the latest rows with the helper's FIRST name + job category only
+    // (this endpoint is keyed by a non-secret email — never expose more).
+    const recentRaw = (commissions ?? []).slice(0, 8);
+    const helperIds  = [...new Set(recentRaw.map((c) => c.helper_id).filter(Boolean))] as string[];
+    const bookingIds = [...new Set(recentRaw.map((c) => c.booking_id).filter(Boolean))] as string[];
+    const [helpersRes, bookingsRes] = await Promise.all([
+      helperIds.length
+        ? supabase.from('household_helpers').select('id, name').in('id', helperIds)
+        : Promise.resolve({ data: [] as { id: string; name: string | null }[] }),
+      bookingIds.length
+        ? supabase.from('household_bookings').select('id, category').in('id', bookingIds)
+        : Promise.resolve({ data: [] as { id: string; category: string | null }[] }),
+    ]);
+    const nameOf = new Map(
+      ((helpersRes.data ?? []) as { id: string; name: string | null }[])
+        .map((h) => [h.id, (h.name ?? '').trim().split(/\s+/)[0] || null]),
+    );
+    const catOf = new Map(
+      ((bookingsRes.data ?? []) as { id: string; category: string | null }[])
+        .map((b) => [b.id, b.category ?? null]),
+    );
+    const recent = recentRaw.map((c) => ({
+      amount_cents: (c.amount_cents as number) ?? 0,
+      status: c.status as string,
+      created_at: c.created_at as string,
+      helper_name: c.helper_id ? (nameOf.get(c.helper_id as string) ?? null) : null,
+      category: c.booking_id ? (catOf.get(c.booking_id as string) ?? null) : null,
+    }));
 
     const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
 
@@ -151,6 +189,9 @@ serve(async (req) => {
         pending_cents: pendingCents,
         paid_cents: paidCents,
         total_cents: pendingCents + paidCents,
+        this_month_cents: thisMonthCents,
+        active_helpers: activeHelpers.size,
+        recent,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

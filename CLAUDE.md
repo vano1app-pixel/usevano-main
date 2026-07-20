@@ -452,7 +452,8 @@ scheduler, NOT in the repo). The fleet, roughly by frequency:
 `remind-unpaid-bookings` (*/5) · `send-household-progress-emails` (*/10) ·
 `redispatch-stale-jobs`, `sweep-stalled-jobs`, `release-household-payouts`,
 `remind-confirm-completion` (*/15–30) · `no-helper-fallback` (*/30) ·
-`nudge-helper-onboarding`, `remind-household-rating` (hourly) ·
+`nudge-helper-onboarding`, `remind-household-rating`,
+`notify-partner-commissions` (hourly) ·
 `household-winback` (daily). (The legacy Vano Pay crons and `weekly-digest`
 were deleted + unscheduled in the July 2026 cleanup.)
 All are idempotent via per-row stamps/counters — keep that property when
@@ -515,6 +516,18 @@ function cap that once blocked deploys is why). What still remains:
 `get-referral-code`, `attach-referral-code` (live household
 referral/partner features on `/account` and `/join`), and `check-loyalty`
 (household loyalty — currently computed inline at checkout instead).
+**Partner commissions under direct-pay (July 2026):** the original accrual
+trigger fired on `household_payouts` inserts, which direct-pay never writes
+— migration `20260720120000` added `trg_accrue_referral_commission_direct_pay`
+(fires on the booking's completed flip, direct-pay only; both triggers dedup
+on a unique `booking_id` index so a booking can never accrue twice).
+`partner-program` returns tracker extras (`this_month_cents`,
+`active_helpers`, `recent[]` — first names + categories only) and
+`PartnerProgramCard` renders them as an earnings dashboard;
+`notify-partner-commissions` (hourly cron) emails partners a "you just
+earned €X" digest, idempotent via `referral_commissions.notified_at`
+(stamped BEFORE sending). Payouts to partners remain MANUAL — the status
+flag is the ledger; there is no automated transfer.
 
 ## Platform shell — native apps, PWA, SEO, analytics
 - **Native (Capacitor 8)**: `ios/` + `android/` wrap the same `dist/` build
