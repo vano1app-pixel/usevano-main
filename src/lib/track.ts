@@ -42,7 +42,12 @@ export type TrackEvent =
   | 'hero_whatsapp_tap'
   // The end-of-page CTA band after the FAQ — measures how many readers the
   // long page persuades (its taps scroll back up to the hero tiles).
-  | 'closing_cta_tap';
+  | 'closing_cta_tap'
+  // Post-rating Trustpilot ask on /track — shown only after a just-submitted
+  // 4-5★ rating; the shown→tap funnel measures how many happy customers we
+  // convert into public reviews.
+  | 'trustpilot_ask_shown'
+  | 'trustpilot_ask_tap';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
   // PostHog mirror — dynamic import keeps posthog-js out of the entry

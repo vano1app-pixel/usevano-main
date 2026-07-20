@@ -14,6 +14,7 @@ import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
 import { categoryLabel, categoryEmoji } from '@/lib/bookingLabels';
 import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
+import { track } from '@/lib/track';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -533,6 +534,9 @@ const TrackBooking = () => {
   const [hoverRating, setHoverRating] = useState(0);
   const [selectedRating, setSelectedRating] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
+  // The rating THIS visit submitted (0 = rated earlier/unknown) — a 4-5 star
+  // just-submitted rating unlocks the Trustpilot ask at the perfect moment.
+  const [submittedRating, setSubmittedRating] = useState(0);
   const [submittingRating, setSubmittingRating] = useState(false);
   const [alreadyRated, setAlreadyRated] = useState(false);
 
@@ -829,6 +833,8 @@ const TrackBooking = () => {
           const rateRes = await supabase.functions.invoke('rate-household-booking', { body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined, rating_token: booking?.rating_token ?? undefined } });
           if (!rateRes.error && !(rateRes.data as { error?: string } | null)?.error) {
             if (typeof localStorage !== 'undefined') localStorage.setItem(`vano_rated_${bookingId}`, '1');
+            setSubmittedRating(selectedRating);
+            if (selectedRating >= 4) track('trustpilot_ask_shown', { booking_id: bookingId ?? undefined });
             setAlreadyRated(true);
           }
         } catch { /* rating is best-effort — don't block completion */ }
@@ -920,6 +926,8 @@ const TrackBooking = () => {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(`vano_rated_${bookingId}`, '1');
       }
+      setSubmittedRating(selectedRating);
+      if (selectedRating >= 4) track('trustpilot_ask_shown', { booking_id: bookingId ?? undefined });
       setAlreadyRated(true);
       toast({ title: 'Thanks for your rating!' });
     } catch {
@@ -1978,6 +1986,26 @@ const TrackBooking = () => {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+            ) : submittedRating >= 4 ? (
+              /* A 5-star moment is the ONLY honest time to ask for a public
+                 review — the ask rides the high, never begs after a bad job. */
+              <div className="border-t border-sage/20 pt-4 text-center">
+                <p className="text-sm font-semibold text-foreground mb-1">Thanks — that made our day ⭐</p>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-3 max-w-xs mx-auto">
+                  Would you say it publicly? A Trustpilot review takes about 30
+                  seconds and helps a small Galway team more than you'd think.
+                </p>
+                <a
+                  href="https://www.trustpilot.com/review/vanojobs.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => track('trustpilot_ask_tap', { booking_id: bookingId ?? undefined })}
+                  className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-full bg-[#00B67A] text-white font-semibold text-sm active:scale-[0.98] transition-transform"
+                >
+                  <Star size={16} className="fill-white text-white" />
+                  Review us on Trustpilot
+                </a>
               </div>
             ) : (
               <p className="text-center text-xs text-muted-foreground border-t border-sage/20 pt-4">
