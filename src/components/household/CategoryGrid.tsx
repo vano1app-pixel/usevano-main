@@ -1795,10 +1795,13 @@ export const CategoryGrid: React.FC = () => {
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                 onClick={() => { haptic(10); track('hero_tile_tap', { category: c.slug }); openSheet(c); }}
                 aria-label={`Book ${c.label}${fromCents ? ` — from ${fmt(fromCents)}` : ''}`}
+                // Owner call (July 2026): tiles carry ONLY pic + name + price —
+                // same as the phone grid, just bigger. The job description
+                // (cat.hint) lives in the booking sheet header, not here.
                 // Desktop (lg:) sizes run a step bigger than the usual scale on
                 // purpose — the paying customer skews 35+ and the tiles are the
                 // whole front door, so they must read from armchair distance.
-                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 {/* Cleaning wears the same "Most booked" crown as the podium */}
                 {c.slug === 'cleaning' && (
@@ -1807,11 +1810,10 @@ export const CategoryGrid: React.FC = () => {
                   </span>
                 )}
                 <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
-                <span className="mt-1.5 text-sm sm:text-base lg:text-lg font-bold text-foreground leading-tight">{c.label}</span>
+                <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-foreground leading-tight">{c.label}</span>
                 {fromCents != null && (
-                  <span className="text-[13px] sm:text-sm lg:text-base font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
+                  <span className="text-[13px] sm:text-base lg:text-lg font-semibold text-sage-dark tabular-nums leading-none sm:mt-0.5">from {fmt(fromCents)}</span>
                 )}
-                <span className="hidden sm:block text-sm lg:text-[15px] text-foreground/75 leading-snug text-center mt-0.5 px-1">{c.hint}</span>
               </motion.button>
             );
           })}
@@ -1828,12 +1830,11 @@ export const CategoryGrid: React.FC = () => {
             // The one NAVY tile on the light hero — the brand colour marks the
             // special "ask for anything" door (it was glass-on-navy before the
             // hero went light).
-            className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">✨</span>
-            <span className="mt-1.5 text-sm sm:text-base lg:text-lg font-bold text-white leading-tight">Anything else</span>
-            <span className="text-[13px] sm:text-sm lg:text-base font-medium text-white/90 leading-none">just ask</span>
-            <span className="hidden sm:block text-sm lg:text-[15px] text-white/80 leading-snug text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
+            <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-white leading-tight">Anything else</span>
+            <span className="text-[13px] sm:text-base lg:text-lg font-medium text-white/90 leading-none sm:mt-0.5">just ask</span>
           </motion.button>
         </motion.div>
       </div>
