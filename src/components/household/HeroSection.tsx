@@ -74,14 +74,14 @@ export const HeroSection: React.FC = () => {
         >
           <ReviewBadges inline />
           {!helperReady ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 sm:px-4 sm:py-2.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-foreground/15 flex-shrink-0" aria-hidden="true" />
               <span className="w-28 h-3.5 rounded-full bg-secondary relative overflow-hidden">
                 <span className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-foreground/10 to-transparent" />
               </span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 text-sm font-medium text-foreground/90 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-[15px] font-medium text-foreground/90 shadow-sm">
               <span className="relative flex h-2 w-2 flex-shrink-0" aria-hidden="true">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-50 animate-ping" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
@@ -144,9 +144,9 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          className="mt-4 sm:mt-6 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/40 bg-[#25D366]/8 px-4 py-2 text-[13px] font-semibold text-[#128a45] hover:bg-[#25D366]/15 transition-colors"
+          className="mt-4 sm:mt-6 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-[#25D366]/40 bg-[#25D366]/8 px-4 py-2 sm:px-5 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold text-[#128a45] hover:bg-[#25D366]/15 transition-colors"
         >
-          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
           Prefer to text? Book on WhatsApp — we sort it for you
         </motion.a>
       </div>
