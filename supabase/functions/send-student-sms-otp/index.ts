@@ -39,45 +39,83 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
   return null;
 }
 
+// One Twilio send + a short delivery probe — same fix as student-account-otp
+// (July 2026): Twilio ACCEPTS a message (201 "queued") before it knows whether
+// it can deliver, so a WhatsApp that dies post-queue (63016 outside the 24h
+// session window, 63031 self-send) used to make this function report "sent"
+// while the applicant's code silently vanished. Probe the message status
+// briefly; failed/undelivered = a miss so the fallback chain and the honest
+// 502 actually engage, and the warn line logs the real Twilio error_code.
+async function sendViaTwilio(
+  sid: string,
+  auth: string,
+  label: string,
+  params: Record<string, string>,
+): Promise<boolean> {
+  const base = `https://api.twilio.com/2010-04-01/Accounts/${sid}`;
+  try {
+    const resp = await fetch(`${base}/Messages.json`, {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(params).toString(),
+    });
+    if (!resp.ok) {
+      console.warn(`[send-student-sms-otp][${label}] twilio error`, resp.status, (await resp.text()).slice(0, 200));
+      return false;
+    }
+    const created = await resp.json().catch(() => null) as { sid?: string } | null;
+    if (!created?.sid) return true; // accepted but unreadable — assume in flight
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 700));
+      try {
+        const check = await fetch(`${base}/Messages/${created.sid}.json`, { headers: { Authorization: auth } });
+        if (!check.ok) return true; // probe unavailable — don't punish the send
+        const msg = await check.json().catch(() => null) as { status?: string; error_code?: number | null } | null;
+        const status = msg?.status ?? '';
+        if (status === 'failed' || status === 'undelivered' || status === 'canceled') {
+          console.warn(`[send-student-sms-otp][${label}] delivery failed`, status, 'error_code:', msg?.error_code);
+          return false;
+        }
+        if (status === 'sent' || status === 'delivered' || status === 'read') return true;
+      } catch { return true; }
+    }
+    return true; // still queued after ~3s — assume in flight
+  } catch (e) {
+    console.warn(`[send-student-sms-otp][${label}] exception`, e);
+    return false;
+  }
+}
+
 // SMS is tried FIRST here (unlike dispatch, which prefers WhatsApp): an OTP
 // goes to a brand-new applicant who hasn't opted into our WhatsApp, and a
-// free-form WhatsApp message to a non-opted-in number is accepted by Twilio
-// (200/queued) but then silently undelivered — the same dead-end as the spam
-// filter. Plain SMS reaches a cold number. WhatsApp is the fallback for when
-// only it is configured. Returns the channel that sent, or null.
+// free-form WhatsApp message to a non-opted-in number dies after queuing.
+// Plain SMS reaches a cold number. WhatsApp is the fallback for when only it
+// is configured. Returns the channel that DELIVERABLY sent, or null.
 async function sendText(e164: string, body: string): Promise<'sms' | 'whatsapp' | null> {
   const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
   if (!sid || !token) return null;
   const auth = `Basic ${btoa(`${sid}:${token}`)}`;
-  const post = (params: Record<string, string>) =>
-    fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: 'POST',
-      headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(params).toString(),
-    });
 
   // 1) Plain SMS — reliable to a cold number.
   if (Deno.env.get('VANO_SMS_ENABLED')?.trim() === 'true') {
     const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
     if (from && !from.startsWith('whatsapp:')) {
-      try {
-        const resp = await post({ To: e164, From: from, Body: body });
-        if (resp.ok) return 'sms';
-        console.warn('[send-student-sms-otp][sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
-      } catch (e) { console.warn('[send-student-sms-otp][sms] exception', e); }
+      if (await sendViaTwilio(sid, auth, 'sms', { To: e164, From: from, Body: body })) return 'sms';
     }
   }
 
   // 2) WhatsApp fallback (works if the number is opted-in / a template is used).
   const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
   if (waFrom) {
-    const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
-    try {
-      const resp = await post({ To: `whatsapp:${e164}`, From: from, Body: body });
-      if (resp.ok) return 'whatsapp';
-      console.warn('[send-student-sms-otp][whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
-    } catch (e) { console.warn('[send-student-sms-otp][whatsapp] exception', e); }
+    // A WhatsApp sender can never message its own number (Twilio 63031) —
+    // skip the doomed send (the owner's helper row carries the business number).
+    if (waFrom.replace(/\D/g, '') === e164.replace(/\D/g, '')) {
+      console.warn('[send-student-sms-otp][whatsapp] skipped: destination is the WhatsApp sender itself');
+    } else {
+      const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
+      if (await sendViaTwilio(sid, auth, 'whatsapp', { To: `whatsapp:${e164}`, From: from, Body: body })) return 'whatsapp';
+    }
   }
   return null;
 }
@@ -122,8 +160,10 @@ serve(async (req) => {
 
     const channel = await sendText(e164, `${code} is your VANO verification code. It expires in 10 minutes.`);
     if (!channel) {
-      // Never leave an orphan code the helper can't receive.
-      await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
+      // Never leave an orphan code the helper can't receive. Scoped away from
+      // 'acct:' rows — those are student-account-otp's live account-session
+      // codes, and this cleanup used to wipe them on a failed send here.
+      await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id).not('email', 'like', 'acct:%');
       return json(502, { error: 'We could not text the code right now. Try email, or WhatsApp us and we will verify you.' });
     }
 

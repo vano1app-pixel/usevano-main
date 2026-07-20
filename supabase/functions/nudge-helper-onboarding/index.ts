@@ -75,12 +75,32 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-  // Service-role only. This is a cron endpoint (verify_jwt=false) that fans out
+  // Spend gate. This is a cron endpoint (verify_jwt=false) that fans out
   // WhatsApp/SMS/email to every un-nudged helper. Without this gate anyone with
   // the public anon key could fire it repeatedly and, because stamps are
   // written AFTER sending, blow past the per-helper caps and pump Twilio spend.
+  // Two accepted callers (July 2026 — the scheduler had been 401-ing for weeks
+  // because its job was created with the ANON key, so nudges never sent):
+  //   1. Authorization: Bearer <service key>   — manual/internal invocations
+  //   2. X-Vano-Cron: <vault 'vano_cron_secret'> — pg_cron resolves the vault
+  //      secret at run time; validated via the service-role-only
+  //      check_cron_key() RPC (migration 20260720190000), so the public keys
+  //      still can't fire this.
   const authHeader = req.headers.get('Authorization') ?? '';
-  if (authHeader !== `Bearer ${serviceKey}`) {
+  let authorized = authHeader === `Bearer ${serviceKey}`;
+  if (!authorized) {
+    const cronKey = req.headers.get('X-Vano-Cron')?.trim() ?? '';
+    if (cronKey) {
+      try {
+        const gate = createClient(supabaseUrl, serviceKey);
+        const { data } = await gate.rpc('check_cron_key', { candidate: cronKey });
+        authorized = data === true;
+      } catch (e) {
+        console.warn('[nudge-helper-onboarding] cron-key check failed', e);
+      }
+    }
+  }
+  if (!authorized) {
     return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
