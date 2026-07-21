@@ -39,6 +39,12 @@ Hard-learned specifics (July 2026 — a real applicant hit a black screen):
   overlay anywhere, `safeImage.ts:prepareJoinPhoto` shrinks off-DOM fail-soft.
   `PhotoCropper` is unmounted everywhere (kept in the repo only); don't
   remount it — it dead-ended two real users' photo changes in one week.
+  Both surfaces also run `src/lib/photoQuality.ts` first (owner call: "good
+  pics only") — REJECTS only positively-junk picks (tiny/blank frame, with a
+  friendly message), WARNS-but-accepts dark/blurry ones (amber note), and is
+  fail-soft like everything else here: can't measure ⇒ photo goes through.
+  Thresholds are calibrated (see module comment) — don't tighten them
+  without re-running the calibration.
 - **Full-screen overlays must be impossible to render as a dead black
   screen**: every media/async state needs a visible loading beat, an error
   message with a way out, and Cancel always live.
@@ -358,8 +364,13 @@ extend it.
   `household-helper-connect-link` (phone path), `cancel-verified-plan`,
   `cancel-helper-subscription`, `disconnect-helper-payouts`,
   `delete-helper-account`. Knowing a number no longer reads or edits
-  anything. The page caches the session in sessionStorage (30 min, dies
-  with the tab) and any 401 drops it back to the code step.
+  anything. **Remember-this-device (2026-07-21):** verify also mints a
+  month-long `device_token` (same HMAC family — TTL is baked into the
+  token's `e`, `DEVICE_TOKEN_TTL_SECONDS`); the page keeps the session in
+  localStorage (`vano_account_gate_v2`) and silently falls from the lapsed
+  30-min token to the device token, so one code trusts the phone for a
+  month. Any 401 (or the "Log out on this device" link at the page foot)
+  clears it back to the code step.
 
 **Open decisions the owner still needs to make (don't silently pick one):**
 - **Twilio env check**: `VANO_SMS_ENABLED=true` + `TWILIO_SMS_FROM` etc.

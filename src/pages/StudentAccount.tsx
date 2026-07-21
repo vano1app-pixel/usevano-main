@@ -13,6 +13,7 @@ import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayC
 import { useToast } from '@/hooks/use-toast';
 import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { prepareJoinPhoto } from '@/lib/safeImage';
+import { assessPhotoQuality } from '@/lib/photoQuality';
 import { extractFnError } from '@/lib/fnError';
 import logo from '@/assets/logo.png';
 
@@ -69,25 +70,43 @@ const phonesMatch = (stored: string, entered: string) => {
 // the gate: a 6-digit code is texted to the number on the helper's own row,
 // and verifying it mints a 30-minute signed account_token
 // (student-account-otp) that every phone-authed function on this page
-// requires. The session is cached in sessionStorage so a reload or a Stripe
-// round-trip doesn't re-text a code, and dies with the tab.
-const GATE_KEY = 'vano_account_gate_v1';
-interface GateSession { phone: string; token: string; exp: number }
-function readGateSession(): GateSession | null {
+// requires. Since 2026-07-21 the verify response ALSO carries a month-long
+// device_token ("remember this device" — owner call: one code per device, not
+// per visit), so the session now lives in localStorage: when the 30-minute
+// token lapses the device token takes over silently, and only a server 401
+// (or the explicit log-out link) sends the helper back to the code step.
+const GATE_KEY = 'vano_account_gate_v2';
+const LEGACY_GATE_KEY = 'vano_account_gate_v1';
+interface GateSession {
+  phone: string;
+  token: string;       // 30-minute session token
+  exp: number;         // its expiry (ms)
+  deviceToken?: string; // month-long remember-this-device token
+  deviceExp?: number;
+}
+/** The token to use right now: fresh session token, else live device token. */
+function readGateSession(): { phone: string; token: string } | null {
   try {
-    const raw = sessionStorage.getItem(GATE_KEY);
+    const raw = localStorage.getItem(GATE_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as GateSession;
+    if (!s?.phone) return null;
     // 30s slack so a request never leaves with a token that dies in flight.
-    if (!s?.token || !s?.phone || typeof s.exp !== 'number' || Date.now() > s.exp - 30_000) return null;
-    return s;
+    if (s.token && typeof s.exp === 'number' && Date.now() < s.exp - 30_000) {
+      return { phone: s.phone, token: s.token };
+    }
+    if (s.deviceToken && typeof s.deviceExp === 'number' && Date.now() < s.deviceExp - 30_000) {
+      return { phone: s.phone, token: s.deviceToken };
+    }
+    return null;
   } catch { return null; }
 }
 function saveGateSession(s: GateSession) {
-  try { sessionStorage.setItem(GATE_KEY, JSON.stringify(s)); } catch { /* best effort */ }
+  try { localStorage.setItem(GATE_KEY, JSON.stringify(s)); } catch { /* best effort */ }
 }
 function clearGateSession() {
-  try { sessionStorage.removeItem(GATE_KEY); } catch { /* best effort */ }
+  try { localStorage.removeItem(GATE_KEY); } catch { /* best effort */ }
+  try { sessionStorage.removeItem(LEGACY_GATE_KEY); } catch { /* best effort */ }
 }
 
 const StudentAccount = () => {
@@ -147,6 +166,8 @@ const StudentAccount = () => {
   const [avail,        setAvail]        = useState<string[]>([]);
   const [photoFile,    setPhotoFile]    = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  // Soft quality note — the photo IS staged; this just nudges toward a better one.
+  const [photoNote,    setPhotoNote]    = useState<string | null>(null);
 
   // Phone gate — two steps since the July 2026 hardening: number → texted
   // 6-digit code → account_token (see the module comment on GATE_KEY).
@@ -290,14 +311,22 @@ const StudentAccount = () => {
       const { data, error } = await supabase.functions.invoke('student-account-otp', {
         body: { action: 'verify', phone: entered, code: codeClean },
       });
-      const token = (data as { account_token?: string } | null)?.account_token;
+      const payload = data as {
+        account_token?: string; expires_at_ms?: number;
+        device_token?: string; device_expires_at_ms?: number;
+      } | null;
+      const token = payload?.account_token;
       if (error || !token) {
         setGateError(await extractFnError(data, error, 'That code is incorrect. Try again.'));
         return;
       }
-      const exp = (data as { expires_at_ms?: number } | null)?.expires_at_ms ?? Date.now() + 25 * 60_000;
+      const exp = payload?.expires_at_ms ?? Date.now() + 25 * 60_000;
       accountTokenRef.current = token;
-      saveGateSession({ phone: entered, token, exp });
+      saveGateSession({
+        phone: entered, token, exp,
+        deviceToken: payload?.device_token,
+        deviceExp: payload?.device_expires_at_ms,
+      });
       if (!await fetchProfile(entered, token)) {
         setGateError('Verified — but we could not load your profile. Try again.');
       }
@@ -374,6 +403,16 @@ const StudentAccount = () => {
       toast({ title: 'Photo must be under 15 MB', variant: 'destructive' });
       return;
     }
+    // Quality gate (fail-soft — null = "couldn't measure", proceed): only
+    // positively-junk photos (microscopic / blank frame) are refused; a poor
+    // shot is still staged with a gentle note. Never dead-ends a change.
+    const quality = await assessPhotoQuality(file).catch(() => null);
+    if (quality?.verdict === 'reject') {
+      setPhotoNote(null);
+      toast({ title: "That photo won't work", description: quality.message, variant: 'destructive' });
+      return;
+    }
+    setPhotoNote(quality?.verdict === 'warn' ? quality.message : null);
     const prepared = await prepareJoinPhoto(file).catch(() => null);
     setPhotoFile(prepared?.file ?? file);
     setPhotoPreview(prepared?.previewUrl ?? URL.createObjectURL(file));
@@ -862,6 +901,11 @@ const StudentAccount = () => {
           {photoFile && (
             <p className="text-xs text-primary mt-2 font-medium">New photo ready — tap Save to apply</p>
           )}
+          {photoNote && photoFile && (
+            <p className="mt-2 max-w-[260px] rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-center text-[11px] leading-snug text-amber-800">
+              {photoNote}
+            </p>
+          )}
           <h1 className="text-xl font-bold text-foreground mt-3 flex items-center gap-1.5">
             {helper.name}
             {vanoVerified && (
@@ -1247,6 +1291,25 @@ const StudentAccount = () => {
               </span>
             </button>
           </section>
+
+          {/* This device is remembered for a month after one code — give
+              shared/borrowed phones an explicit way out. */}
+          <button
+            type="button"
+            onClick={() => {
+              clearGateSession();
+              accountTokenRef.current = '';
+              setHelper(null);
+              setPhoneVerified(false);
+              setGateStep('phone');
+              setGateCode('');
+              setGateError('');
+              window.scrollTo({ top: 0 });
+            }}
+            className="mx-auto block pb-2 text-xs font-medium text-muted-foreground/70 underline underline-offset-2 hover:text-foreground/70"
+          >
+            Log out on this device
+          </button>
         </div>
       </main>
 

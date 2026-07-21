@@ -13,6 +13,7 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 import { SKILL_GROUPS, defaultSelectedGroups, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { haptic } from '@/lib/haptics';
 import { prepareJoinPhoto } from '@/lib/safeImage';
+import { assessPhotoQuality } from '@/lib/photoQuality';
 
 // The jobs customers actually book, shared with the account page via
 // helperSkills (groups gate dispatch matching; sub-skills are profile
@@ -228,6 +229,8 @@ export const JoinAsHelper: React.FC = () => {
   const [phone, setPhone] = useState(draft?.phone ?? '');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(draftPhoto);
+  // Soft quality note — the photo IS set; this just nudges toward a better one.
+  const [photoNote, setPhotoNote] = useState<string | null>(null);
   // (The move-and-scale cropper was removed from this form on 2026-07-16 —
   // its full-screen overlay black-screened iPhone Safari mid-signup. Photos
   // are direct-set on pick; the account page still offers cropping later.)
@@ -323,6 +326,17 @@ export const JoinAsHelper: React.FC = () => {
     if (!file) return;
     if (file.size > 15 * 1024 * 1024) { setError('Photo must be under 15 MB.'); return; }
     setError(null);
+    // Quality gate (fail-soft — null means "couldn't measure", proceed):
+    // positively-junk photos (microscopic / blank frame) are refused with the
+    // picker left open; poor-but-usable shots are ACCEPTED with a gentle note.
+    // A quality check must never cost a signup, so only 'reject' stops the set.
+    const quality = await assessPhotoQuality(file).catch(() => null);
+    if (quality?.verdict === 'reject') {
+      setPhotoNote(null);
+      setError(quality.message);
+      return;
+    }
+    setPhotoNote(quality?.verdict === 'warn' ? quality.message : null);
     // DIRECT-SET, the pre-#324 flow every early signup used: the picked photo
     // IS the photo, immediately — no full-screen cropper on this form (the
     // cropper overlay black-screened iPhone 16 Safari mid-signup; it now
@@ -640,6 +654,11 @@ export const JoinAsHelper: React.FC = () => {
                         </div>
                       </div>
                       <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} className="sr-only" aria-label="Face photo upload" />
+                      {photoNote && preview && (
+                        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
+                          {photoNote}
+                        </p>
+                      )}
                     </div>
 
                     <div>

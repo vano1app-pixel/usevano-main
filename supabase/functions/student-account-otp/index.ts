@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
-import { signAccountToken, ACCOUNT_TOKEN_TTL_SECONDS } from "../_shared/accountToken.ts";
+import { signAccountToken, ACCOUNT_TOKEN_TTL_SECONDS, DEVICE_TOKEN_TTL_SECONDS } from "../_shared/accountToken.ts";
 
 // The SMS gate on /student-account (phone-gate hardening, July 2026).
 //
@@ -280,11 +280,18 @@ serve(async (req) => {
 
     await supabase.from('helper_email_otps').delete().eq('helper_id', helper.id).like('email', 'acct:%');
     const account_token = await signAccountToken(helper.id);
+    // "Remember this device": a second, month-long token the page keeps in
+    // localStorage so this phone/browser skips the code next visit. Same HMAC
+    // family (verifiers just check the embedded expiry); a 401 anywhere makes
+    // the client drop it and fall back to the code step.
+    const device_token = await signAccountToken(helper.id, DEVICE_TOKEN_TTL_SECONDS);
     return json(200, {
       success: true,
       account_token,
       helper_id: helper.id,
       expires_at_ms: Date.now() + ACCOUNT_TOKEN_TTL_SECONDS * 1000,
+      device_token,
+      device_expires_at_ms: Date.now() + DEVICE_TOKEN_TTL_SECONDS * 1000,
     });
   } catch (err) {
     console.error('[student-account-otp] unhandled', err);
