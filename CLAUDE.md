@@ -34,9 +34,11 @@ Hard-learned specifics (July 2026 — a real applicant hit a black screen):
   shoot 48MP; an unbounded image inside a CSS-transformed layer black-screens
   iOS Safari and can crash the tab (which also wipes fresh localStorage
   writes — "it reset everything"). Never render a user image unbounded:
-  `/join` DIRECT-SETS the picked photo (small object-cover preview only —
-  no cropper overlay on that form, see `safeImage.ts`); `PhotoCropper`
-  (account page only) downscales to `SAFE_MAX_EDGE` before display.
+  BOTH photo surfaces (`/join` and `/student-account`, since 2026-07-21)
+  DIRECT-SET the picked photo — small object-cover preview only, NO cropper
+  overlay anywhere, `safeImage.ts:prepareJoinPhoto` shrinks off-DOM fail-soft.
+  `PhotoCropper` is unmounted everywhere (kept in the repo only); don't
+  remount it — it dead-ended two real users' photo changes in one week.
 - **Full-screen overlays must be impossible to render as a dead black
   screen**: every media/async state needs a visible loading beat, an error
   message with a way out, and Cancel always live.
@@ -683,9 +685,13 @@ the pre-#324 flow (pick → photo set instantly → small bounded preview) with
 `src/lib/safeImage.ts:prepareJoinPhoto` shrinking big shots off-DOM as a
 FAIL-SOFT optimisation (any failure = the original file uploads, exactly the
 old behaviour — a photo pick can never block a signup; preview `onError`
-recovers visibly). `PhotoCropper` (hardened: probe-first measure, decode-time
-resize, no `decode()` — Safari rejects it for big photos —, visible fail
-card, 20s watchdog) now mounts ONLY on `StudentAccount`; step 2 now also captures a
+recovers visibly). **2026-07-21: `StudentAccount` went direct-set too** — a
+real helper's account-page photo change silently produced a photo-less save
+(200, no storage object) while his signup photo uploaded fine minutes
+earlier, so the cropper came off the account page as well; `PhotoCropper`
+(hardened: probe-first measure, decode-time resize, no `decode()` — Safari
+rejects it for big photos —, visible fail card, 20s watchdog) is now
+mounted NOWHERE — kept in the repo but don't remount it; step 2 now also captures a
 rough **area** (optional free text → `areas_served`, for nearest-job
 matching) and **how they get around** (multi-select → `application_data.
 transport`; car = the moving/tip-run/wider-radius signal dispatch can later
