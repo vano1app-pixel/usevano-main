@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -1249,30 +1250,44 @@ const StudentAccount = () => {
         </div>
       </main>
 
+      {/* EVERY fixed-position element below is PORTALED TO <body>. The page
+          wrapper (.animate-page-enter, fill-mode: both) retains an identity
+          transform after the enter animation, which makes it the containing
+          block for position:fixed children — unportaled, the save bar and
+          the sheets anchor to the bottom of the ~2300px PAGE, not the
+          viewport (proven 21 Jul: a real photo change showed only the dimmed
+          backdrop — the "little black screen" — with the sheet 1200px below
+          the fold, and the save bar was never pinned). Same escape the
+          booking sheet, search takeover and old cropper use. */}
+
       {/* Fixed save button */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 px-4 py-3">
-        <div className="max-w-sm mx-auto">
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving}
-            className={cn(
-              'w-full h-14 rounded-full font-semibold text-base flex items-center justify-center gap-2 disabled:opacity-50 transition-all duration-200 active:scale-[0.98]',
-              saved ? 'bg-sage text-white' : 'bg-primary text-primary-foreground',
-            )}
-          >
-            {saving ? (
-              <><Loader2 size={17} className="animate-spin" />Saving…</>
-            ) : saved ? (
-              <><CheckCircle2 size={17} />Saved!</>
-            ) : (
-              'Save changes'
-            )}
-          </button>
-        </div>
-      </div>
+      {createPortal(
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 px-4 py-3">
+          <div className="max-w-sm mx-auto">
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={saving}
+              className={cn(
+                'w-full h-14 rounded-full font-semibold text-base flex items-center justify-center gap-2 disabled:opacity-50 transition-all duration-200 active:scale-[0.98]',
+                saved ? 'bg-sage text-white' : 'bg-primary text-primary-foreground',
+              )}
+            >
+              {saving ? (
+                <><Loader2 size={17} className="animate-spin" />Saving…</>
+              ) : saved ? (
+                <><CheckCircle2 size={17} />Saved!</>
+              ) : (
+                'Save changes'
+              )}
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* Photo source sheet */}
+      {createPortal(
       <AnimatePresence>
         {showPhotoSheet && (
           <>
@@ -1309,9 +1324,12 @@ const StudentAccount = () => {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
+      )}
 
       {/* Leave VANO confirmation sheet */}
+      {createPortal(
       <AnimatePresence>
         {showConfirm && (
           <>
@@ -1356,9 +1374,12 @@ const StudentAccount = () => {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
+      )}
 
       {/* Delete account confirmation — requires typing DELETE */}
+      {createPortal(
       <AnimatePresence>
         {showDelete && (
           <>
@@ -1412,7 +1433,9 @@ const StudentAccount = () => {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
+      )}
     </div>
   );
 };
