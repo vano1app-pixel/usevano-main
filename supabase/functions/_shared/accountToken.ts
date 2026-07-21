@@ -23,6 +23,12 @@ export interface AccountTokenPayload {
 /** How long one code-verified account session lasts. */
 export const ACCOUNT_TOKEN_TTL_SECONDS = 30 * 60;
 
+/** How long a "remember this device" token lasts (owner call, July 2026:
+ *  verifying the SMS code once trusts that phone/browser for a month, so
+ *  helpers stop re-typing their number every visit). Same HMAC format —
+ *  the TTL is baked into the token's own `e` at mint time. */
+export const DEVICE_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+
 function secretKey(): string {
   return (Deno.env.get('ACCEPT_LINK_SECRET')?.trim()) ||
          (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
@@ -61,11 +67,14 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-export async function signAccountToken(helperId: string): Promise<string> {
+export async function signAccountToken(
+  helperId: string,
+  ttlSeconds: number = ACCOUNT_TOKEN_TTL_SECONDS,
+): Promise<string> {
   const payload: AccountTokenPayload = {
     p: 'acct',
     h: helperId,
-    e: Math.floor(Date.now() / 1000) + ACCOUNT_TOKEN_TTL_SECONDS,
+    e: Math.floor(Date.now() / 1000) + ttlSeconds,
   };
   const part = b64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const sig = b64urlEncode(await hmac(part));
