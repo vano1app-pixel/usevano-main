@@ -40,18 +40,22 @@ function Card({ h }: { h: HelperRow }) {
     >
       <article className="h-full bg-card rounded-2xl border border-border/40 shadow-sm overflow-hidden flex flex-col transition-[transform,box-shadow,border-color] duration-200 ease-out group-hover:-translate-y-1 group-hover:shadow-tinted-lg group-hover:border-border/70 group-active:scale-[0.98]">
         {/* Faces are the entire point of this section, so the crop must
-            never lose a head. Phones get a SQUARE window anchored to the
-            top of the photo (the tall 4/5 window cropped portrait shots
-            hard and sliced heads off); sm+ keeps the 4/5 portrait window
-            with the 20%-from-top anchor, which frames fine on desktop. */}
-        <div className="w-full aspect-square sm:aspect-[4/5] overflow-hidden bg-secondary/40 flex-shrink-0">
+            never lose a head. ONE framing rule at every breakpoint: the 4/5
+            portrait window with the 20%-from-top anchor — the combination the
+            owner signed off as framing right on desktop. The phone-only
+            square window + object-top variant is gone (21 Jul): top-anchoring
+            showed the headroom ABOVE a face and pushed the face itself out
+            the bottom on real helpers' photos, and since photos went
+            direct-set (no square pre-crop) phones must frame the same
+            arbitrary shapes desktop already handles. */}
+        <div className="w-full aspect-[4/5] overflow-hidden bg-secondary/40 flex-shrink-0">
           <img
             ref={imgRef}
             src={h.photo_url}
             alt={h.name}
             decoding="async"
             onLoad={() => setImgLoaded(true)}
-            className={`w-full h-full object-cover object-top sm:object-[center_20%] transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.03] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            className={`w-full h-full object-cover object-[center_20%] transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.03] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             loading="lazy"
           />
         </div>
@@ -167,7 +171,7 @@ export const HelperCards: React.FC = () => {
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex-shrink-0 w-[200px] sm:w-[220px]">
                   <div className="shimmer h-full bg-card rounded-2xl border border-border/40 overflow-hidden">
-                    <div className="w-full aspect-square sm:aspect-[4/5] bg-secondary/50" />
+                    <div className="w-full aspect-[4/5] bg-secondary/50" />
                     <div className="p-3 space-y-2">
                       <div className="h-3.5 w-2/3 rounded bg-secondary/60" />
                       <div className="h-3 w-full rounded bg-secondary/40" />
