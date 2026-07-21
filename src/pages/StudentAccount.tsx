@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -12,7 +11,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
 import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
-import { PhotoCropper } from '@/components/PhotoCropper';
+import { prepareJoinPhoto } from '@/lib/safeImage';
 import { extractFnError } from '@/lib/fnError';
 import logo from '@/assets/logo.png';
 
@@ -193,10 +192,6 @@ const StudentAccount = () => {
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
   const [showConfirm,    setShowConfirm]    = useState(false);
 
-  // Crop — the raw file waiting to be framed; the shared PhotoCropper handles
-  // the drag/pinch/zoom and hands back a square JPEG.
-  const [cropSrc, setCropSrc] = useState<string | null>(null);
-
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -361,12 +356,26 @@ const StudentAccount = () => {
   }
 
   // ── Photo selection ────────────────────────────────────────────────────────
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // DIRECT-SET, exactly like /join: the picked photo IS the photo, staged
+  // instantly for the next Save. The move-and-scale PhotoCropper used to sit
+  // here and kept silently dead-ending on real phones (21 Jul: a helper's
+  // account-page photo change produced a photo-less save while his signup
+  // photo — the cropper-free path — uploaded fine minutes earlier; same class
+  // as the 16 Jul join-form black screen). prepareJoinPhoto shrinks big shots
+  // off-DOM as a fail-soft optimisation; if it can't, the ORIGINAL file is
+  // staged exactly as picked — a photo pick can never dead-end.
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be re-picked after a cancel
     if (!file) return;
-    e.target.value = '';
-    setCropSrc(URL.createObjectURL(file));
     setShowPhotoSheet(false);
+    if (file.size > 15 * 1024 * 1024) {
+      toast({ title: 'Photo must be under 15 MB', variant: 'destructive' });
+      return;
+    }
+    const prepared = await prepareJoinPhoto(file).catch(() => null);
+    setPhotoFile(prepared?.file ?? file);
+    setPhotoPreview(prepared?.previewUrl ?? URL.createObjectURL(file));
   };
 
   // ── Phone inline save ──────────────────────────────────────────────────────
@@ -1301,31 +1310,6 @@ const StudentAccount = () => {
           </>
         )}
       </AnimatePresence>
-
-      {/* Move-and-scale cropper (shared with the join form).
-          PORTALED TO <body>: the page-transition wrapper (.animate-page-enter)
-          keeps a lingering transform, which makes it the containing block for
-          position:fixed children — so the cropper's `fixed inset-0` overlay
-          would otherwise size to the whole tall page, not the viewport, and
-          render its controls far below the fold (the "black screen" bug).
-          Rendering into <body> escapes that wrapper so fixed = viewport. Same
-          pattern the booking sheet + search takeover already use. */}
-      {createPortal(
-        <AnimatePresence>
-          {cropSrc && (
-            <PhotoCropper
-              src={cropSrc}
-              onCancel={() => setCropSrc(null)}
-              onCropped={(file, previewUrl) => {
-                setPhotoFile(file);
-                setPhotoPreview(previewUrl);
-                setCropSrc(null);
-              }}
-            />
-          )}
-        </AnimatePresence>,
-        document.body,
-      )}
 
       {/* Leave VANO confirmation sheet */}
       <AnimatePresence>
