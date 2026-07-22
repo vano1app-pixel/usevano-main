@@ -35,3 +35,6 @@ dist-ssr
 # Claude Code local files / agent worktrees (harness-managed, never commit)
 .claude/worktrees/
 .claude/settings.local.json
+
+# Supabase CLI local state (auto-generated on every CLI run)
+supabase/.temp/
