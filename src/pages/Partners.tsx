@@ -19,7 +19,7 @@ const STEPS = [
   {
     icon: Link2,
     title: 'Get your link',
-    body: 'Enter your email below — you get a personal invite link in seconds. No forms, no login.',
+    body: 'Enter any email below — you get a personal invite link in seconds. No forms, no login, no union required.',
   },
   {
     icon: Share2,
@@ -138,10 +138,12 @@ const Partners: React.FC = () => (
 
       {/* Who it's for + worked example */}
       <section className="max-w-2xl mx-auto mt-12 text-center">
-        <p className="eyebrow justify-center mb-3">Made for</p>
+        <p className="eyebrow justify-center mb-3">Made for anyone</p>
         <p className="text-base text-foreground/80 leading-relaxed">
-          Student unions and societies raising funds. Class reps with a group
-          chat. Students already helping on VANO who want their friends in.
+          You don't need to be a union. Anyone who knows students can earn:
+          a class rep with a group chat, a helper bringing friends in, a
+          parent, a landlord, a local — or a society raising funds. If you can
+          share a link, you can earn.
         </p>
         <div className="surface-float rounded-2xl bg-white px-5 py-4 mt-6 inline-block">
           <p className="text-sm text-foreground/70">
