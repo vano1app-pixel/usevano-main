@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Copy, Share2, Users, Coins, Loader2 } from 'lucide-react';
+import { Check, Copy, Share2, Users, Coins, Eye, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CommissionEvent {
@@ -20,8 +20,9 @@ interface PartnerInfo {
   pending_cents:     number;
   paid_cents:        number;
   total_cents:       number;
-  // Tracker extras (July 2026) — optional so an older cached function
-  // response can never crash the card.
+  // Tracker extras — optional so an older cached function response can never
+  // crash the card.
+  link_opens?:       number;
   this_month_cents?: number;
   active_helpers?:   number;
   recent?:           CommissionEvent[];
@@ -53,17 +54,23 @@ function shortDate(iso: string): string {
   }
 }
 
-const shareText = (link: string, pct: number) =>
+const shareText = (link: string) =>
   `Earn money with VANO — sign up to do flexible student jobs (cleaning, dog walks, tutoring & more) in minutes. Use my link: ${link}`;
 
 /**
- * "Refer students & earn" — a self-serve partner card for a student union,
- * society, or anyone recruiting helpers. Enter an email, get a shareable code;
- * when a student signs up with it and completes paid jobs, you earn a commission
- * (default 3% of the job, out of VANO's cut — the student's pay is untouched).
- * No login: codes aren't secrets, and the email just keys your earnings.
+ * "Refer students & earn" — the self-serve partner dashboard for anyone
+ * recruiting helpers (a union, a society, or a helper bringing friends in).
+ * Enter an email once, get a shareable code; when a student signs up with it
+ * and completes paid jobs, you earn a commission (default 3% of the job, out of
+ * VANO's cut — the student's pay is untouched). No login: codes aren't secrets,
+ * and the email just keys your earnings.
+ *
+ * Layout when loaded: the CODE + share sits at the very top (it's the thing to
+ * grab), then the money earned, then a funnel of stats (opens → joined → jobs)
+ * and the live earnings feed. `initialEmail` lets a known user (e.g. a
+ * phone-verified helper) skip the email box entirely.
  */
-export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className }) => {
+export const PartnerProgramCard: React.FC<{ className?: string; initialEmail?: string }> = ({ className, initialEmail }) => {
   const [email,   setEmail]   = useState('');
   const [info,    setInfo]    = useState<PartnerInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,12 +87,16 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
     try { localStorage.setItem(EMAIL_KEY, addr); } catch { /* storage may be off */ }
   }
 
-  // Auto-load if we already know the partner's email on this device.
+  // Auto-load if we already know the partner's email — a saved one on this
+  // device, else an `initialEmail` handed in (a phone-verified helper).
   useEffect(() => {
     let saved = '';
     try { saved = localStorage.getItem(EMAIL_KEY) ?? ''; } catch { /* ignore */ }
-    if (saved && EMAIL_RE.test(saved)) { setEmail(saved); void load(saved); }
-  }, []);
+    const addr = (saved && EMAIL_RE.test(saved)) ? saved
+      : (initialEmail && EMAIL_RE.test(initialEmail)) ? initialEmail.trim().toLowerCase()
+      : '';
+    if (addr) { setEmail(addr); void load(addr); }
+  }, [initialEmail]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,7 +113,7 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
 
   function share() {
     if (!info) return;
-    const text = shareText(info.link, info.commission_pct);
+    const text = shareText(info.link);
     if (navigator.share) navigator.share({ title: 'Refer students to VANO', text, url: info.link }).catch(() => {});
     else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   }
@@ -144,7 +155,32 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
         </form>
       ) : (
         <>
-          {/* The headline number — money earned so far, front and centre. */}
+          {/* CODE + share — top of the card: the thing to grab and send. */}
+          <div className="rounded-2xl bg-white border border-border p-3.5 mb-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70 mb-1.5">Your invite code</p>
+            <div className="flex items-center gap-2">
+              <span className="flex-1 min-w-0 rounded-xl bg-secondary/50 border border-border px-3 py-2.5 text-lg font-mono font-bold tracking-[0.2em] text-foreground text-center select-all">
+                {info.code}
+              </span>
+              <button
+                type="button" onClick={copyLink} aria-label="Copy referral link"
+                className="w-11 h-11 rounded-xl border border-border bg-white flex items-center justify-center hover:bg-secondary/60 active:scale-95 transition-[background-color,transform] duration-150 flex-shrink-0"
+              >
+                {copied ? <Check className="w-4 h-4 text-sage" strokeWidth={2.5} /> : <Copy className="w-4 h-4 text-foreground/60" />}
+              </button>
+              <button
+                type="button" onClick={share}
+                className="h-11 px-4 rounded-xl btn-gold text-navy text-sm font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150 flex-shrink-0"
+              >
+                <Share2 className="w-4 h-4" />Share
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2 text-center break-all">
+              {info.link.replace(/^https?:\/\//, '')}
+            </p>
+          </div>
+
+          {/* The headline number — money earned so far. */}
           <div className="rounded-2xl bg-navy px-4 py-4 mb-2.5 text-center relative overflow-hidden">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">Earned so far</p>
             <p className="text-3xl font-extrabold text-white tabular-nums leading-tight mt-0.5">{euros(info.total_cents)}</p>
@@ -155,16 +191,25 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
             )}
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-2 mb-2.5">
-            <div className="rounded-xl bg-white border border-border px-3 py-2 text-center">
-              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Users className="w-3 h-3" />Students joined</p>
+          {/* The funnel — opens → joined → jobs — so a share feels like progress
+              even before the first euro lands. */}
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            <div className="rounded-xl bg-white border border-border px-2 py-2 text-center">
+              <p className="flex items-center justify-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Eye className="w-3 h-3" />Link opens</p>
+              <p className="text-base font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{info.link_opens ?? 0}</p>
+            </div>
+            <div className="rounded-xl bg-white border border-border px-2 py-2 text-center">
+              <p className="flex items-center justify-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Users className="w-3 h-3" />Joined</p>
               <p className="text-base font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{info.signups}</p>
             </div>
-            <div className="rounded-xl bg-white border border-border px-3 py-2 text-center">
-              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Coins className="w-3 h-3" />Jobs earned on</p>
+            <div className="rounded-xl bg-white border border-border px-2 py-2 text-center">
+              <p className="flex items-center justify-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Coins className="w-3 h-3" />Jobs</p>
               <p className="text-base font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{info.jobs}</p>
             </div>
+          </div>
+
+          {/* Money split. */}
+          <div className="grid grid-cols-2 gap-2 mb-2.5">
             <div className="rounded-xl bg-white border border-border px-3 py-2 text-center">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Pending</p>
               <p className="text-base font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{euros(info.pending_cents)}</p>
@@ -176,7 +221,7 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
           </div>
 
           {/* Recent earnings feed — money landing while you did nothing. */}
-          <div className="rounded-xl bg-white border border-border px-3 py-2.5 mb-3">
+          <div className="rounded-xl bg-white border border-border px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1.5">Recent earnings</p>
             {(info.recent?.length ?? 0) > 0 ? (
               <ul className="divide-y divide-border/60">
@@ -198,27 +243,6 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
               </p>
             )}
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="flex-1 min-w-0 rounded-xl bg-white border border-border px-3 py-2.5 text-sm font-mono font-bold tracking-widest text-foreground text-center select-all">
-              {info.code}
-            </span>
-            <button
-              type="button" onClick={copyLink} aria-label="Copy referral link"
-              className="w-10 h-10 rounded-xl border border-border bg-white flex items-center justify-center hover:bg-secondary/60 active:scale-95 transition-[background-color,transform] duration-150 flex-shrink-0"
-            >
-              {copied ? <Check className="w-4 h-4 text-sage" strokeWidth={2.5} /> : <Copy className="w-4 h-4 text-foreground/60" />}
-            </button>
-            <button
-              type="button" onClick={share}
-              className="h-10 px-4 rounded-xl btn-gold text-navy text-sm font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150 flex-shrink-0"
-            >
-              <Share2 className="w-4 h-4" />Share
-            </button>
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-2.5 text-center break-all">
-            {info.link.replace(/^https?:\/\//, '')}
-          </p>
         </>
       )}
 

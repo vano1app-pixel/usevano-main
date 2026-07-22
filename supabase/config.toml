@@ -155,6 +155,10 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.partner-program]
     verify_jwt = false
+  # Records a distinct-device open of a /join?ref=CODE link (top of the
+  # referral funnel). Guest entry point, fail-soft, only ever bumps a counter.
+  [functions.track-referral-open]
+    verify_jwt = false
   [functions.attach-referral-code]
     verify_jwt = false
   [functions.admin-cancel-helper-memberships]

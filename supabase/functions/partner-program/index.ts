@@ -126,6 +126,13 @@ serve(async (req) => {
       .select('id', { count: 'exact', head: true })
       .eq('code_id', codeRow.id);
 
+    // Distinct devices that OPENED this code's link — the top of the funnel
+    // (track-referral-open dedups per device, so this is "people", not loads).
+    const { count: linkOpens } = await supabase
+      .from('referral_code_visits')
+      .select('id', { count: 'exact', head: true })
+      .eq('code_id', codeRow.id);
+
     // Earnings split by status, plus the live-tracker extras: this-month
     // total, distinct earning helpers, and a recent-activity feed. The feed
     // is what makes the card read as passive income actually landing.
@@ -185,6 +192,7 @@ serve(async (req) => {
         link: `${siteUrl}/join?ref=${codeRow.code}`,
         commission_pct: (codeRow.commission_bps ?? 300) / 100,
         signups: signups ?? 0,
+        link_opens: linkOpens ?? 0,
         jobs,
         pending_cents: pendingCents,
         paid_cents: paidCents,

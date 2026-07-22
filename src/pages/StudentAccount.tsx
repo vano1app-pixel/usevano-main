@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
+import { ReferralEntryCard } from '@/components/household/ReferralEntryCard';
 import { useToast } from '@/hooks/use-toast';
 import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { prepareJoinPhoto } from '@/lib/safeImage';
@@ -930,6 +931,11 @@ const StudentAccount = () => {
         </div>
 
         <div className="space-y-7">
+          {/* Refer & earn — helpers recruiting friends is the network-effect
+              loop. They're phone-verified here, so pass their email through and
+              /refer loads their code + earnings with zero typing. */}
+          <ReferralEntryCard prefillEmail={helper.email ?? undefined} />
+
           {/* Get VANO Verified — finish the missing checks to earn the blue
               tick. Hidden until the flags are known (see verificationKnown). */}
           {verificationKnown && !vanoVerified && (

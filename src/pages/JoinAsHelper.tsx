@@ -14,6 +14,7 @@ import { SKILL_GROUPS, defaultSelectedGroups, toggleGroup, toggleSub } from '@/l
 import { haptic } from '@/lib/haptics';
 import { prepareJoinPhoto } from '@/lib/safeImage';
 import { assessPhotoQuality } from '@/lib/photoQuality';
+import { getVisitorId } from '@/lib/visitorId';
 
 // The jobs customers actually book, shared with the account page via
 // helperSkills (groups gate dispatch matching; sub-skills are profile
@@ -93,6 +94,12 @@ const inputClass =
 const labelClass = 'text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5 block';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Referral-open codes already tracked in THIS page session — a synchronous
+// guard so a dev/StrictMode double-mount can't fire the tracker twice (the
+// localStorage guard covers across-visit repeats, the server dedupes per
+// device regardless).
+const openTrackedCodes = new Set<string>();
 const PHONE_RE = /^\+?[\d\s\-().]{7,15}$/;
 
 // Personal-provider domains that can never verify as a college address. A
@@ -290,6 +297,27 @@ export const JoinAsHelper: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
+
+  // Count this OPEN of a partner's link (top of the referral funnel), once per
+  // device per code. Fires on page load whenever a ?ref is present — even if
+  // they never finish signing up, the partner should see they got a click.
+  // Best-effort: the localStorage guard stops refresh spam across visits, the
+  // module-level set stops a StrictMode/dev double-mount firing twice in one
+  // session, the server dedupes per device regardless, and any failure is
+  // swallowed (a signup never depends on it).
+  useEffect(() => {
+    let code = '';
+    try { code = (new URLSearchParams(window.location.search).get('ref') ?? '').trim().toUpperCase(); } catch { code = ''; }
+    if (!/^[A-Z0-9]{4,12}$/.test(code)) return;
+    if (openTrackedCodes.has(code)) return;
+    const firedKey = `vano_ref_open_${code}`;
+    try { if (localStorage.getItem(firedKey)) return; } catch { /* ignore */ }
+    openTrackedCodes.add(code); // synchronous guard — before the async fire
+    void supabase.functions
+      .invoke('track-referral-open', { body: { code, visitor_key: getVisitorId() } })
+      .then(() => { try { localStorage.setItem(firedKey, '1'); } catch { /* ignore */ } })
+      .catch(() => { /* tracking is non-critical */ });
+  }, []);
 
   // Peer social proof: real approved-helper faces + a live count. Students are
   // deciding whether an unknown startup will actually pay them — seeing peers
