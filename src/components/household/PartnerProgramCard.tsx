@@ -131,28 +131,33 @@ export const PartnerProgramCard: React.FC<{ className?: string; initialEmail?: s
         <div>
           <p className="text-sm font-bold text-foreground">Refer students &amp; earn</p>
           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-            Share your link once — every time a student you brought in completes a job, you
-            automatically earn {info ? `${info.commission_pct}%` : '3%'} of it. We email you each time money lands.
+            Anyone can do this — share your link once, and every time a student you brought in
+            completes a job you automatically earn {info ? `${info.commission_pct}%` : '3%'} of it. We email you each time money lands.
           </p>
         </div>
       </div>
 
       {!info ? (
-        <form onSubmit={submit} className="flex gap-2">
-          <input
-            type="email" inputMode="email" autoComplete="email"
-            value={email}
-            onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
-            placeholder="you@union.ie"
-            className="flex-1 min-w-0 rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent"
-          />
-          <button
-            type="submit" disabled={loading}
-            className="btn-gold flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Get my code'}
-          </button>
-        </form>
+        <>
+          <form onSubmit={submit} className="flex gap-2">
+            <input
+              type="email" inputMode="email" autoComplete="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
+              placeholder="you@email.com"
+              className="flex-1 min-w-0 rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent"
+            />
+            <button
+              type="submit" disabled={loading}
+              className="btn-gold flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Get my code'}
+            </button>
+          </form>
+          <p className="text-[11px] text-muted-foreground/80 mt-2 leading-snug">
+            Any email works — you don't need to be a student union. Friends, family, classmates, anyone.
+          </p>
+        </>
       ) : (
         <>
           {/* CODE + share — top of the card: the thing to grab and send. */}
