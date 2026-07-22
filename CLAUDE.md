@@ -534,9 +534,19 @@ trigger fired on `household_payouts` inserts, which direct-pay never writes
 — migration `20260720120000` added `trg_accrue_referral_commission_direct_pay`
 (fires on the booking's completed flip, direct-pay only; both triggers dedup
 on a unique `booking_id` index so a booking can never accrue twice).
-`partner-program` returns tracker extras (`this_month_cents`,
+`partner-program` returns tracker extras (`link_opens`, `this_month_cents`,
 `active_helpers`, `recent[]` — first names + categories only) and
-`PartnerProgramCard` renders them as an earnings dashboard;
+`PartnerProgramCard` renders them as a dashboard (code + share up TOP, then
+earnings + a funnel: opens → joined → jobs). **Link-open tracking
+(2026-07-21):** `/join?ref=CODE` fires `track-referral-open` once per device
+(`src/lib/visitorId.ts` key; module-set + localStorage + server unique index
+all dedupe), which upserts `referral_code_visits (code_id, visitor_key)` —
+so the tracker shows the top of the funnel ("people opened your link"), not
+just signups. **The referral hub is a tap-in:** `ReferralEntryCard` (a
+compact "Refer & earn 3%" row, like the Helper-account row) sits on `/account`
+and on `/student-account` (helper edition passes their email so the hub loads
+with zero typing) and opens `/refer` — the focused page that renders the
+card + a funnel legend. `/partners` stays the cold recruiter landing.
 `notify-partner-commissions` (hourly cron) emails partners a "you just
 earned €X" digest, idempotent via `referral_commissions.notified_at`
 (stamped BEFORE sending). Payouts to partners remain MANUAL — the status

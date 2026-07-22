@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
-import { PartnerProgramCard } from '@/components/household/PartnerProgramCard';
+import { ReferralEntryCard } from '@/components/household/ReferralEntryCard';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { teamWhatsAppHref } from '@/lib/contact';
 
@@ -179,11 +179,13 @@ const Account: React.FC = () => {
         )}
 
         {/* Partner program — THE growth loop (owner call, July 2026): recruit
-            students, earn 3% of every job they do. The old Give €5 Get €5
-            customer card is parked — its checkout credits still honour, but
-            the promotion slot belongs to the network-effect play. */}
+            students, earn 3% of every job they do. A tap-in entry (not the
+            always-open dashboard) keeps this page clean and makes /refer the
+            deliberate destination. The old Give €5 Get €5 customer card is
+            parked — its credits still honour, but the slot belongs to the
+            network-effect play. */}
         <div className="mb-4">
-          <PartnerProgramCard />
+          <ReferralEntryCard />
         </div>
 
         {/* Links */}
