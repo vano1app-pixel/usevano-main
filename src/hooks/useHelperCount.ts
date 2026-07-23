@@ -27,11 +27,16 @@ function fetchHelperCount(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inflight = (supabase as any)
       .from('household_helpers')
-      // Honest "helpers online" = approved + available helpers. Count by id —
-      // anon doesn't have SELECT on every column, so * would 403.
+      // Honest "helpers online" = helpers who could actually be SENT a job:
+      // approved + available + ID-VERIFIED. Dispatch only ever offers jobs to
+      // id_verified helpers, so an email-verified signup who never did the ID
+      // check must not inflate the pill (owner call 2026-07-23: it read "20
+      // helpers online" while only 8 were dispatchable — don't lie). Count by
+      // id — anon doesn't have SELECT on every column, so * would 403.
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .eq('is_available', true)
+      .eq('id_verified', true)
       .then(({ count }: { count: number | null }) => {
         cachedCount = count ?? 0;
         resolved = true;

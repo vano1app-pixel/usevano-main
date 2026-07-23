@@ -306,7 +306,10 @@ extend it.
   €2/month is buying a lie.
 - **"ID-verified" claims stay keyed on `id_verified` alone** (they're true
   regardless of payment); the BLUE TICK is the paid thing. Never render
-  either unless its flag is true.
+  either unless its flag is true. The hero's live "helpers online" pill
+  (`useHelperCount`) counts ONLY the dispatchable pool — approved +
+  available + `id_verified` — never raw signups (2026-07-23: raw count
+  said 20 while only 8 could take a job).
 - NO grandfather: the owner chose one deal for everyone — old one-off-€2
   payers also verify + pay €2/month for the tick (their flags were reset
   2026-07-07). cancel-verified-plan still handles a plan row with no Stripe
