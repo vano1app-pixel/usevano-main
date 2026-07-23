@@ -4,6 +4,7 @@ import { MessageCircle, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { useAuth } from '@/hooks/useAuthContext';
+import { useVanoStats, formatVanoStats } from '@/hooks/useVanoStats';
 import { SocialLinks } from './SocialLinks';
 import logo from '@/assets/logo.png';
 
@@ -17,6 +18,8 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
   // to their real helper account.
   const { userType } = useAuth();
   const accountHref = userType === 'student' ? '/student-account' : '/account';
+  // Lowkey platform numbers (desktop edition — phones show them in the hero).
+  const statsLine = formatVanoStats(useVanoStats());
   const [scrolled,  setScrolled]  = useState(false);
   const [hidden,    setHidden]    = useState(false);
   const lastY = useRef(0);
@@ -82,6 +85,20 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
             VANO
           </span>
         </Link>
+
+        {/* Lowkey platform numbers beside the lockup — lg+ only (the phone
+            bar is full; phones get the hero's line). Renders only once real
+            positive counts land — never a zero. */}
+        {statsLine && (
+          <span
+            className={cn(
+              'hidden lg:inline-block ml-4 mr-auto text-[13px] font-medium tracking-wide tabular-nums whitespace-nowrap transition-colors duration-300',
+              dark ? 'text-white/60' : 'text-foreground/50',
+            )}
+          >
+            {statsLine}
+          </span>
+        )}
 
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Follow buttons — md+ only; the phone bar is already full, so
