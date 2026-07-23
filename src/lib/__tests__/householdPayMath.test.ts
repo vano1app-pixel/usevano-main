@@ -72,7 +72,7 @@ describe('vano booking fee — 15% of the job price, €4 minimum', () => {
 
   it('floors at €4 on small jobs (15% would be less)', () => {
     expect(computeVanoFeeCents(1200)).toBe(400); // €12 min booking → 15% = €1.80 → €4
-    expect(computeVanoFeeCents(1500)).toBe(400); // €15 laundry/walk → 15% = €2.25 → €4
+    expect(computeVanoFeeCents(1500)).toBe(400); // €15 walk → 15% = €2.25 → €4
     expect(computeVanoFeeCents(2000)).toBe(400); // €20 walk → 15% = €3 → €4
     expect(computeVanoFeeCents(2600)).toBe(400); // €26.66 is the last €4 price point
     expect(computeVanoFeeCents(2700)).toBe(405); // …from €27 the 15% takes over
@@ -118,7 +118,7 @@ describe('shared price source matches the server', () => {
   });
 
   it('prices each category/size exactly as computePriceCents does', () => {
-    expect(getHouseholdPriceCents('shopping', '')).toBe(1500);   // flat laundry
+    expect(getHouseholdPriceCents('shopping', '')).toBe(3000);   // flat laundry (€30, owner reprice 2026-07-23)
     expect(getHouseholdPriceCents('dog-walk', '30 min')).toBe(1500);
     expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
     expect(getHouseholdPriceCents('cleaning', '2 hours')).toBe(3600);

@@ -64,7 +64,7 @@ describe('WhatsApp quote = price + the same 7.5% service fee checkout charges', 
   it('quotes flat laundry with no size answer', () => {
     expect(needsSize('shopping')).toBe(false);
     const q = quoteDraft('shopping', '')!;
-    expect(q.priceCents).toBe(1500);
+    expect(q.priceCents).toBe(3000);
   });
 
   it('returns null for an unpriceable duration (caller re-asks)', () => {

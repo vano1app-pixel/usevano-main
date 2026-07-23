@@ -47,7 +47,7 @@ export const SERVICE_FEE_PCT = 0.075;
 export function computePriceCents(category: Category, sizeLabel: string, extraLabel: string): number | null {
   // Flat-rate errand services
   const flat: Partial<Record<Category, number>> = {
-    'shopping':      1500,
+    'shopping':      3000, // Laundry €15→€30 (owner reprice 2026-07-23) — mirror src/lib FLAT_PRICE_CENTS
     'post-office':   1000,
     'pharmacy-run':  1200, // €12 — covers student travel + time
   };

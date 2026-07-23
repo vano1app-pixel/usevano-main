@@ -259,7 +259,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Someone takes the ironing pile off your hands — by the basket or by the hour.",
     category: "Home services",
     bodyHtml: `
-<p>An <strong>ironing service</strong> means a helper works through your ironing pile — shirts, uniforms, bedding — so you don't spend your Sunday evening on it. It pairs naturally with Vano's <a href="/services/laundry-service-galway">laundry service</a> (€15, collected, washed and returned folded) or can be booked on its own as a custom job.</p>
+<p>An <strong>ironing service</strong> means a helper works through your ironing pile — shirts, uniforms, bedding — so you don't spend your Sunday evening on it. It pairs naturally with Vano's <a href="/services/laundry-service-galway">laundry service</a> (€30, collected, washed and returned folded) or can be booked on its own as a custom job.</p>
 <p>Like all time-based Vano jobs it's <strong>€18/hr</strong>, your helper keeps 100%, and you pay them directly when it's done — <a href="/glossary/pay-after-accept">nothing is charged until a helper says yes</a>.</p>
 `,
     related: ["same-day-home-help", "pay-after-accept", "vano-helper"],

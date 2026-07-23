@@ -120,7 +120,9 @@ export const HeroSection: React.FC = () => {
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           className="display-lg text-foreground text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.8rem] mb-5 sm:mb-4"
         >
-          Get help at home from a{' '}
+          {/* "at home" dropped 2026-07-23 (owner): the Business temp-staff
+              tile means shops book here too — the promise is the student. */}
+          Get help from a{' '}
           <span className="relative inline-block">
             trusted local student
             <motion.span

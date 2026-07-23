@@ -35,7 +35,7 @@ export const HOURLY_RATE_CENTS: Record<string, number> = {
 
 /** Flat, JOB-BASED prices (one price for the task done), in cents. */
 export const FLAT_PRICE_CENTS: Record<string, number> = {
-  shopping: 1500, // Laundry — collected, washed, returned folded
+  shopping: 3000, // Laundry — collected, washed, returned folded (€15→€30, owner reprice 2026-07-23)
 };
 
 /** Leading hour count from a size label ("2 hours", "4+ hours") → 1–8 or null. */
