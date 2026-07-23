@@ -6,16 +6,25 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // pill). Service-role counts because anon can't read household_bookings —
 // only aggregate NUMBERS ever leave this function, never rows.
 //
-// Honesty rules (same spirit as the old pill fix):
-// - students = approved AND available helpers. Junk signups are born
-//   unavailable until their email verifies, so they never inflate this.
-// - jobs = real bookings only: cancelled and never-secured awaiting_payment
-//   rows don't count.
+// Honesty rules (owner call 2026-07-23 — "don't lie, say the real number:
+// 8 students, 6 jobs"):
+// - students = the DISPATCHABLE pool: approved + available + ID-VERIFIED,
+//   the same filter as the old hero pill fix. 20 signups were available on
+//   2026-07-23 but only 8 could actually be sent a job — 8 is the truth.
+// - jobs = BASELINE_JOBS (owner-attested real jobs arranged via WhatsApp /
+//   manually BEFORE the pipeline tracked them — the bookings table holds
+//   zero completed rows as of 2026-07-23) + live completed/paid bookings
+//   from the DB, so the number grows by itself from here. Cancelled rows
+//   never count, even if they were briefly paid.
 //
 // Fail-soft: any error → 200 with nulls, the UI just hides the line.
 // Cached 5 min at the edge — the landing page must never wait on this.
 //
 // verify_jwt = false (pinned in config.toml) — public read-only aggregates.
+
+// Owner statement 2026-07-23: 6 real jobs done pre-pipeline. Bump via the
+// VANO_STATS_BASELINE_JOBS secret if more offline jobs need counting.
+const BASELINE_JOBS = Number(Deno.env.get('VANO_STATS_BASELINE_JOBS') ?? '6');
 
 const FALLBACK_ORIGINS = [
   'https://vanojobs.com', 'https://www.vanojobs.com',
@@ -67,19 +76,28 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
-    const [helpersRes, jobsRes] = await Promise.all([
+    const [helpersRes, doneRes, liveRes] = await Promise.all([
       supabase.from('household_helpers')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'approved')
-        .eq('is_available', true),
+        .eq('is_available', true)
+        .eq('id_verified', true),
+      // Real jobs, part 1: completed bookings.
       supabase.from('household_bookings')
         .select('id', { count: 'exact', head: true })
-        .not('status', 'in', '(cancelled,awaiting_payment)'),
+        .eq('status', 'completed'),
+      // Real jobs, part 2: paid and in-flight (accepted → in_progress) —
+      // booked in every honest sense, just not finished yet.
+      supabase.from('household_bookings')
+        .select('id', { count: 'exact', head: true })
+        .not('status', 'in', '(cancelled,awaiting_payment,completed)')
+        .not('paid_at', 'is', null),
     ]);
+    const jobsFailed = doneRes.error || liveRes.error;
     return new Response(
       JSON.stringify({
         students: helpersRes.error ? null : (helpersRes.count ?? 0),
-        jobs:     jobsRes.error    ? null : (jobsRes.count ?? 0),
+        jobs:     jobsFailed ? null : BASELINE_JOBS + (doneRes.count ?? 0) + (liveRes.count ?? 0),
       }),
       { headers },
     );
