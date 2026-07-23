@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useVanoStats, formatVanoStats } from '@/hooks/useVanoStats';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ReviewBadges } from './ReviewBadges';
@@ -22,9 +21,9 @@ import { track } from '@/lib/track';
 
 export const HeroSection: React.FC = () => {
   // The old "N helpers online" pill is GONE (owner call 2026-07-23: it ate
-  // the trust row's space) — the review chips own that moment now, and the
-  // platform numbers live as a lowkey line: nav on lg+, this hero line below.
-  const statsLine = formatVanoStats(useVanoStats());
+  // the trust row's space) — the review chips own that moment. The platform
+  // numbers ("N students · N jobs booked") live ONLY in the lg+ nav now;
+  // the phone hero dropped its copy the same day (it crowded the top).
 
   return (
     // LIGHT hero (July 2026): the paying customer is the 35+ Galway homeowner
@@ -69,37 +68,9 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-2.5 lg:mb-8 flex flex-row flex-wrap items-center justify-center gap-2"
+          className="mb-4 lg:mb-8 flex flex-row flex-wrap items-center justify-center gap-2"
         >
           <ReviewBadges inline />
-        </motion.div>
-
-        {/* Lowkey platform numbers, phone/tablet edition (lg+ shows them in
-            the top nav instead). Renders ONLY once real positive counts land
-            — never a zero, never a skeleton. */}
-        {statsLine && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="lg:hidden -mt-0.5 mb-2 text-[11.5px] font-medium tracking-wide text-foreground/50 tabular-nums"
-          >
-            {statsLine}
-          </motion.p>
-        )}
-
-        {/* Phone-only follow row — the nav carries these buttons from md up,
-            but the phone bar has no room, and phones are where the socials
-            actually convert. Sits under the trust chips so trust proof still
-            opens the page. */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="md:hidden mb-5 flex items-center justify-center gap-2.5"
-        >
-          <span className="text-xs font-semibold tracking-wide text-foreground/55 whitespace-nowrap">Follow VANO</span>
-          <SocialLinks variant="chip" className="flex" />
         </motion.div>
 
         {/* Heading — the mom test (one plain sentence that says WHAT this is
@@ -175,6 +146,20 @@ export const HeroSection: React.FC = () => {
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
           Prefer to text? Book on WhatsApp — we sort it for you
         </motion.a>
+
+        {/* Phone-only follow row — the nav carries these buttons from md up,
+            but the phone bar has no room. Moved to the QUIET zone under the
+            WhatsApp door (owner call 2026-07-23: at the top it pushed the
+            headline down) — socials close the hero, they don't open it. */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="md:hidden mt-4 flex items-center justify-center gap-2.5"
+        >
+          <span className="text-xs font-semibold tracking-wide text-foreground/55 whitespace-nowrap">Follow VANO</span>
+          <SocialLinks variant="chip" className="flex" />
+        </motion.div>
       </div>
 
       <ScrollCue tone="dark" delay={1.2} />
