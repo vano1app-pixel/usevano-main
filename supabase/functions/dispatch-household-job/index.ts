@@ -39,6 +39,7 @@ const GAP_NUDGE_MAX_RECIPIENTS = 5; // per dispatch
 const GAP_NUDGE_COOLDOWN_DAYS = 7;  // per helper, across all categories
 
 const CATEGORY_LABELS: Record<string, string> = {
+  business: 'Business temp staff',
   shopping: 'Laundry',
   'dog-walk': 'Dog walk',
   garden: 'Garden help',
@@ -484,7 +485,10 @@ serve(async (req) => {
     // by it would match NOBODY and silently kill the entire search-bar funnel
     // — custom jobs are everyday tasks any approved helper can do, so they
     // fan out to everyone available. Real categories still filter as before.
-    const isCatchAll = category === 'custom';
+    // 'business' (temp staff — flyers/sampling/shop cover, owner test
+    // 2026-07-23) is the same shape: not a join-form skill, any approved
+    // helper can do it, so it fans out too. Both auto-skip gap nudges below.
+    const isCatchAll = category === 'custom' || category === 'business';
 
     // Find helpers in the booking city first (bookings without a city skip
     // straight to the platform-wide search below).

@@ -11,6 +11,12 @@ interface Review {
   stars:     number;
   /** True only for ratings pulled from real completed bookings. */
   verified?: boolean;
+  /** Where the review was left. 'vano' = in-app post-booking rating (the
+   *  only live source today). 'google' / 'trustpilot' are rendered with a
+   *  "Left on X" byline the moment those feeds are wired (Google needs the
+   *  Places API key; Trustpilot their business API) — the display side is
+   *  ready so wiring a feed is purely additive. */
+  source?:   'vano' | 'google' | 'trustpilot';
 }
 
 // NO seed/invented testimonials — ever. The section renders ONLY ratings
@@ -71,6 +77,7 @@ function useReviews(): Review[] {
             color:    REAL_COLORS[i % REAL_COLORS.length],
             stars:    r.rating,
             verified: true,
+            source:   'vano' as const,
           }));
         if (real.length > 0) setReviews(real);
       });
@@ -103,10 +110,22 @@ function Stars({ count }: { count: number }) {
 }
 
 function Byline({ r }: { r: Review }) {
+  // Platform-labelled reviews say exactly where they were left; in-app
+  // ratings keep the "Verified booking" tick (they come from real paid
+  // bookings, which the external platforms can't verify).
+  const platform =
+    r.source === 'google' ? { label: 'Left on Google', color: 'text-[#4285F4]' }
+    : r.source === 'trustpilot' ? { label: 'Left on Trustpilot', color: 'text-[#00B67A]' }
+    : null;
   return (
     <div className="min-w-0">
       <p className="text-xs font-semibold text-foreground leading-tight">{r.name} · {r.area}</p>
-      {r.verified ? (
+      {platform ? (
+        <p className={`flex items-center gap-1 text-[10px] font-medium mt-0.5 ${platform.color}`}>
+          <Star className="w-3 h-3 flex-shrink-0 fill-current" aria-hidden="true" />
+          {platform.label}
+        </p>
+      ) : r.verified ? (
         <p className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium mt-0.5">
           <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Verified booking

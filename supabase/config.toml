@@ -161,6 +161,10 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.attach-referral-code]
     verify_jwt = false
+  # Public read-only aggregates (students + jobs counts) for the landing
+  # page's lowkey stats — anon by design, returns numbers only.
+  [functions.public-stats]
+    verify_jwt = false
   [functions.admin-cancel-helper-memberships]
     verify_jwt = false
   [functions.update-stripe-webhook-events]

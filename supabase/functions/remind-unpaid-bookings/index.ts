@@ -33,7 +33,7 @@ import { resolveMoneyAction, releaseBookingMoney } from "../_shared/bookingMoney
 //   PAY_TIMEOUT_HOURS            release + cancel after this long unpaid         (default 6)
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
+  business: 'Business temp staff', shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
   handyman: 'Handyman', plumbing: 'Plumbing help',
   'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',

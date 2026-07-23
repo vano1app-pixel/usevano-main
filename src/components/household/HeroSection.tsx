@@ -1,8 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useHelperCount } from '@/hooks/useHelperCount';
-import { helperPresenceTier } from '@/lib/helperPresence';
-import { useCountUp } from '@/hooks/useCountUp';
+import { useVanoStats, formatVanoStats } from '@/hooks/useVanoStats';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ReviewBadges } from './ReviewBadges';
@@ -23,14 +21,10 @@ import { track } from '@/lib/track';
  */
 
 export const HeroSection: React.FC = () => {
-  const { count: helperCount, ready: helperReady } = useHelperCount();
-  const displayCount = useCountUp(helperCount);
-
-  const presenceTier = helperPresenceTier(helperCount, helperReady);
-  const presenceLabel =
-    presenceTier === 'count'      ? `${displayCount} helpers online · Galway`
-    : presenceTier === 'available' ? 'Helpers available · Galway'
-    : 'Same-day help in Galway';
+  // The old "N helpers online" pill is GONE (owner call 2026-07-23: it ate
+  // the trust row's space) — the review chips own that moment now, and the
+  // platform numbers live as a lowkey line: nav on lg+, this hero line below.
+  const statsLine = formatVanoStats(useVanoStats());
 
   return (
     // LIGHT hero (July 2026): the paying customer is the 35+ Galway homeowner
@@ -69,33 +63,30 @@ export const HeroSection: React.FC = () => {
           <ReferralWelcomeBanner />
         </div>
 
-        {/* One centered row of trust chips — Trustpilot + the live "helpers
-            online" count side by side (they used to stack; one line saves
-            height so the whole hero fits a desktop viewport). */}
+        {/* The trust chips own the opener (Trustpilot + Google) — the old
+            helpers-online pill was removed so they get the room. */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-2.5 md:mb-8 flex flex-row flex-wrap items-center justify-center gap-2"
+          className="mb-2.5 lg:mb-8 flex flex-row flex-wrap items-center justify-center gap-2"
         >
           <ReviewBadges inline />
-          {!helperReady ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 sm:px-4 sm:py-2.5 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-foreground/15 flex-shrink-0" aria-hidden="true" />
-              <span className="w-28 h-3.5 rounded-full bg-secondary relative overflow-hidden">
-                <span className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-foreground/10 to-transparent" />
-              </span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border/70 px-3.5 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-[15px] font-medium text-foreground/90 shadow-sm">
-              <span className="relative flex h-2 w-2 flex-shrink-0" aria-hidden="true">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-50 animate-ping" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <span className="tracking-wide whitespace-nowrap">{presenceLabel}</span>
-            </span>
-          )}
         </motion.div>
+
+        {/* Lowkey platform numbers, phone/tablet edition (lg+ shows them in
+            the top nav instead). Renders ONLY once real positive counts land
+            — never a zero, never a skeleton. */}
+        {statsLine && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            className="lg:hidden -mt-0.5 mb-2 text-[11.5px] font-medium tracking-wide text-foreground/50 tabular-nums"
+          >
+            {statsLine}
+          </motion.p>
+        )}
 
         {/* Phone-only follow row — the nav carries these buttons from md up,
             but the phone bar has no room, and phones are where the socials
@@ -120,7 +111,9 @@ export const HeroSection: React.FC = () => {
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           className="display-lg text-foreground text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.8rem] mb-5 sm:mb-4"
         >
-          Get help at home from a{' '}
+          {/* "at home" dropped 2026-07-23 (owner): the Business temp-staff
+              tile means shops book here too — the promise is the student. */}
+          Get help from a{' '}
           <span className="relative inline-block">
             trusted local student
             <motion.span

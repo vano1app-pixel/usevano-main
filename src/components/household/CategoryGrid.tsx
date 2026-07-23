@@ -34,12 +34,25 @@ interface Category {
 const CATEGORIES: Category[] = [
   {
     // Laundry: the helper collects, washes/dries/folds and returns it. Flat
-    // rate, one-off — finishes when the customer marks it done. Slug stays
-    // 'shopping' so existing bookings, pricing and the DB category all keep
-    // working; only the customer-facing wording changed.
+    // €30 (owner reprice 2026-07-23), one-off — finishes when the customer
+    // marks it done. Slug stays 'shopping' so existing bookings, pricing and
+    // the DB category all keep working; only the customer-facing wording
+    // changed.
     emoji: '🧺', label: 'Laundry', slug: 'shopping',
     hint: 'Collected, washed & returned folded',
     description: 'Your helper collects your laundry, washes, dries and folds it, and brings it back to your door — fresh and sorted.',
+  },
+  {
+    // BUSINESS temp staff (owner test, 2026-07-23): flyers, sampling, events,
+    // busking for pubs, shop cover — the demand probe for shops & brands.
+    // Renders as the NAVY 6th tile (it took the "Anything else" slot on
+    // 2026-07-23 — see the grid render; the describe-it door is parked).
+    // Premium €22/hr, 2-hour minimum shift; dispatches to ALL id_verified
+    // helpers like 'custom' (it's not a join-form skill).
+    emoji: '💼', label: 'Business', slug: 'business',
+    hint: 'Flyers, samples, events, music & shop cover',
+    description: 'Temp staff for your business — flyer runs, sampling, event help, busking & live music, shop-floor cover. ID-verified students, same day.',
+    sizeLabel: 'How long?', sizes: ['2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
   },
   {
     // Renamed "Dog walk" → "Pets" (July 2026): the sub-service step underneath
@@ -92,7 +105,10 @@ const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hour
 // Short visit jobs (dog walk, bins, key-drop…) can be booked sub-hour, from €12.
 const SHORT_DURATIONS = ['30 min', '45 min', '1 hour', '2 hours'];
 
-// The "Anything else" tile's entry — opens the sheet on the describe-it page.
+// The "Anything else" tile's entry — opened the sheet on the describe-it
+// page. PARKED 2026-07-23 (owner call: the Business tile took the navy 6th
+// slot). The describe-it machinery below (isDescribe, describeRows) stays
+// intact — remount by rendering a tile that calls openSheet(CUSTOM_TILE).
 const CUSTOM_TILE: Category = {
   emoji: '✨', label: 'Anything else', slug: 'custom',
   hint: 'An ID-verified student, matched to your job',
@@ -108,7 +124,11 @@ const CUSTOM_TILE: Category = {
 // show exactly what was asked for. jobKeys MUST exist in customJobs.ts — the
 // catalogue is the single source of labels/emoji/hours AND the legal screen.
 type SubService =
-  | { kind: 'core'; label: string; emoji: string; size?: string }
+  // carry: the picked label rides into note + extra_label so dispatch texts
+  // and the helper's job screen say the REAL job ("Flyer & leaflet runs"),
+  // not just the category. Only business subs set it — household core rows
+  // ("Standard clean") add nothing a helper needs.
+  | { kind: 'core'; label: string; emoji: string; size?: string; carry?: boolean }
   | { kind: 'custom'; jobKey: string };
 
 const SUB_SERVICES: Record<string, { featured: SubService[]; more: SubService[] }> = {
@@ -198,6 +218,34 @@ const SUB_SERVICES: Record<string, { featured: SubService[]; more: SubService[] 
     ],
     more: [],
   },
+  business: {
+    // The job list is deliberately WIDE (owner call: businesses should scroll
+    // and recognise their own need). All core+carry → every row books the
+    // 'business' category at €22/hr and the picked label rides to dispatch.
+    // Kept clear of licensed work: no door SECURITY (PSA licence), no
+    // driving, no trades — greeting/queueing, performing, stock and promo
+    // are all fine for a student.
+    featured: [
+      { kind: 'core', label: 'Flyer & leaflet runs', emoji: '📄', carry: true },
+      { kind: 'core', label: 'Sampling & promo staff', emoji: '🥤', carry: true },
+      { kind: 'core', label: 'Busking & live music for pubs', emoji: '🎸', carry: true },
+      { kind: 'core', label: 'Event setup & staffing', emoji: '🎪', carry: true },
+      { kind: 'core', label: 'Shop floor & stockroom cover', emoji: '🛍️', carry: true },
+      { kind: 'core', label: 'Poster & window display runs', emoji: '📍', carry: true },
+    ],
+    more: [
+      { kind: 'core', label: 'Greeters & queue helpers', emoji: '👋', carry: true },
+      { kind: 'core', label: 'Market stall help', emoji: '🏪', carry: true },
+      { kind: 'core', label: 'Leaflet drops door-to-door', emoji: '📬', carry: true },
+      { kind: 'core', label: 'Mascot & costume promo', emoji: '🎭', carry: true },
+      { kind: 'core', label: 'Sign holding & street promo', emoji: '🪧', carry: true },
+      { kind: 'core', label: 'Glass collection & kitchen porter', emoji: '🍽️', carry: true },
+      { kind: 'core', label: 'Stocktake & inventory count', emoji: '📋', carry: true },
+      { kind: 'core', label: 'Social media content day', emoji: '📱', carry: true },
+      { kind: 'core', label: 'Data entry & admin day', emoji: '💻', carry: true },
+      { kind: 'core', label: 'Something else for my business', emoji: '💼', carry: true },
+    ],
+  },
 };
 
 
@@ -208,6 +256,7 @@ const DEFAULT_SIZE: Record<string, string> = {
   garden:    '2 hours',
   moving:    '2 hours',
   cleaning:  '2 hours',
+  business:  '4 hours', // typical flyer/sampling shift is a half day
 };
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
@@ -527,7 +576,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     haptic(10);
     if (sub.kind === 'core') {
       track('hero_sub_pick', { category: entryCat.slug, sub: sub.label });
-      setActive({ cat: entryCat, note: undefined, extraLabel: undefined });
+      setActive({
+        cat: entryCat,
+        note: sub.carry ? sub.label : undefined,
+        extraLabel: sub.carry ? sub.label : undefined,
+      });
       if (sub.size) setSize(sub.size);
     } else {
       const job = customJobByKey(sub.jobKey);
@@ -564,6 +617,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     moving:     'What are we moving?',
     'dog-walk': 'What does your pet need?',
     shopping:   'What kind of laundry help?',
+    business:   'What does your business need?',
   };
   const pickTitle = isDescribe ? 'What do you need done?' : (PICK_TITLES[entryCat.slug] ?? `What kind of ${entryCat.label.toLowerCase()}?`);
   const visibleSubs: SubService[] = subServices
@@ -1783,7 +1837,9 @@ export const CategoryGrid: React.FC = () => {
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
         >
-          {CATEGORIES.map((c) => {
+          {/* Business renders separately below as the NAVY 6th tile — the
+              five household tiles stay white. */}
+          {CATEGORIES.filter((c) => c.slug !== 'business').map((c) => {
             const fromCents = getPriceCents(c.slug, c.sizes?.[0] ?? DEFAULT_SIZE[c.slug] ?? '');
             return (
               <motion.button
@@ -1817,25 +1873,36 @@ export const CategoryGrid: React.FC = () => {
               </motion.button>
             );
           })}
-          {/* The 6th tile — glassy on the navy, the door for the ~100-job
-              vetted catalogue: opens the sheet on its describe-it page. */}
-          <motion.button
-            type="button"
-            variants={{ hidden: { opacity: 0, y: 12, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1 } }}
-            whileHover={{ y: -4 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 26 }}
-            onClick={() => { haptic(10); track('hero_search_open'); openSheet(CUSTOM_TILE); }}
-            aria-label="Anything else — describe any job"
-            // The one NAVY tile on the light hero — the brand colour marks the
-            // special "ask for anything" door (it was glass-on-navy before the
-            // hero went light).
-            className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-          >
-            <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">✨</span>
-            <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-white leading-tight">Anything else</span>
-            <span className="text-[13px] sm:text-base lg:text-lg font-medium text-white/90 leading-none sm:mt-0.5">just ask</span>
-          </motion.button>
+          {/* The 6th tile — the one NAVY tile is now BUSINESS (owner call
+              2026-07-23: it took the "Anything else" slot; the describe-it
+              door is parked — the catalogue still reaches customers through
+              each category's sub-picker and the WhatsApp door). Brand-navy +
+              the red TEMP STAFF tag = the B2B door reads special, priced. */}
+          {(() => {
+            const biz = CATEGORIES.find((c) => c.slug === 'business')!;
+            const bizFrom = getPriceCents(biz.slug, biz.sizes?.[0] ?? '');
+            return (
+              <motion.button
+                type="button"
+                variants={{ hidden: { opacity: 0, y: 12, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                whileHover={{ y: -4 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+                onClick={() => { haptic(10); track('hero_tile_tap', { category: biz.slug }); openSheet(biz); }}
+                aria-label={`Book ${biz.label}${bizFrom ? ` — from ${fmt(bizFrom)}` : ''}`}
+                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              >
+                <span className="absolute -top-2 sm:-top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-white whitespace-nowrap shadow-sm">
+                  Temp staff
+                </span>
+                <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{biz.emoji}</span>
+                <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-white leading-tight">{biz.label}</span>
+                {bizFrom != null && (
+                  <span className="text-[13px] sm:text-base lg:text-lg font-semibold text-gold tabular-nums leading-none sm:mt-0.5">from {fmt(bizFrom)}</span>
+                )}
+              </motion.button>
+            );
+          })()}
         </motion.div>
       </div>
 

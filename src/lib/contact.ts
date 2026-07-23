@@ -16,6 +16,12 @@ export const TEAM_FACEBOOK_URL = 'https://www.facebook.com/share/17yQ33yaxG/';
 
 export const TEAM_TIKTOK_URL = 'https://www.tiktok.com/@gottalovevano';
 
+/** Google Business profile (owner-provided g.page short link). */
+export const GOOGLE_BUSINESS_URL = 'https://g.page/r/CdWJ0gx7jkWDEBM';
+
+/** Direct "write a review" deep link — for post-job review asks. */
+export const GOOGLE_REVIEW_URL = 'https://g.page/r/CdWJ0gx7jkWDEBM/review';
+
 const subject = encodeURIComponent('VANO — question for the team');
 
 export const teamMailtoHref = `mailto:${TEAM_CONTACT_EMAIL}?subject=${subject}`;

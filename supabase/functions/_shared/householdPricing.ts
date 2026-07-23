@@ -17,6 +17,9 @@
 export const VALID_CATEGORIES = [
   // CategoryGrid originals
   'shopping', 'dog-walk', 'garden', 'moving', 'cleaning', 'tutoring',
+  // Business temp staff (owner test 2026-07-23) — flyer runs, sampling,
+  // events, shop cover at a premium €22/hr; dispatches like 'custom'
+  'business',
   // TaskShowcase own slugs (each bookable independently)
   'grocery-shopping', 'dog-walking', 'lawn-mowing', 'moving-help', 'outdoor-cleaning', 'tutoring-grinds',
   // Misc / errand slugs
@@ -44,7 +47,7 @@ export const SERVICE_FEE_PCT = 0.075;
 export function computePriceCents(category: Category, sizeLabel: string, extraLabel: string): number | null {
   // Flat-rate errand services
   const flat: Partial<Record<Category, number>> = {
-    'shopping':      1500,
+    'shopping':      3000, // Laundry €15→€30 (owner reprice 2026-07-23) — mirror src/lib FLAT_PRICE_CENTS
     'post-office':   1000,
     'pharmacy-run':  1200, // €12 — covers student travel + time
   };
@@ -153,6 +156,18 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
     return ({ '1 hour': 2500, '2 hours': 4500, '3 hours': 6500 })[sizeLabel] ?? null;
   }
 
+  // Business temp staff — €22/hr premium, 2-hour MINIMUM shift (no 1-hour
+  // option by design: a shorter call-out isn't worth a student's trip and the
+  // bigger ticket is the point — Vano's 15% fee rides on it). MUST mirror
+  // HOURLY_RATE_CENTS.business in src/lib/householdPricing.ts.
+  if (category === 'business') {
+    const map: Record<string, number> = {
+      '2 hours': 4400,  '3 hours': 6600,  '4 hours': 8800,
+      '5 hours': 11000, '6 hours': 13200, '7 hours': 15400, '8 hours': 17600,
+    };
+    return map[sizeLabel] ?? null;
+  }
+
   // Wait for delivery — duration tier
   if (category === 'wait-delivery') {
     const extra: Record<string, number> = { 'Up to 2 hours': 1000, 'Up to 4 hours': 1800 };
@@ -211,6 +226,7 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
 // Record<string, string> (not Record<Category, string>): retired slugs keep
 // their labels here so historical bookings still render everywhere.
 export const CATEGORY_LABELS: Record<string, string> = {
+  business:             'Business temp staff',
   shopping:             'Laundry',
   'grocery-shopping':   'Grocery shopping',
   'dog-walk':           'Dog walk',

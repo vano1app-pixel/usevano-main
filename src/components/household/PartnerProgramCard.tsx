@@ -33,11 +33,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Same category → emoji/label language as the live-activity ticker.
 const CAT_EMOJI: Record<string, string> = {
-  cleaning: '🧹', shopping: '🧺', 'dog-walk': '🐾', garden: '🌿',
+  business: '💼', cleaning: '🧹', shopping: '🧺', 'dog-walk': '🐾', garden: '🌿',
   moving: '📦', tutoring: '📚', custom: '✨',
 };
 const CAT_LABEL: Record<string, string> = {
-  cleaning: 'Cleaning', shopping: 'Laundry', 'dog-walk': 'Pet care',
+  business: 'Business temp staff', cleaning: 'Cleaning', shopping: 'Laundry', 'dog-walk': 'Pet care',
   garden: 'Garden', moving: 'Moving', tutoring: 'Tutoring', custom: 'Custom job',
 };
 

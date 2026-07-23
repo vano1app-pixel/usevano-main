@@ -43,6 +43,7 @@ const TIME_BASED_HOURLY_RATES: Record<string, number> = {
   garden:   1800,
   moving:   1800,
   custom:   1800, // "name any job" — same hourly floor, so it can't go sub-wage
+  business: 2200, // temp staff (flyers/sampling/shop cover) — premium tier
   handyman: 2500,
   // 'plumbing' retired July 2026 (liability triage) — see retiredCategories.test.ts
 };
@@ -71,7 +72,7 @@ describe('vano booking fee — 15% of the job price, €4 minimum', () => {
 
   it('floors at €4 on small jobs (15% would be less)', () => {
     expect(computeVanoFeeCents(1200)).toBe(400); // €12 min booking → 15% = €1.80 → €4
-    expect(computeVanoFeeCents(1500)).toBe(400); // €15 laundry/walk → 15% = €2.25 → €4
+    expect(computeVanoFeeCents(1500)).toBe(400); // €15 walk → 15% = €2.25 → €4
     expect(computeVanoFeeCents(2000)).toBe(400); // €20 walk → 15% = €3 → €4
     expect(computeVanoFeeCents(2600)).toBe(400); // €26.66 is the last €4 price point
     expect(computeVanoFeeCents(2700)).toBe(405); // …from €27 the 15% takes over
@@ -117,7 +118,7 @@ describe('shared price source matches the server', () => {
   });
 
   it('prices each category/size exactly as computePriceCents does', () => {
-    expect(getHouseholdPriceCents('shopping', '')).toBe(1500);   // flat laundry
+    expect(getHouseholdPriceCents('shopping', '')).toBe(3000);   // flat laundry (€30, owner reprice 2026-07-23)
     expect(getHouseholdPriceCents('dog-walk', '30 min')).toBe(1500);
     expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
     expect(getHouseholdPriceCents('cleaning', '2 hours')).toBe(3600);
@@ -131,6 +132,10 @@ describe('shared price source matches the server', () => {
     // Short custom visits — €12 booking minimum (floored), matching the server
     expect(getHouseholdPriceCents('custom', '30 min')).toBe(1200);
     expect(getHouseholdPriceCents('custom', '45 min')).toBe(1350);
+    // Business temp staff — €22/hr premium, 2-hour minimum shift
+    expect(getHouseholdPriceCents('business', '2 hours')).toBe(4400);
+    expect(getHouseholdPriceCents('business', '4 hours')).toBe(8800);
+    expect(getHouseholdPriceCents('business', '8 hours')).toBe(17600);
   });
 
   it('returns null for an unpriceable combination', () => {

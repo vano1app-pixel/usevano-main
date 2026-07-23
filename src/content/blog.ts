@@ -602,11 +602,11 @@ export const BLOG_POSTS: BlogPost[] = [
 
   {
     slug: "laundry-service-galway-cost",
-    title: "Laundry Service in Galway: €15 Collected, Washed & Folded",
+    title: "Laundry Service in Galway: €30 Collected, Washed & Folded",
     summary:
-      "Vano's Galway laundry service is a flat €15: a local student collects your laundry, washes and dries it, and returns it folded. No subscriptions, no per-kilo maths — one price, usually same-day or next-day.",
+      "Vano's Galway laundry service is a flat €30: a local student collects your laundry, washes and dries it, and returns it folded. No subscriptions, no per-kilo maths — one price, usually same-day or next-day.",
     description:
-      "Laundry service in Galway for a flat €15 — collected from your door, washed, dried and returned folded by an ID-verified local student. How it works and who it suits.",
+      "Laundry service in Galway for a flat €30 — collected from your door, washed, dried and returned folded by an ID-verified local student. How it works and who it suits.",
     keywords:
       "laundry service Galway, wash and fold Galway, laundry collection Galway, laundrette alternative Galway, student laundry service, ironing Galway",
     eyebrow: "Laundry",
@@ -618,7 +618,7 @@ export const BLOG_POSTS: BlogPost[] = [
     heroAlt: "A neatly folded basket of clean laundry being returned to a Galway doorstep",
     tags: ["Laundry", "Prices", "Galway"],
     bodyHtml: `
-<p>The laundry pile always wins in the end — unless someone takes it away. Vano's laundry service is one flat price: <strong>€15, collected from your door, washed, dried and returned folded</strong>. No per-kilo weighing, no subscription, no trek to the launderette.</p>
+<p>The laundry pile always wins in the end — unless someone takes it away. Vano's laundry service is one flat price: <strong>€30, collected from your door, washed, dried and returned folded</strong>. No per-kilo weighing, no subscription, no trek to the launderette.</p>
 <h2>How it works</h2>
 <ul>
 <li><strong>Book "Laundry" on <a href="/">vanojobs.com</a></strong> — add your phone number and address; booking takes under a minute.</li>
@@ -626,20 +626,20 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Washed, dried, folded</strong> — everyday clothes, bedding and towels, handled with normal care (note anything delicate in the booking).</li>
 <li><strong>Returned folded</strong> — usually same-day or next-day, back at your door.</li>
 </ul>
-<p>You pay the €15 directly to your helper when it's back (Revolut or cash — they keep 100%), and one small €4 booking fee confirms the job <a href="/glossary/pay-after-accept">when a helper says yes</a>. So the true all-in cost is <strong>€19</strong>.</p>
+<p>You pay the €30 directly to your helper when it's back (Revolut or cash — they keep 100%), and one small €4.50 booking fee confirms the job <a href="/glossary/pay-after-accept">when a helper says yes</a>. So the true all-in cost is <strong>€34.50</strong>.</p>
 <h2>Who it suits</h2>
 <p><strong>Busy working households</strong> that never catch up on the basket; <strong>older neighbours</strong> for whom the machine, the line and the carrying have become a chore; <strong>students</strong> in accommodation where the shared machines eat coins; and anyone mid-<a href="/blog/moving-help-galway">move</a> whose machine is in a van somewhere.</p>
 <h2>Compared with the alternatives</h2>
-<p>A launderette service wash in Ireland typically runs €12–€20 <em>plus</em> the two trips to drop off and collect. Big laundry apps charge by the kilo with delivery fees on top and mostly serve Dublin. Vano's flat €15 includes collection and return, and the money goes to a local student, not a logistics chain.</p>
+<p>A launderette service wash in Ireland typically runs €12–€20 <em>plus</em> the two trips to drop off and collect. Big laundry apps charge by the kilo with delivery fees on top and mostly serve Dublin. Vano's flat €30 is fully door-to-door — collection and return included, none of your time — and the money goes to a local student, not a logistics chain.</p>
 <h2>Want ironing too?</h2>
 <p>Ironing is its own job — see the <a href="/glossary/ironing-service">ironing service</a> explainer, or book it as an "Anything else" job at €18/hr alongside your wash.</p>
 <p><a href="/#book"><strong>Book laundry collection in Galway →</strong></a></p>
 `,
     related: ["cleaner-cost-galway", "dog-walker-galway-cost", "why-vano-fair-pay-same-day"],
     faqs: [
-      { q: "How much is the laundry service in Galway?", a: "A flat €15 — collected, washed, dried and returned folded — plus a €4 booking fee when a helper says yes. €19 all-in, no per-kilo charges." },
+      { q: "How much is the laundry service in Galway?", a: "A flat €30 — collected, washed, dried and returned folded — plus a €4.50 booking fee when a helper says yes. €34.50 all-in, no per-kilo charges." },
       { q: "How fast does laundry come back?", a: "Usually same-day or next-day, depending on when you book and drying time. The helper agrees timing with you at collection." },
-      { q: "Is ironing included?", a: "No — the €15 covers wash, dry and fold. Ironing can be booked as its own job at €18/hr." },
+      { q: "Is ironing included?", a: "No — the €30 covers wash, dry and fold. Ironing can be booked as its own job at €18/hr." },
       { q: "Who collects my laundry?", a: "A local ID-verified student — you see their name, photo and rating before they call, and the same helper returns it folded." },
     ],
   },
