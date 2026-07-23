@@ -8,6 +8,7 @@ import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ReviewBadges } from './ReviewBadges';
 import { HelperFacePile } from './HelperFacePile';
 import { ScrollCue } from './ScrollCue';
+import { SocialLinks } from './SocialLinks';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { track } from '@/lib/track';
 
@@ -70,7 +71,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-4 sm:mb-8 flex flex-row flex-wrap items-center justify-center gap-2"
+          className="mb-2.5 md:mb-8 flex flex-row flex-wrap items-center justify-center gap-2"
         >
           <ReviewBadges inline />
           {!helperReady ? (
@@ -89,6 +90,20 @@ export const HeroSection: React.FC = () => {
               <span className="tracking-wide whitespace-nowrap">{presenceLabel}</span>
             </span>
           )}
+        </motion.div>
+
+        {/* Phone-only follow row — the nav carries these buttons from md up,
+            but the phone bar has no room, and phones are where the socials
+            actually convert. Sits under the trust chips so trust proof still
+            opens the page. */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="md:hidden mb-5 flex items-center justify-center gap-2.5"
+        >
+          <span className="text-xs font-semibold tracking-wide text-foreground/55 whitespace-nowrap">Follow VANO</span>
+          <SocialLinks variant="chip" className="flex" />
         </motion.div>
 
         {/* Heading — the mom test (one plain sentence that says WHAT this is

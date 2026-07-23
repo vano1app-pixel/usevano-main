@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
-import { TEAM_INSTAGRAM_URL, TEAM_FACEBOOK_URL } from '@/lib/contact';
+import { TEAM_INSTAGRAM_URL, TEAM_FACEBOOK_URL, TEAM_TIKTOK_URL } from '@/lib/contact';
 
 // Service landing pages — internal links so crawlers (and people) can reach
 // /cleaning-galway etc. from every page. Keep in step with
@@ -21,7 +21,7 @@ const NAV_LINKS = [
   { label: 'Glossary',       href: '/glossary',                                      external: false },
   { label: 'Instagram',      href: TEAM_INSTAGRAM_URL,                               external: true  },
   { label: 'Facebook',       href: TEAM_FACEBOOK_URL,                                external: true  },
-  { label: 'TikTok',         href: 'https://www.tiktok.com/@gottalovevano',          external: true  },
+  { label: 'TikTok',         href: TEAM_TIKTOK_URL,                                  external: true  },
   { label: 'LinkedIn',       href: 'https://www.linkedin.com/in/ayush-puri-4b88b8357', external: true },
   { label: 'WhatsApp',       href: 'https://wa.me/353899817111',                     external: true  },
   { label: 'Terms',          href: '/terms',                                         external: false },

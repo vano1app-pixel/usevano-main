@@ -14,6 +14,8 @@ export const TEAM_INSTAGRAM_URL = 'https://www.instagram.com/vanojobs/';
 /** Facebook page (owner-provided share link, tracking params stripped). */
 export const TEAM_FACEBOOK_URL = 'https://www.facebook.com/share/17yQ33yaxG/';
 
+export const TEAM_TIKTOK_URL = 'https://www.tiktok.com/@gottalovevano';
+
 const subject = encodeURIComponent('VANO — question for the team');
 
 export const teamMailtoHref = `mailto:${TEAM_CONTACT_EMAIL}?subject=${subject}`;
