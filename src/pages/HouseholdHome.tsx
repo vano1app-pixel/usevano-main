@@ -56,27 +56,28 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <ActivityTicker />
-        {/* How it works (honest + simple), then real helper faces — trust is
-            established before the most-booked tiles ask for the tap. These
-            two plus the hero are the full-screen snap sections (data-snap):
-            each fills the viewport, gently snaps, and carries its own scroll
-            cue that walks to the next section. `relative` anchors the cue. */}
-        {/* Owner call (July 2026): the three-steps section is DESKTOP-ONLY —
-            on phones it pushed the real helper faces too far down, so it's
-            hidden there and the faces follow the hero directly. When the
-            first real reviews land, ReviewCarousel (below, self-mounting)
-            fills that trust slot on phones automatically. */}
-        <div data-snap id="how" className="relative hidden sm:block"><HowItWorks /><ScrollCue tone="dark" /></div>
+        {/* Real helper faces right after the hero — trust is established
+            before the most-booked tiles ask for the tap. Hero + faces are the
+            full-screen snap sections (data-snap); each carries its own scroll
+            cue. `relative` anchors the cue. */}
         <div data-snap id="helpers" className="relative"><Reveal><HelperCards /></Reveal><ScrollCue tone="dark" /></div>
         {/* Most-booked services as one-tap tiles — lands after trust; the navy
             band anchors the middle of the page between the cream sections. Tiles
             dispatch vano:select-category, which the hero's CategoryGrid catches
             to open the shared booking sheet. */}
         <PopularCategories />
-        {/* ReviewCarousel now shows ONLY genuine household_ratings (the seed
-            testimonials were deleted — fake reviews are a blacklisted
-            commercial practice) and renders nothing until the first real
-            review lands, so it's safe to keep mounted from day one. */}
+        {/* Owner call 2026-07-23: the three-steps section moved INTO the
+            reviews slot, on ALL devices (mid-page it no longer pushes the
+            helper faces down — the July phone-only concern was about it
+            sitting right after the hero). The rotating reviews ride directly
+            under it. */}
+        <div id="how"><Reveal><HowItWorks /></Reveal></div>
+        {/* ReviewCarousel shows ONLY genuine reviews (the seed testimonials
+            were deleted — fake reviews are a blacklisted commercial practice)
+            and renders nothing until the first real one lands, so it's safe
+            to keep mounted from day one. It auto-ROTATES through them, each
+            labeled with where it was left (VANO booking / Google /
+            Trustpilot once those feeds exist). */}
         <Reveal><ReviewCarousel /></Reveal>
         <Reveal><FAQSection /></Reveal>
         {/* Closing CTA — the FAQ just answered the objections; give that
