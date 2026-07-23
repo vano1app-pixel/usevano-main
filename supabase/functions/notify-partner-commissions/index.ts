@@ -17,11 +17,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // e.g. 25 * * * *). Same no-auth pattern as remind-confirm-completion.
 
 const EMOJI: Record<string, string> = {
-  cleaning: '🧹', shopping: '🧺', 'dog-walk': '🐾', garden: '🌿',
+  business: '💼', cleaning: '🧹', shopping: '🧺', 'dog-walk': '🐾', garden: '🌿',
   moving: '📦', tutoring: '📚', custom: '✨',
 };
 const LABEL: Record<string, string> = {
-  cleaning: 'Cleaning', shopping: 'Laundry', 'dog-walk': 'Pet care',
+  business: 'Business temp staff', cleaning: 'Cleaning', shopping: 'Laundry', 'dog-walk': 'Pet care',
   garden: 'Garden', moving: 'Moving', tutoring: 'Tutoring', custom: 'Custom job',
 };
 

@@ -30,7 +30,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // key. Suggested cadence: */15 * * * *.
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
+  business: 'Business temp staff', shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
   handyman: 'Handyman', plumbing: 'Plumbing help', other: 'General help',
 };

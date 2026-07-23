@@ -11,12 +11,18 @@
 
 /**
  * Per-hour rate for TIME-BASED labour, in cents (quoted as €X/hr × N hours).
- * All sit at €18/hr so a student nets ≥ €14.15/hr after the 15% cut.
+ * Household rates sit at €18/hr so a student nets ≥ €14.15/hr after the 15% cut.
  *
  * `custom` is the catch-all "name any job" rate: because it's priced by the
  * hour at the same €18/hr floor, a custom job can never undercut minimum wage,
  * whatever the task. The market-comparison figures shown next to it in the
  * CustomJobBuilder are display-only and never charged.
+ *
+ * `business` (owner test, 2026-07-23) is the temp-staff tier — flyer runs,
+ * sampling, events, shop cover — priced at a PREMIUM €22/hr: businesses pay
+ * agency-style money, the student keeps 100% of the bigger rate, and Vano's
+ * 15% fee rides on the bigger ticket. 2-hour minimum shift (see CategoryGrid
+ * sizes — there's no '1 hour' option).
  */
 export const HOURLY_RATE_CENTS: Record<string, number> = {
   garden:   1800,
@@ -24,6 +30,7 @@ export const HOURLY_RATE_CENTS: Record<string, number> = {
   cleaning: 1800,
   tutoring: 1800,
   custom:   1800,
+  business: 2200,
 };
 
 /** Flat, JOB-BASED prices (one price for the task done), in cents. */
@@ -62,6 +69,9 @@ export function getHouseholdPriceCents(slug: string, size: string): number | nul
   const rate = HOURLY_RATE_CENTS[slug];
   if (rate) {
     const hours = hoursFromLabel(size);
+    // Business has a 2-hour MINIMUM shift — the server refuses '1 hour', so
+    // the frontend must never price it either (the tables stay in lock-step).
+    if (slug === 'business' && hours != null && hours < 2) return null;
     if (hours) return rate * hours;
   }
   return null;

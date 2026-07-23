@@ -74,6 +74,7 @@ interface Payout {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
+  business: 'Business temp staff',
   shopping: 'Laundry',
   'dog-walk': 'Dog walk',
   garden: 'Garden help',

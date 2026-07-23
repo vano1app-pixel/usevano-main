@@ -32,6 +32,14 @@ describe('server price table (shared module) matches the frontend canonical tabl
           .toBe(getHouseholdPriceCents(slug, size));
       }
     }
+    // Business temp staff — €22/hr premium with a 2-hour minimum: no '1 hour'
+    // on either table (both must return null for it, not just one).
+    for (const size of HOUR_LABELS.slice(1)) {
+      expect(computePriceCents('business', size, ''), `business / ${size}`)
+        .toBe(getHouseholdPriceCents('business', size));
+    }
+    expect(computePriceCents('business', '1 hour', '')).toBeNull();
+    expect(getHouseholdPriceCents('business', '1 hour')).toBeNull();
   });
 
   it('prices the flat and short-visit combinations identically', () => {

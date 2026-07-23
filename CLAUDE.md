@@ -237,6 +237,15 @@ rounds or the `custom` catch-all.
   (€18/hr on cleaning, tutoring, garden, moving) — but the test still fails
   if a rate ever drops below the floor. *Job-based* flat prices (laundry,
   bins, errands) price the task, not the hour.
+- **`business` (owner test 2026-07-23):** temp staff for shops/brands (flyer
+  runs, sampling, events, shop cover) at a PREMIUM **€22/hr, 2-hour minimum**
+  (both tables return null for '1 hour' — keep them agreeing). Its tile took
+  Laundry's hero slot (red "Temp staff" tag; laundry stays in CATEGORIES for
+  the podium event + usual-card, just off the grid). Dispatches like `custom`
+  (catch-all to ALL id_verified helpers — it's not a join-form skill; gap
+  nudges auto-skip). Same one booking path/pipeline — NOT a second flow. The
+  sheet's business sub-picks carry their label into note+extra_label
+  (SubService `carry`) so offers/job screens name the real task.
 - **Vano's take (direct-pay):** ONLY the booking fee — 15% of the job price,
   min €4, charged to the customer's card at accept (+ €2 Cover if opted).
   Nothing is taken from the helper. Discounts (loyalty every-3rd = fee

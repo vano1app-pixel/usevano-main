@@ -16,7 +16,7 @@ import { resolveMoneyAction, releaseBookingMoney } from "../_shared/bookingMoney
 // the job done — that's handled by admin if it can't be re-matched.
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
+  business: 'Business temp staff', shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
 };
 

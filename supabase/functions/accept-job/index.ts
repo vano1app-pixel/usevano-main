@@ -16,7 +16,7 @@ import { verifyAcceptToken } from "../_shared/acceptToken.ts";
 // closes the gap where most helpers had no user_id and couldn't be assigned.
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
+  business: 'Business temp staff', shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
   handyman: 'Handyman', plumbing: 'Plumbing help',
   'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',

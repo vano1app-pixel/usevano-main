@@ -33,10 +33,25 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
+    // BUSINESS temp staff (owner test, 2026-07-23): flyer runs, sampling,
+    // events, shop cover — the demand probe for shops & brands. Took the
+    // Laundry tile's grid slot (laundry stays bookable via the podium + the
+    // saved-usual card — its entry stays in this list, just off the grid).
+    // Premium €22/hr, 2-hour minimum shift; dispatches to ALL id_verified
+    // helpers like 'custom' (it's not a join-form skill).
+    emoji: '💼', label: 'Business', slug: 'business',
+    hint: 'Flyers, samples, events & shop cover',
+    description: 'Temp staff for your business — flyer runs, sampling, event help, shop-floor cover. ID-verified students, same day.',
+    sizeLabel: 'How long?', sizes: ['2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
+  },
+  {
     // Laundry: the helper collects, washes/dries/folds and returns it. Flat
     // rate, one-off — finishes when the customer marks it done. Slug stays
     // 'shopping' so existing bookings, pricing and the DB category all keep
-    // working; only the customer-facing wording changed.
+    // working; only the customer-facing wording changed. OFF the hero grid
+    // since 2026-07-23 (the Business tile took its slot) but still in this
+    // list so the podium's vano:select-category event and the saved-usual
+    // card keep opening its sheet.
     emoji: '🧺', label: 'Laundry', slug: 'shopping',
     hint: 'Collected, washed & returned folded',
     description: 'Your helper collects your laundry, washes, dries and folds it, and brings it back to your door — fresh and sorted.',
@@ -108,7 +123,11 @@ const CUSTOM_TILE: Category = {
 // show exactly what was asked for. jobKeys MUST exist in customJobs.ts — the
 // catalogue is the single source of labels/emoji/hours AND the legal screen.
 type SubService =
-  | { kind: 'core'; label: string; emoji: string; size?: string }
+  // carry: the picked label rides into note + extra_label so dispatch texts
+  // and the helper's job screen say the REAL job ("Flyer & leaflet runs"),
+  // not just the category. Only business subs set it — household core rows
+  // ("Standard clean") add nothing a helper needs.
+  | { kind: 'core'; label: string; emoji: string; size?: string; carry?: boolean }
   | { kind: 'custom'; jobKey: string };
 
 const SUB_SERVICES: Record<string, { featured: SubService[]; more: SubService[] }> = {
@@ -198,6 +217,17 @@ const SUB_SERVICES: Record<string, { featured: SubService[]; more: SubService[] 
     ],
     more: [],
   },
+  business: {
+    featured: [
+      { kind: 'core', label: 'Flyer & leaflet runs', emoji: '📄', carry: true },
+      { kind: 'core', label: 'Sampling & promo staff', emoji: '🥤', carry: true },
+      { kind: 'core', label: 'Event setup & staffing', emoji: '🎪', carry: true },
+      { kind: 'core', label: 'Shop floor & stockroom cover', emoji: '🛍️', carry: true },
+      { kind: 'core', label: 'Poster & window display runs', emoji: '📍', carry: true },
+      { kind: 'core', label: 'Something else for my business', emoji: '💼', carry: true },
+    ],
+    more: [],
+  },
 };
 
 
@@ -208,6 +238,7 @@ const DEFAULT_SIZE: Record<string, string> = {
   garden:    '2 hours',
   moving:    '2 hours',
   cleaning:  '2 hours',
+  business:  '4 hours', // typical flyer/sampling shift is a half day
 };
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
@@ -527,7 +558,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     haptic(10);
     if (sub.kind === 'core') {
       track('hero_sub_pick', { category: entryCat.slug, sub: sub.label });
-      setActive({ cat: entryCat, note: undefined, extraLabel: undefined });
+      setActive({
+        cat: entryCat,
+        note: sub.carry ? sub.label : undefined,
+        extraLabel: sub.carry ? sub.label : undefined,
+      });
       if (sub.size) setSize(sub.size);
     } else {
       const job = customJobByKey(sub.jobKey);
@@ -564,6 +599,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     moving:     'What are we moving?',
     'dog-walk': 'What does your pet need?',
     shopping:   'What kind of laundry help?',
+    business:   'What does your business need?',
   };
   const pickTitle = isDescribe ? 'What do you need done?' : (PICK_TITLES[entryCat.slug] ?? `What kind of ${entryCat.label.toLowerCase()}?`);
   const visibleSubs: SubService[] = subServices
@@ -1783,7 +1819,10 @@ export const CategoryGrid: React.FC = () => {
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
         >
-          {CATEGORIES.map((c) => {
+          {/* Laundry ('shopping') is OFF the grid — the Business tile took its
+              slot (owner test 2026-07-23). It stays in CATEGORIES so the
+              podium event + saved-usual card still open its sheet. */}
+          {CATEGORIES.filter((c) => c.slug !== 'shopping').map((c) => {
             const fromCents = getPriceCents(c.slug, c.sizes?.[0] ?? DEFAULT_SIZE[c.slug] ?? '');
             return (
               <motion.button
@@ -1807,6 +1846,13 @@ export const CategoryGrid: React.FC = () => {
                 {c.slug === 'cleaning' && (
                   <span className="absolute -top-2 sm:-top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-gold px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-navy whitespace-nowrap shadow-sm">
                     Most booked
+                  </span>
+                )}
+                {/* Business wears the red temp-staff tag (owner call: red, so
+                    shops instantly read it as "hire temp staff here") */}
+                {c.slug === 'business' && (
+                  <span className="absolute -top-2 sm:-top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-white whitespace-nowrap shadow-sm">
+                    Temp staff
                   </span>
                 )}
                 <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{c.emoji}</span>

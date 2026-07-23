@@ -43,6 +43,7 @@ const TIME_BASED_HOURLY_RATES: Record<string, number> = {
   garden:   1800,
   moving:   1800,
   custom:   1800, // "name any job" — same hourly floor, so it can't go sub-wage
+  business: 2200, // temp staff (flyers/sampling/shop cover) — premium tier
   handyman: 2500,
   // 'plumbing' retired July 2026 (liability triage) — see retiredCategories.test.ts
 };
@@ -131,6 +132,10 @@ describe('shared price source matches the server', () => {
     // Short custom visits — €12 booking minimum (floored), matching the server
     expect(getHouseholdPriceCents('custom', '30 min')).toBe(1200);
     expect(getHouseholdPriceCents('custom', '45 min')).toBe(1350);
+    // Business temp staff — €22/hr premium, 2-hour minimum shift
+    expect(getHouseholdPriceCents('business', '2 hours')).toBe(4400);
+    expect(getHouseholdPriceCents('business', '4 hours')).toBe(8800);
+    expect(getHouseholdPriceCents('business', '8 hours')).toBe(17600);
   });
 
   it('returns null for an unpriceable combination', () => {

@@ -3,7 +3,7 @@
 // category/status wording never drifts.
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'grocery-shopping': 'Grocery shopping',
+  business: 'Business temp staff', shopping: 'Laundry', 'grocery-shopping': 'Grocery shopping',
   'dog-walk': 'Dog walk', 'dog-walking': 'Dog walking',
   garden: 'Garden help', 'lawn-mowing': 'Lawn mowing',
   moving: 'Moving help', 'moving-help': 'Moving help',
@@ -60,7 +60,7 @@ export function formatBookingDate(scheduledDate: string | null): string {
  *  is recognisable at a glance everywhere it's listed. '✨' is the custom /
  *  unknown fallback (matches the "Anything else" tile). */
 export const CATEGORY_EMOJI: Record<string, string> = {
-  shopping: '🧺', 'grocery-shopping': '🛒',
+  business: '💼', shopping: '🧺', 'grocery-shopping': '🛒',
   'dog-walk': '🐕', 'dog-walking': '🐕',
   garden: '🌿', 'lawn-mowing': '🌿',
   moving: '📦', 'moving-help': '📦',
