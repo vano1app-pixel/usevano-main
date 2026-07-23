@@ -37,7 +37,12 @@ export const HeroSection: React.FC = () => {
     // — the Airbnb-light treatment (warm cream, big dark type, white cards)
     // reads "trusted home service", where the old navy band read "tech app".
     // Navy stays the anchor colour mid-page (podium, closing CTA, footer).
-    <section id="book" data-snap className="relative bg-cream px-4 pt-14 sm:pt-16 pb-[11vh] sm:pb-[10vh] flex flex-col justify-center min-h-[100svh]">
+    // Top padding must CLEAR the fixed nav (72px pre-scroll): the hero is
+    // justify-center, so whenever the stack outgrows the viewport (e.g. the
+    // "book your usual" card is present on a laptop screen) the first row sits
+    // AT the padding — at the old pt-14/16 that pinned the trust chips under
+    // the nav bar (owner screenshot 2026-07-23).
+    <section id="book" data-snap className="relative bg-cream px-4 pt-24 sm:pt-28 pb-[11vh] sm:pb-[10vh] flex flex-col justify-center min-h-[100svh]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="grain pointer-events-none absolute inset-0 opacity-[0.05]" aria-hidden="true" />
         <motion.div
