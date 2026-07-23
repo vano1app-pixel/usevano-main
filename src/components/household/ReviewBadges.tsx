@@ -1,6 +1,7 @@
 import React from 'react';
 import { Star } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { GOOGLE_BUSINESS_URL } from '@/lib/contact';
 
 /**
  * Review-platform trust strip for the hero. Signals "we're a real, reviewable
@@ -28,6 +29,14 @@ const PLATFORMS: Platform[] = [
     href: 'https://www.trustpilot.com/review/vanojobs.com',
     brand: '#00B67A',
     // rating / count: add once we have real Trustpilot reviews.
+  },
+  {
+    // Google Business profile (owner-added 2026-07-23). Same honesty rule:
+    // paste the REAL rating/count from the profile (or wire the Places API)
+    // before showing numbers — the bare badge is the legitimate default.
+    name: 'Google',
+    href: GOOGLE_BUSINESS_URL,
+    brand: '#4285F4',
   },
   // Yelp — uncomment and paste the live business-page URL once it's up:
   // {
