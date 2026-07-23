@@ -110,7 +110,7 @@ serve(async (req) => {
         `${lines.join('\n')}\n\n` +
         `Total earned so far: ${euros(total)}\n\n` +
         `See your live tracker (code ${codeRow?.code ?? ''}): ${siteUrl}/account\n\n` +
-        `Every time a student you invited completes a job, you earn your share — nothing to do.\n— VANO`;
+        `Every job your students complete in their first year earns you your share — nothing to do.\n— VANO`;
 
       const html =
         `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#14181f;">` +
@@ -120,7 +120,7 @@ serve(async (req) => {
         lines.map((l) => `<p style="margin:4px 0;font-size:14px;">${l}</p>`).join('') +
         `</div>` +
         `<p style="font-size:14px;margin:0 0 4px;">Total earned so far: <strong>${euros(total)}</strong></p>` +
-        `<p style="font-size:14px;margin:0 0 18px;">It landed automatically — students you invited keep working, you keep earning.</p>` +
+        `<p style="font-size:14px;margin:0 0 18px;">It landed automatically — your students keep working, you keep earning all through their first year.</p>` +
         `<a href="${siteUrl}/account" style="display:inline-block;background:#101828;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:999px;">See my live tracker</a>` +
         `<p style="font-size:12px;color:#98a2b3;margin-top:22px;">VANO · same-day student help in Galway · your partner code: ${codeRow?.code ?? ''}</p>` +
         `</div>`;

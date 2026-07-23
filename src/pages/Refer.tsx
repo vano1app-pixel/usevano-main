@@ -27,8 +27,8 @@ const Refer: React.FC = () => {
   return (
     <div className="bg-cream min-h-screen">
       <SEOHead
-        title="Your VANO referral link — earn 3% of every job"
-        description="Share your VANO invite link. When a student you bring in completes jobs, you earn 3% of each — tracked live: opens, signups, jobs and euros earned."
+        title="Your VANO referral link — earn 3% of every job for a year"
+        description="Share your VANO invite link. When a student you bring in completes jobs, you earn 3% of each for their whole first year — tracked live: opens, signups, jobs and euros earned."
         url="https://vanojobs.com/refer"
       />
       <HouseholdNav />
@@ -51,7 +51,7 @@ const Refer: React.FC = () => {
           <h1 className="display-lg text-foreground text-3xl">Your link. Your earnings.</h1>
           <p className="text-sm text-foreground/70 mt-2 leading-relaxed">
             Share your code once. Every job a student you brought in completes earns you
-            3% — automatically, for as long as they work. Here's it live.
+            3% — automatically, for their whole first year. Here it is, live.
           </p>
         </motion.header>
 

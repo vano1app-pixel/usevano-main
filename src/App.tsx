@@ -91,8 +91,11 @@ const App = () => {
 
   useEffect(() => {
     const t = window.setTimeout(() => markChunkLoadRecovered(), 10_000);
-    // Friend referral links land with ?ref=CODE — keep it for checkout
-    captureReferralFromUrl();
+    // Friend referral links land with ?ref=CODE — keep it for checkout.
+    // NOT on /join: there ?ref is a PARTNER recruiting code (helper-signup
+    // attribution, a different code space) — storing it as a customer code
+    // showed a false "your friend gave you €5" banner checkout never honours.
+    if (window.location.pathname !== '/join') captureReferralFromUrl();
     return () => window.clearTimeout(t);
   }, []);
 

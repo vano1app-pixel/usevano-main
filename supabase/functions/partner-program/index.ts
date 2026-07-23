@@ -5,7 +5,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // code for a recruiter — a student union, society, or an existing helper — that
 // brings students onto VANO, plus their live earnings. When a recruited helper
 // completes a paid job, a DB trigger accrues commission (default 3% of the job,
-// out of VANO's cut). Codes aren't secrets, so a guest entry point is fine.
+// out of VANO's cut) — for the helper's FIRST YEAR only (12 months from
+// signup, enforced in the accrual triggers; migration 20260723100000). Codes
+// aren't secrets, so a guest entry point is fine.
 
 const FALLBACK_ORIGINS = [
   'https://vanojobs.com', 'https://www.vanojobs.com',
@@ -191,6 +193,8 @@ serve(async (req) => {
         code: codeRow.code,
         link: `${siteUrl}/join?ref=${codeRow.code}`,
         commission_pct: (codeRow.commission_bps ?? 300) / 100,
+        // Commission accrues for the helper's first 12 months (see triggers).
+        window_months: 12,
         signups: signups ?? 0,
         link_opens: linkOpens ?? 0,
         jobs,

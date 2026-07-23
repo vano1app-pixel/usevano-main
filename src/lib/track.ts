@@ -47,7 +47,9 @@ export type TrackEvent =
   // 4-5★ rating; the shown→tap funnel measures how many happy customers we
   // convert into public reviews.
   | 'trustpilot_ask_shown'
-  | 'trustpilot_ask_tap';
+  | 'trustpilot_ask_tap'
+  // Top-of-page follow buttons (nav + hero row) — props: { network }.
+  | 'social_follow_tap';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
   // PostHog mirror — dynamic import keeps posthog-js out of the entry

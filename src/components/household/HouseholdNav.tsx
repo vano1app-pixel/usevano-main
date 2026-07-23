@@ -4,6 +4,7 @@ import { MessageCircle, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { useAuth } from '@/hooks/useAuthContext';
+import { SocialLinks } from './SocialLinks';
 import logo from '@/assets/logo.png';
 
 interface HouseholdNavProps {
@@ -83,6 +84,11 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Follow buttons — md+ only; the phone bar is already full, so
+              phones get the hero's "Follow VANO" row instead (owner call
+              2026-07-23: socials belong at the top where people see them). */}
+          <SocialLinks variant="nav" dark={dark} className="hidden md:flex" />
+
           {/* Bookings — desktop only (mobile has the bottom tab bar). Gives
               desktop customers a first-class way to reach their bookings. */}
           <Link

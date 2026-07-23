@@ -306,7 +306,10 @@ extend it.
   €2/month is buying a lie.
 - **"ID-verified" claims stay keyed on `id_verified` alone** (they're true
   regardless of payment); the BLUE TICK is the paid thing. Never render
-  either unless its flag is true.
+  either unless its flag is true. The hero's live "helpers online" pill
+  (`useHelperCount`) counts ONLY the dispatchable pool — approved +
+  available + `id_verified` — never raw signups (2026-07-23: raw count
+  said 20 while only 8 could take a job).
 - NO grandfather: the owner chose one deal for everyone — old one-off-€2
   payers also verify + pay €2/month for the tick (their flags were reset
   2026-07-07). cancel-verified-plan still handles a plan row with no Stripe
@@ -549,7 +552,16 @@ with zero typing) and opens `/refer` — the focused page that renders the
 card + a funnel legend. `/partners` stays the cold recruiter landing.
 `notify-partner-commissions` (hourly cron) emails partners a "you just
 earned €X" digest, idempotent via `referral_commissions.notified_at`
-(stamped BEFORE sending). Payouts to partners remain MANUAL — the status
+(stamped BEFORE sending). **Commission accrues only for the referred
+helper's FIRST YEAR** (12 months from the attribution's `created_at`,
+enforced inside BOTH accrual triggers — migration `20260723100000`; the
+attribution itself stays lifetime so the funnel's "Joined" count never
+shrinks, and every partner surface says "first year"). The code now rides
+IN the `create-helper-application` payload (`referred_by_code`, first code
+wins) so attribution lands atomically with the signup;
+`attach-referral-code` remains as the awaited post-submit backstop. The
+customer `?ref=` capture (Give €5) skips `/join`, where `?ref` is a
+partner code. Payouts to partners remain MANUAL — the status
 flag is the ledger; there is no automated transfer. The owner settles up
 from the admin payouts tab: `admin-partner-payouts` (JWT + `user_roles`
 admin check inside, like admin-complete-household-job) lists who's owed
