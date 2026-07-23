@@ -89,6 +89,14 @@ serve(async (req) => {
     const rightToWork   = (formData.get('right_to_work')  as string | null) === 'true';
     const consentVerify = (formData.get('consent_verify') as string | null) === 'true';
     const agreeTerms    = (formData.get('agree_terms')    as string | null) === 'true';
+    // Optional partner/referral code (?ref= link or typed on step 3). Stored on
+    // the row itself so the resolve_referral_attribution trigger credits the
+    // partner ATOMICALLY with the signup — the old client-side follow-up call
+    // (attach-referral-code, kept as a backstop) raced the redirect to
+    // /verify-helper and could be aborted mid-flight, silently losing the
+    // attribution. Same strict shape gate as attach-referral-code.
+    const referredByCodeRaw = ((formData.get('referred_by_code') as string | null) ?? '').trim().toUpperCase();
+    const referredByCode = /^[A-Z0-9]{4,12}$/.test(referredByCodeRaw) ? referredByCodeRaw : null;
     // Opt-in to recurring "House Autopilot" clients (regular weekly/monthly work).
     const autopilotOptIn = (formData.get('autopilot') as string | null) === 'true';
 
@@ -154,11 +162,11 @@ serve(async (req) => {
       phoneVariants.add('+353' + nat);               // +353899817111
     }
     const [emailHit, phoneHit] = await Promise.all([
-      supabase.from('household_helpers').select('id, email, phone, status').eq('email', email).limit(1).maybeSingle(),
-      supabase.from('household_helpers').select('id, email, phone, status').in('phone', [...phoneVariants]).limit(1).maybeSingle(),
+      supabase.from('household_helpers').select('id, email, phone, status, referred_by_code').eq('email', email).limit(1).maybeSingle(),
+      supabase.from('household_helpers').select('id, email, phone, status, referred_by_code').in('phone', [...phoneVariants]).limit(1).maybeSingle(),
     ]);
-    const emailMatch = emailHit.data as { id: string; email: string | null; status: string } | null;
-    const phoneMatch = phoneHit.data as { id: string; email: string | null; status: string } | null;
+    const emailMatch = emailHit.data as { id: string; email: string | null; status: string; referred_by_code: string | null } | null;
+    const phoneMatch = phoneHit.data as { id: string; email: string | null; status: string; referred_by_code: string | null } | null;
     const existing = emailMatch ?? phoneMatch ?? null;
 
     if (existing && existing.status === 'approved') {
@@ -216,6 +224,12 @@ serve(async (req) => {
     // signup with a made-up email never inflates the public helper count and
     // never gets welcome messages. (Offers were already gated further behind
     // the free ID check — dispatch only texts id_verified helpers.)
+    // First code wins: a pending re-submission never overwrites an existing
+    // referred_by_code (matches attach-referral-code; the DB trigger refuses a
+    // second attribution anyway, so raw code and attribution stay in step).
+    const attachReferralCode =
+      referredByCode !== null && !(pendingExisting && emailMatch?.referred_by_code?.trim());
+
     const helperFields = {
       name,
       email,
@@ -226,6 +240,7 @@ serve(async (req) => {
       status: 'approved',
       is_available: false,
       autopilot_opt_in: autopilotOptIn,
+      ...(attachReferralCode ? { referred_by_code: referredByCode } : {}),
       ...(age !== null && !isNaN(age) ? { age } : {}),
       ...(bioRaw ? { bio: bioRaw } : {}),
       ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)

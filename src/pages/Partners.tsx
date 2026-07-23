@@ -24,12 +24,12 @@ const STEPS = [
   {
     icon: Share2,
     title: 'Share it once',
-    body: 'Class group chat, society page, a poster in the common room. Every student who joins through your link is yours — for good.',
+    body: 'Class group chat, society page, a poster in the common room. Every student who joins through your link is credited to you.',
   },
   {
     icon: Coins,
-    title: 'Earn on every job',
-    body: 'Each time one of your students completes a job, 3% of that job lands in your balance. Automatically, every job, for as long as they work.',
+    title: 'Earn on every job — for a year',
+    body: 'Each time one of your students completes a job in their first year, 3% of that job lands in your balance. Automatically, every job, all year.',
   },
 ];
 
@@ -54,8 +54,8 @@ const FACTS = [
 const Partners: React.FC = () => (
   <div className="bg-cream min-h-screen">
     <SEOHead
-      title="VANO partners — earn 3% of every job your students do"
-      description="Know students in Galway? Share one link. When a student you invited completes jobs on VANO, you automatically earn 3% of each job — tracked live, paid to you."
+      title="VANO partners — earn 3% of every job your students do, for a year"
+      description="Know students in Galway? Share one link. When a student you invited completes jobs on VANO, you automatically earn 3% of each job for their whole first year — tracked live, paid to you."
       url="https://vanojobs.com/partners"
     />
     <HouseholdNav />
@@ -86,7 +86,8 @@ const Partners: React.FC = () => (
           className="text-base sm:text-lg text-foreground/70 max-w-xl mx-auto"
         >
           Share one link. When a student you invited completes jobs on VANO, your
-          cut lands automatically — tracked live, emailed to you each time.
+          cut lands automatically for their whole first year — tracked live,
+          emailed to you each time.
         </motion.p>
       </section>
 
@@ -149,6 +150,7 @@ const Partners: React.FC = () => (
           <p className="text-sm text-foreground/70">
             One student doing <span className="font-semibold text-foreground">two €36 cleans a week</span> earns
             you <span className="font-bold text-sage-dark tabular-nums">€2.16 a week</span> —
+            over <span className="font-bold text-sage-dark tabular-nums">€110 across their first year</span>,
             per student, while you do nothing.
           </p>
         </div>

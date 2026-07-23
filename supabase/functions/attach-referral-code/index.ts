@@ -2,10 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Attaches a partner/referral code to a freshly-created helper application.
-// Called by the Join flow right after create-helper-application returns a
-// helper_id. Setting household_helpers.referred_by_code fires a DB trigger that
-// resolves the code to an attribution (so the partner earns commission on this
-// helper's completed jobs). Unknown/blank codes are a no-op. Idempotent: only
+// BACKSTOP since 2026-07-23: create-helper-application now stores the code
+// atomically from the form payload; the Join flow still awaits this call after
+// submit to cover an older deployed function version. Setting
+// household_helpers.referred_by_code fires a DB trigger that resolves the code
+// to an attribution (so the partner earns commission on this helper's
+// first-year completed jobs). Unknown/blank codes are a no-op. Idempotent: only
 // stamps a helper that doesn't already have a code, so a re-submit can't move
 // an attribution. Codes aren't secrets, so a guest (anon) entry point is fine.
 

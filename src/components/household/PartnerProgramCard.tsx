@@ -62,8 +62,9 @@ const shareText = (link: string) =>
  * recruiting helpers (a union, a society, or a helper bringing friends in).
  * Enter an email once, get a shareable code; when a student signs up with it
  * and completes paid jobs, you earn a commission (default 3% of the job, out of
- * VANO's cut — the student's pay is untouched). No login: codes aren't secrets,
- * and the email just keys your earnings.
+ * VANO's cut — the student's pay is untouched) for the student's FIRST YEAR
+ * (12 months from signup — enforced by the accrual triggers). No login: codes
+ * aren't secrets, and the email just keys your earnings.
  *
  * Layout when loaded: the CODE + share sits at the very top (it's the thing to
  * grab), then the money earned, then a funnel of stats (opens → joined → jobs)
@@ -132,7 +133,7 @@ export const PartnerProgramCard: React.FC<{ className?: string; initialEmail?: s
           <p className="text-sm font-bold text-foreground">Refer students &amp; earn</p>
           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
             Anyone can do this — share your link once, and every time a student you brought in
-            completes a job you automatically earn {info ? `${info.commission_pct}%` : '3%'} of it. We email you each time money lands.
+            completes a job in their first year you automatically earn {info ? `${info.commission_pct}%` : '3%'} of it. We email you each time money lands.
           </p>
         </div>
       </div>

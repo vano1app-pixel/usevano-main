@@ -485,6 +485,11 @@ export const JoinAsHelper: React.FC = () => {
       fd.append('right_to_work', String(agreeAll));
       fd.append('consent_verify', String(agreeAll));
       fd.append('agree_terms', String(agreeAll));
+      // Partner/referral code rides IN the application payload so the server
+      // stores it (and the DB trigger credits the partner) atomically with the
+      // signup — the separate attach call below is only a backstop.
+      const partnerCode = referralCode.trim().toUpperCase();
+      if (/^[A-Z0-9]{4,12}$/.test(partnerCode)) fd.append('referred_by_code', partnerCode);
       fd.append('photo', photo as File);
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -500,14 +505,18 @@ export const JoinAsHelper: React.FC = () => {
       const json = await res.json() as { success?: boolean; error?: string; helper_id?: string };
       if (!res.ok || !json.success) throw new Error(json.error ?? 'Unknown error');
 
-      // Attach an optional partner/referral code — best-effort, never blocks the
-      // signup. A DB trigger turns it into an attribution so the partner earns
-      // commission on this helper's completed jobs.
-      const code = referralCode.trim().toUpperCase();
-      if (code && json.helper_id) {
-        supabase.functions
-          .invoke('attach-referral-code', { body: { helper_id: json.helper_id, code } })
-          .catch(() => { /* referral attach is non-critical */ });
+      // Backstop attach of the partner/referral code (the payload above already
+      // carried it — this only matters against an older deployed function).
+      // AWAITED with a hard cap: the redirect below aborts in-flight requests,
+      // so the old fire-and-forget could silently lose the attribution. The cap
+      // means a slow network delays the redirect by ≤2s, never blocks it.
+      if (/^[A-Z0-9]{4,12}$/.test(partnerCode) && json.helper_id) {
+        await Promise.race([
+          supabase.functions
+            .invoke('attach-referral-code', { body: { helper_id: json.helper_id, code: partnerCode } })
+            .catch(() => { /* referral attach is non-critical */ }),
+          new Promise((resolve) => setTimeout(resolve, 2000)),
+        ]);
       }
 
       // Application saved — the draft has done its job.
