@@ -1812,34 +1812,33 @@ export const CategoryGrid: React.FC = () => {
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             whileTap={{ scale: 0.98 }}
             onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, direct: true }); }}
-            className="tile-float mb-2.5 sm:mb-3 flex w-full sm:max-w-xl sm:mx-auto items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 sm:py-3.5 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            // Compact by design (owner call 2026-07-24): a quiet one-line chip.
+            // The five tiles are the front door — the usual is a shortcut, not
+            // a second hero card competing with them.
+            className="tile-float mb-2.5 sm:mb-3 mx-auto flex w-fit max-w-full items-center gap-2 rounded-full border border-gold/50 bg-white pl-3 pr-3.5 py-2 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            <span className="text-2xl sm:text-3xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm sm:text-base font-bold text-foreground truncate">
-                Book your usual{usual.price ? ` · ${usual.price}` : ''}
-              </span>
-              <span className="block text-[13px] sm:text-sm text-foreground/75 truncate">
-                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved — one tap
-              </span>
+            <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="min-w-0 truncate text-[13px] sm:text-sm font-bold text-foreground">
+              Book your usual · {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''}{usual.price ? ` · ${usual.price}` : ''}
             </span>
-            <span className="text-gold text-lg sm:text-xl font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+            <span className="text-gold text-base font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
           </motion.button>
         )}
         <motion.div
           role="group"
           aria-label="Book a service in one tap"
-          // Phones: the tight 3×2 grid. Desktop: ONE Airbnb-style row of six,
-          // so the whole hero (heading → tiles → reassurance) fits a laptop
-          // viewport with no scrolling.
-          className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 lg:gap-4"
+          // Phones: 3 + 2 — six tracks with tiles spanning two each, and the
+          // 4th tile starting at track 2, so the final pair sits centered
+          // instead of leaving a hole. Desktop: ONE Airbnb-style row of five,
+          // so the whole hero fits a laptop viewport with no scrolling.
+          className="grid grid-cols-6 sm:grid-cols-5 gap-2 sm:gap-3 lg:gap-4"
           initial="hidden"
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
         >
-          {/* Business renders separately below as the NAVY 6th tile — the
-              five household tiles stay white. */}
-          {CATEGORIES.filter((c) => c.slug !== 'business').map((c) => {
+          {/* The five household tiles — the whole front door since the navy
+              Business tile was parked (2026-07-24). */}
+          {CATEGORIES.filter((c) => c.slug !== 'business').map((c, i) => {
             const fromCents = getPriceCents(c.slug, c.sizes?.[0] ?? DEFAULT_SIZE[c.slug] ?? '');
             return (
               <motion.button
@@ -1857,7 +1856,13 @@ export const CategoryGrid: React.FC = () => {
                 // Desktop (lg:) sizes run a step bigger than the usual scale on
                 // purpose — the paying customer skews 35+ and the tiles are the
                 // whole front door, so they must read from armchair distance.
-                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className={cn(
+                  'tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold',
+                  'col-span-2 sm:col-span-1',
+                  // 5 tiles on a 6-track phone grid: the 4th starts at track 2
+                  // so the last pair renders centered under the top row of 3.
+                  i === 3 && 'col-start-2 sm:col-start-auto',
+                )}
               >
                 {/* Cleaning wears the same "Most booked" crown as the podium */}
                 {c.slug === 'cleaning' && (
@@ -1873,36 +1878,12 @@ export const CategoryGrid: React.FC = () => {
               </motion.button>
             );
           })}
-          {/* The 6th tile — the one NAVY tile is now BUSINESS (owner call
-              2026-07-23: it took the "Anything else" slot; the describe-it
-              door is parked — the catalogue still reaches customers through
-              each category's sub-picker and the WhatsApp door). Brand-navy +
-              the red TEMP STAFF tag = the B2B door reads special, priced. */}
-          {(() => {
-            const biz = CATEGORIES.find((c) => c.slug === 'business')!;
-            const bizFrom = getPriceCents(biz.slug, biz.sizes?.[0] ?? '');
-            return (
-              <motion.button
-                type="button"
-                variants={{ hidden: { opacity: 0, y: 12, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1 } }}
-                whileHover={{ y: -4 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 26 }}
-                onClick={() => { haptic(10); track('hero_tile_tap', { category: biz.slug }); openSheet(biz); }}
-                aria-label={`Book ${biz.label}${bizFrom ? ` — from ${fmt(bizFrom)}` : ''}`}
-                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-              >
-                <span className="absolute -top-2 sm:-top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-white whitespace-nowrap shadow-sm">
-                  Temp staff
-                </span>
-                <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{biz.emoji}</span>
-                <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-white leading-tight">{biz.label}</span>
-                {bizFrom != null && (
-                  <span className="text-[13px] sm:text-base lg:text-lg font-semibold text-gold tabular-nums leading-none sm:mt-0.5">from {fmt(bizFrom)}</span>
-                )}
-              </motion.button>
-            );
-          })()}
+          {/* The navy BUSINESS (temp-staff) 6th tile is PARKED (owner call
+              2026-07-24: households only — five tiles, less to think about;
+              the one-day B2B test ended). Like CUSTOM_TILE, the machinery
+              stays: the category + its sub-picker live on in CATEGORIES so
+              old deep links and in-flight bookings keep working. Remount by
+              rendering a navy tile for CATEGORIES 'business' here. */}
         </motion.div>
       </div>
 
