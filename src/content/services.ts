@@ -237,6 +237,17 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
       HOW_FAST,
     ],
   },
+];
+
+// ── PARKED (owner call 2026-07-24: moving retired from the customer offer —
+// liability triage, same class as the retired 'midnight-lift'/'plumbing':
+// heavy items + other people's valuables with no goods-in-transit or injury
+// cover, and it's the one non-recurring category). Kept out of
+// SERVICE_LANDINGS so the sitemap, prerender, related-links and route all
+// drop it automatically; /moving-help-galway redirects home (see
+// ServiceLanding + PARKED_SERVICE_SLUGS). Don't re-add without the owner.
+export const PARKED_SERVICE_SLUGS = ['moving-help-galway'] as const;
+const PARKED_SERVICE_LANDINGS: ServiceLandingContent[] = [
   {
     slug: 'moving-help-galway',
     category: 'moving',
@@ -282,6 +293,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     ],
   },
 ];
+void PARKED_SERVICE_LANDINGS; // kept for history / re-mount, not rendered
 
 /** Quick lookup used by the ServiceLanding page. */
 export function getServiceLanding(slug: string): ServiceLandingContent | undefined {

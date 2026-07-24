@@ -418,7 +418,7 @@ function homePage(): PageSpec {
   const rootHtml = `
 ${topNav}
 <h1>Hire a local student for help at home</h1>
-<p class="summary">VANO matches you with an ID-verified local student for your home jobs in Galway — cleaning, laundry, dog walks, garden help and moving. Same-day, from €15. You see your helper's name, photo and rating; your card is only ever charged the small booking fee, and only when a helper accepts. Money-back guarantee on the fee.</p>
+<p class="summary">VANO matches you with an ID-verified local student for your home jobs in Galway — cleaning, laundry, dog walks and garden help. Same-day, from €15. You see your helper's name, photo and rating; your card is only ever charged the small booking fee, and only when a helper accepts. Money-back guarantee on the fee.</p>
 <h2>What you can book</h2>
 <ul class="cards">
 ${SERVICE_LANDINGS.map((s) => `<li><a href="/${s.slug}">${escAttr(s.name)} in Galway</a> — ${escAttr(s.priceLabel)}<br><span>${escAttr(s.description)}</span></li>`).join("\n")}
@@ -444,7 +444,7 @@ ${siteFooter}`.trim();
     outFile: "index.html",
     title: "Hire a local student for help at home — same-day in Galway",
     description:
-      "Hire a trusted local student for cleaning, garden, dog walks, laundry, moving & more. Same-day in Galway, from €15 — only charged when a helper accepts.",
+      "Hire a trusted local student for cleaning, garden, dog walks, laundry & more. Same-day in Galway, from €15 — only charged when a helper accepts.",
     canonical: `${ORIGIN}/`,
     ogType: "website",
     jsonLd: [
@@ -468,7 +468,7 @@ function joinPage(): PageSpec {
   const rootHtml = `
 ${topNav}
 <h1>Earn money as a student helper in Galway — keep 100%</h1>
-<p class="summary">Pick up same-day home help jobs near you — laundry runs, dog walks, cleaning, garden work and moving help. Customers pay you directly and you keep 100% of the job price (€18/hour on timed jobs), working only when it suits your timetable.</p>
+<p class="summary">Pick up same-day home help jobs near you — laundry runs, dog walks, cleaning and garden work. Customers pay you directly and you keep 100% of the job price (€18/hour on timed jobs), working only when it suits your timetable.</p>
 <h2>How it works</h2>
 <ul>
 <li><strong>Join free in a few minutes</strong> — a short form with your photo and student details, then confirm your email with a 6-digit code and your account is live.</li>
@@ -479,7 +479,7 @@ ${topNav}
 </ul>
 <h2>What jobs pay</h2>
 <ul>
-<li>Time-based work (cleaning, garden, moving) is priced at €18/hour — you keep the full €18, well above the Irish minimum wage.</li>
+<li>Time-based work (cleaning, garden) is priced at €18/hour — you keep the full €18, well above the Irish minimum wage.</li>
 <li>Flat-rate errands (laundry €30 a bag, dog walks €15–20) are priced per task so a short job is still worth your trip.</li>
 </ul>
 <p><a href="/join">Apply now at vanojobs.com/join</a> — free to join, and job offers start as soon as your email and free ID check are done (both take minutes).</p>
@@ -489,7 +489,7 @@ ${siteFooter}`.trim();
     outFile: "join/index.html",
     title: "Earn €18/hr as a student helper in Galway — keep 100%",
     description:
-      "Same-day home help jobs near you — cleaning, laundry, dog walks, garden & moving. €18/hr on timed jobs, customers pay you directly, you keep 100%. Join free.",
+      "Same-day home help jobs near you — cleaning, laundry, dog walks & garden. €18/hr on timed jobs, customers pay you directly, you keep 100%. Join free.",
     canonical: `${ORIGIN}/join`,
     ogType: "website",
     jsonLd: [],
@@ -516,7 +516,7 @@ for (const page of pages) emit(page);
 const llmsTxt = [
   "# VANO",
   "",
-  "> Hire a local student for help at home — same-day in Galway, Ireland, from €15. Cleaning, laundry, garden help, dog walks, moving and errands by ID-verified students. Booking is free: the card is only charged VANO's small booking fee when a helper accepts, and the customer pays the helper directly when the job's done — helpers keep 100% (€18/hr on timed jobs, above the Irish minimum wage).",
+  "> Hire a local student for help at home — same-day in Galway, Ireland, from €15. Cleaning, laundry, garden help, dog walks and errands by ID-verified students. Booking is free: the card is only charged VANO's small booking fee when a helper accepts, and the customer pays the helper directly when the job's done — helpers keep 100% (€18/hr on timed jobs, above the Irish minimum wage).",
   "",
   "## Blog",
   ...BLOG_POSTS.map((p) => `- [${p.title}](${ORIGIN}/blog/${p.slug}): ${p.summary}`),

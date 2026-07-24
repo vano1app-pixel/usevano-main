@@ -1965,18 +1965,22 @@ export const CategoryGrid: React.FC = () => {
         <motion.div
           role="group"
           aria-label="Book a service in one tap"
-          // Phones: 3 + 2 — six tracks with tiles spanning two each, and the
-          // 4th tile starting at track 2, so the final pair sits centered
-          // instead of leaving a hole. Desktop: ONE Airbnb-style row of five,
-          // so the whole hero fits a laptop viewport with no scrolling.
-          className="grid grid-cols-6 sm:grid-cols-5 gap-2 sm:gap-3 lg:gap-4"
+          // Phones: a clean 2×2 — four tiles, each half-width and easier to
+          // tap. Desktop: ONE Airbnb-style row of four, so the whole hero
+          // fits a laptop viewport with no scrolling.
+          className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 lg:gap-4"
           initial="hidden"
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
         >
-          {/* The five household tiles — the whole front door since the navy
-              Business tile was parked (2026-07-24). */}
-          {CATEGORIES.filter((c) => c.slug !== 'business').map((c, i) => {
+          {/* The FOUR household tiles — the whole front door. Business was
+              parked 2026-07-24 (B2B test ended); MOVING was parked the same
+              day (owner call: liability triage — heavy items + no
+              goods-in-transit/injury cover is the same class of risk that
+              retired 'midnight-lift' and 'plumbing'; small carries still
+              book via the custom catalogue at €18/hr). Machinery for both
+              stays in CATEGORIES for old deep links + in-flight bookings. */}
+          {CATEGORIES.filter((c) => c.slug !== 'business' && c.slug !== 'moving').map((c) => {
             return (
               <motion.button
                 key={c.slug}
@@ -1997,13 +2001,7 @@ export const CategoryGrid: React.FC = () => {
                 // Desktop (lg:) sizes run a step bigger than the usual scale on
                 // purpose — the paying customer skews 35+ and the tiles are the
                 // whole front door, so they must read from armchair distance.
-                className={cn(
-                  'tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold',
-                  'col-span-2 sm:col-span-1',
-                  // 5 tiles on a 6-track phone grid: the 4th starts at track 2
-                  // so the last pair renders centered under the top row of 3.
-                  i === 3 && 'col-start-2 sm:col-start-auto',
-                )}
+                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-3 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 {/* Cleaning wears the same "Most booked" crown as the podium */}
                 {c.slug === 'cleaning' && (
