@@ -132,7 +132,10 @@ export const HeroSection: React.FC = () => {
         <HelperFacePile />
 
         {/* The WhatsApp door — it converted real customers, so it earns a spot
-            on the hero, quiet but visible. A person books it for you. */}
+            on the hero, quiet but visible. A person books it for you. Since
+            2026-07-24 it's ALSO the odd-job catch-all (the "Anything else" and
+            Business tiles are parked): a job the five tiles don't name still
+            has an obvious human door on the first screen. */}
         <motion.a
           href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need a hand with ')}`}
           target="_blank"
@@ -144,7 +147,7 @@ export const HeroSection: React.FC = () => {
           className="mt-4 sm:mt-6 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-[#25D366]/40 bg-[#25D366]/8 px-4 py-2 sm:px-5 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold text-[#128a45] hover:bg-[#25D366]/15 transition-colors"
         >
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
-          Prefer to text? Book on WhatsApp — we sort it for you
+          Prefer to text, or need something else? WhatsApp us — we sort it for you
         </motion.a>
 
         {/* Phone-only follow row — the nav carries these buttons from md up,

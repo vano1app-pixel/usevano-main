@@ -1269,6 +1269,16 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       {builderPriceCents != null ? `Continue · ${fmt(builderPriceCents)}` : 'Tick at least one job'}
                     </Button>
                   </div>
+
+                  {/* Never a dead end: a job the boxes don't cover still has a
+                      human door, right here — not after closing the sheet. */}
+                  <button
+                    type="button"
+                    onClick={sendWhatsApp}
+                    className="mt-3 mx-auto block text-[13px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                  >
+                    Job not in the list? WhatsApp us — we sort anything
+                  </button>
                 </>
               ) : (
               <>
@@ -1546,6 +1556,16 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 job money goes to the helper (100%); the card is only ever
                 charged the fee (+ Cover), and only at accept. */}
             <motion.div variants={listItem} className="space-y-3 pt-1">
+              {/* The plain-words money explainer — first-timers meet the
+                  two-pot maths (job money vs VANO fee) right here, so one
+                  familiar sentence de-mystifies it BEFORE the numbers.
+                  Written for the slowest reader in the room, on purpose. */}
+              {priceCents && (
+                <p className="text-[13px] leading-relaxed text-muted-foreground text-center px-1">
+                  Like paying a babysitter — you pay your student directly once
+                  the job's done. The small VANO fee is what books them.
+                </p>
+              )}
               {priceCents && (
                 <div className="px-4 py-4 rounded-2xl bg-foreground/[0.04] border border-foreground/10">
                   <div className="flex items-center justify-between gap-3">

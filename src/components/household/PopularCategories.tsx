@@ -4,7 +4,7 @@ import { haptic } from '@/lib/haptics';
 
 /**
  * The three most-booked services as a winner's podium — cleaning takes the tall
- * gold #1 step in the middle, laundry the silver #2 on the left, dog walks the
+ * gold #1 step in the middle, laundry the silver #2 on the left, pets the
  * bronze #3 on the right (classic 2-1-3 podium ordering). Each step is a one-tap
  * tile: tapping fires `vano:select-category`, which the hero's CategoryGrid
  * listens for and opens its booking sheet — so this reuses the ONE booking flow,
@@ -17,7 +17,11 @@ type Popular = { slug: string; emoji: string; label: string; size: string; scope
 const POPULAR: Popular[] = [
   { slug: 'shopping', emoji: '🧺', label: 'Laundry',  size: '',        scope: 'Washed & folded',     rank: 2 },
   { slug: 'cleaning', emoji: '🧹', label: 'Cleaning', size: '2 hours', scope: 'Kitchen, bath, floors', rank: 1 },
-  { slug: 'dog-walk', emoji: '🐕', label: 'Dog walk', size: '30 min',  scope: 'On-lead, door to door', rank: 3 },
+  // Same name + same destination as the hero's Pets tile (owner call
+  // 2026-07-24: one service, ONE name everywhere — two labels for the same
+  // door read as two different things). No preset size: opens page 1 like
+  // the hero tile does.
+  { slug: 'dog-walk', emoji: '🐾', label: 'Pets', size: '', scope: 'Dog walks & pet care', rank: 3 },
 ];
 
 // Per-place styling: step height (the podium silhouette), the bar gradient, the
