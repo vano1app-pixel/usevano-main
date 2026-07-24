@@ -3,7 +3,6 @@ import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
 import { ActivityTicker } from '@/components/household/ActivityTicker';
-import { HowItWorks } from '@/components/household/HowItWorks';
 import { HelperCards } from '@/components/household/HelperCards';
 import { FAQSection } from '@/components/household/FAQSection';
 import { FAQS } from '@/components/household/faqData';
@@ -66,12 +65,12 @@ const HouseholdHome: React.FC = () => {
             dispatch vano:select-category, which the hero's CategoryGrid catches
             to open the shared booking sheet. */}
         <PopularCategories />
-        {/* Owner call 2026-07-23: the three-steps section moved INTO the
-            reviews slot, on ALL devices (mid-page it no longer pushes the
-            helper faces down — the July phone-only concern was about it
-            sitting right after the hero). The rotating reviews ride directly
-            under it. */}
-        <div id="how"><Reveal><HowItWorks /></Reveal></div>
+        {/* The "Just 3 easy steps" section (HowItWorks) is UNMOUNTED — owner
+            call 2026-07-24: not needed. The flow now explains itself where it
+            happens (phone instruction line on the hero, promise chips + the
+            babysitter money line inside the sheet), so a mid-page explainer
+            was one more thing to scroll past. Component kept in the repo;
+            nothing links #how. Don't remount without the owner. */}
         {/* ReviewCarousel shows ONLY genuine reviews (the seed testimonials
             were deleted — fake reviews are a blacklisted commercial practice)
             and renders nothing until the first real one lands, so it's safe
