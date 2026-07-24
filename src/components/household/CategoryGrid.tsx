@@ -1943,7 +1943,6 @@ export const CategoryGrid: React.FC = () => {
           {/* The five household tiles — the whole front door since the navy
               Business tile was parked (2026-07-24). */}
           {CATEGORIES.filter((c) => c.slug !== 'business').map((c, i) => {
-            const fromCents = getPriceCents(c.slug, c.sizes?.[0] ?? DEFAULT_SIZE[c.slug] ?? '');
             return (
               <motion.button
                 key={c.slug}
@@ -1953,10 +1952,14 @@ export const CategoryGrid: React.FC = () => {
                 whileTap={{ scale: 0.95 }}
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                 onClick={() => { haptic(10); track('hero_tile_tap', { category: c.slug }); openSheet(c); }}
-                aria-label={`Book ${c.label}${fromCents ? ` — from ${fmt(fromCents)}` : ''}`}
-                // Owner call (July 2026): tiles carry ONLY pic + name + price —
-                // same as the phone grid, just bigger. The job description
-                // (cat.hint) lives in the booking sheet header, not here.
+                aria-label={`Book ${c.label}`}
+                // Owner call (2026-07-24): tiles carry ONLY pic + name — the
+                // "from €X" price tags came OFF the front door ("so we don't
+                // scare them off"). Price now reveals inside the sheet once
+                // they're engaged: builder ticks build it up, the form card
+                // shows the full maths. Don't re-add prices here without the
+                // owner. The job description (cat.hint) lives in the booking
+                // sheet header, not here.
                 // Desktop (lg:) sizes run a step bigger than the usual scale on
                 // purpose — the paying customer skews 35+ and the tiles are the
                 // whole front door, so they must read from armchair distance.
@@ -1976,9 +1979,6 @@ export const CategoryGrid: React.FC = () => {
                 )}
                 <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
                 <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-foreground leading-tight">{c.label}</span>
-                {fromCents != null && (
-                  <span className="text-[13px] sm:text-base lg:text-lg font-semibold text-sage-dark tabular-nums leading-none sm:mt-0.5">from {fmt(fromCents)}</span>
-                )}
               </motion.button>
             );
           })}

@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { getHouseholdPriceCents } from '@/lib/householdPricing';
 import { haptic } from '@/lib/haptics';
 
 /**
@@ -29,11 +28,6 @@ const PODIUM: Record<1 | 2 | 3, { step: string; bar: string; num: string; medal:
   3: { step: 'h-12 sm:h-16', bar: 'from-amber-600 to-amber-800',   num: 'text-amber-50',  medal: '🥉', ring: '', tile: '' },
 };
 
-function fmt(cents: number): string {
-  const eur = cents / 100;
-  return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
-}
-
 function selectCategory(slug: string, size: string): void {
   haptic(10); // gentle confirm tick on supported phones
   window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug, size: size || undefined } }));
@@ -52,12 +46,8 @@ const emojiV = {
   hover:  { scale: 1.22, rotate: [0, -12, 10, -6, 0] },
   tap:    { scale: 0.85 },
 };
-// The price springs up a beat after its tile lands — a tiny "ta-da" on the
-// number people actually care about. Rides the column's hidden/show state.
-const priceV = {
-  hidden: { scale: 0.5, opacity: 0 },
-  show:   { scale: 1, opacity: 1, transition: { type: 'spring' as const, stiffness: 500, damping: 16, delay: 0.16 } },
-};
+// (The per-tile price "ta-da" is gone — owner call 2026-07-24: prices came
+// off the landing page; the sheet reveals them once the customer engages.)
 // The step grows up from the floor like a real podium rising into place.
 const stepV = {
   hidden: { scaleY: 0 },
@@ -83,7 +73,7 @@ export const PopularCategories: React.FC = () => {
             The help people book most
           </h2>
           <p className="text-white/70 text-sm sm:text-base mt-3 max-w-md mx-auto text-pretty">
-            Tap any job to book in seconds — or choose “Anything else” at the top.
+            Tap any job to book in seconds.
           </p>
         </motion.div>
 
@@ -98,7 +88,6 @@ export const PopularCategories: React.FC = () => {
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.05 } } }}
         >
           {POPULAR.map((c) => {
-            const cents = getHouseholdPriceCents(c.slug, c.size);
             const p = PODIUM[c.rank];
             return (
               <motion.div key={c.slug} variants={colV} className="flex flex-col items-center">
@@ -149,9 +138,6 @@ export const PopularCategories: React.FC = () => {
                     {c.emoji}
                   </motion.span>
                   <span className="text-xs sm:text-base font-bold text-foreground mt-1">{c.label}</span>
-                  <motion.span variants={priceV} className="text-base sm:text-xl font-extrabold text-foreground tabular-nums leading-none">
-                    {cents != null ? fmt(cents) : 'from €15'}
-                  </motion.span>
                   <span className="hidden sm:block text-[11px] font-medium text-muted-foreground leading-tight">{c.scope}</span>
                 </motion.button>
 
