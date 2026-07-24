@@ -15,6 +15,7 @@ import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
+import { BUILDER_TASKS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -484,8 +485,14 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // flow used, so the form/checkout below is untouched).
   const subServices = SUB_SERVICES[entryCat.slug];
   const isDescribe = entryCat.slug === 'custom' && !entryExtraLabel;
-  const startOnPick = (isDescribe || !!subServices) && !initialSize && !entryExtraLabel && !direct;
+  // Tick-box job builder (owner pick 2026-07-24): the hourly categories'
+  // page 1 is tick-the-tasks instead of pick-one-row. Ticks sum to minutes,
+  // minutes round UP to an existing size label — checkout still only ever
+  // sees category + size, so the server prices exactly as before.
+  const builderTasks = BUILDER_TASKS[entryCat.slug];
+  const startOnPick = (isDescribe || !!subServices || !!builderTasks) && !initialSize && !entryExtraLabel && !direct;
   const [step, setStep] = useState<'pick' | 'form'>(startOnPick ? 'pick' : 'form');
+  const [ticked, setTicked] = useState<string[]>([]);
   const [active, setActive] = useState<{ cat: Category; note?: string; extraLabel?: string }>(
     { cat: entryCat, note: entryNote, extraLabel: entryExtraLabel },
   );
@@ -605,6 +612,32 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       });
       setSize(short ? '30 min' : h === 1 ? '1 hour' : `${h} hours`);
     }
+    navDir.current = 1;
+    setStep('form');
+  }
+
+  // Builder page derived values — the ticked tasks priced through the same
+  // canonical table as everything else (the builder only ever picks a SIZE).
+  const builderSize = builderTasks && entryCat.sizes
+    ? builderSizeLabel(builderMinutes(entryCat.slug, ticked), entryCat.sizes)
+    : null;
+  const builderPriceCents = builderSize ? getPriceCents(entryCat.slug, builderSize) : null;
+  const builderMarket = builderSize ? builderMarketCents(entryCat.slug, builderSize) : null;
+
+  // Page 1 (builder) → page 2: same contract as applyPick — the ticked list
+  // rides note (full, for the helper) + extraLabel (short, for offers), and
+  // the computed size preselects the form's "How long?" chips, which stay
+  // live so the customer can still adjust.
+  function applyBuilderPick() {
+    if (!builderTasks || !builderSize) return;
+    haptic(10);
+    track('builder_continue', { category: entryCat.slug, tasks: ticked.length, size: builderSize });
+    setActive({
+      cat: entryCat,
+      note: builderNote(entryCat.slug, ticked),
+      extraLabel: builderShortLabel(entryCat.slug, ticked) ?? undefined,
+    });
+    setSize(builderSize);
     navDir.current = 1;
     setStep('form');
   }
@@ -1079,7 +1112,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     transition={{ duration: 0.25, delay: 0.05 }}
                   >
                     {step === 'pick'
-                      ? (isDescribe ? 'Tap a popular job, or type your own' : 'Tap one — it takes a second')
+                      ? (isDescribe
+                          ? 'Tap a popular job, or type your own'
+                          : builderTasks
+                            ? 'Tap all that apply — the price builds as you go'
+                            : 'Tap one — it takes a second')
                       : cat.hint}
                   </motion.span>
                 </p>
@@ -1170,6 +1207,71 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               )}
+              {builderTasks && !isDescribe ? (
+                /* ── Tick-box builder: tap the tasks, watch the price build.
+                    Each row is a task with an honest ~time; the card below
+                    rolls the total (AnimatedPrice) and anchors it against the
+                    display-only local going rate. Continue = applyBuilderPick. */
+                <>
+                  <div className="space-y-2" role="group" aria-label={pickTitle}>
+                    {builderTasks.map((t, i) => {
+                      const on = ticked.includes(t.key);
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => { haptic(8); setTicked((v) => on ? v.filter((k) => k !== t.key) : [...v, t.key]); }}
+                          className={cn(
+                            'cascade-in flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3.5 text-left transition-[border-color,background-color,transform] duration-150 active:scale-[0.98]',
+                            on ? 'border-sage bg-sage-light' : 'border-border/70 bg-white hover:border-sage/60 hover:bg-sage-light/30',
+                          )}
+                          style={{ '--cascade-i': Math.min(i, 8) } as React.CSSProperties}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150',
+                              on ? 'border-sage bg-sage' : 'border-foreground/30 bg-white',
+                            )}
+                          >
+                            {on && <Check className="h-4 w-4 text-white" strokeWidth={3.5} />}
+                          </span>
+                          <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{t.emoji}</span>
+                          <span className="flex-1 min-w-0 text-[15px] font-semibold text-foreground truncate">{t.label}</span>
+                          <span className="text-xs font-semibold text-muted-foreground tabular-nums flex-shrink-0">{minutesLabel(t.minutes)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* The build-up card — duration + rolling price + anchor. */}
+                  <div className="surface-float mt-3 rounded-2xl border border-border bg-white px-4 pt-3.5 pb-4">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className={cn('text-sm min-w-0', builderSize ? 'text-foreground/70' : 'text-muted-foreground')}>
+                        {builderSize ? `About ${builderSize} · €18/hr` : 'Tick what needs doing'}
+                      </span>
+                      {builderPriceCents != null
+                        ? <AnimatedPrice announce cents={builderPriceCents} className="text-2xl font-bold text-foreground flex-shrink-0" />
+                        : <span className="text-2xl font-bold text-foreground/25 tabular-nums flex-shrink-0" aria-hidden="true">€0</span>}
+                    </div>
+                    {builderPriceCents != null && builderMarket != null && builderMarket > builderPriceCents && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Typical Galway rate ~{fmt(builderMarket)} · <span className="font-semibold text-sage-dark">you save ~{fmt(builderMarket - builderPriceCents)}</span>
+                      </p>
+                    )}
+                    <Button
+                      type="button"
+                      disabled={!builderSize}
+                      onClick={applyBuilderPick}
+                      className="mt-3 w-full h-12 rounded-full text-[15px] font-bold"
+                    >
+                      {builderPriceCents != null ? `Continue · ${fmt(builderPriceCents)}` : 'Tick at least one job'}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+              <>
               <div className="space-y-2" role="list" aria-label={pickTitle}>
                 {isDescribe
                   ? describeRows.map((row, i) =>
@@ -1209,6 +1311,8 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 >
                   More options ↓
                 </button>
+              )}
+              </>
               )}
               <p className="text-center text-[13px] text-muted-foreground mt-4 leading-relaxed">
                 Fair prices, always — your helper earns above minimum wage on every job.
