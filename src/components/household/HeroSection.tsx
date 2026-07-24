@@ -124,6 +124,14 @@ export const HeroSection: React.FC = () => {
             style={{ background: 'radial-gradient(ellipse at center, hsl(43 92% 62% / 0.20), hsl(28 90% 60% / 0.10) 45%, transparent 68%)' }}
           />
           <div className="relative z-10">
+            {/* Phone-only micro-instruction (2026-07-24): the desktop subline
+                is hidden on phones, which left the phone hero with NO "what
+                do I do" line at all — a slow first-timer just saw five white
+                cards. One quiet line, attached to the grid (not the headline)
+                so it doesn't crowd the top the way the old phone copy did. */}
+            <p className="sm:hidden text-[13px] font-medium text-foreground/60 mb-2.5">
+              Tap the job — an ID-checked student does it today
+            </p>
             <CategoryGrid />
           </div>
         </motion.div>

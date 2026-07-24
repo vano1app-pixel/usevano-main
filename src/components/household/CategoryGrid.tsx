@@ -1240,15 +1240,36 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                             {on && <Check className="h-4 w-4 text-white" strokeWidth={3.5} />}
                           </span>
                           <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{t.emoji}</span>
-                          <span className="flex-1 min-w-0 text-[15px] font-semibold text-foreground truncate">{t.label}</span>
+                          {/* Wraps, never truncates — a slow reader must be able
+                              to read the whole task they're ticking (375px
+                              phones cut "Kitchen deep-cle…" with truncate). */}
+                          <span className="flex-1 min-w-0 text-[15px] font-semibold text-foreground leading-snug">{t.label}</span>
                           <span className="text-xs font-semibold text-muted-foreground tabular-nums flex-shrink-0">{minutesLabel(t.minutes)}</span>
                         </button>
                       );
                     })}
                   </div>
 
-                  {/* The build-up card — duration + rolling price + anchor. */}
-                  <div className="surface-float mt-3 rounded-2xl border border-border bg-white px-4 pt-3.5 pb-4">
+                  {/* Never a dead end: a job the boxes don't cover still has a
+                      human door, right here — not after closing the sheet.
+                      Sits ABOVE the sticky card so it scrolls with the rows. */}
+                  <button
+                    type="button"
+                    onClick={sendWhatsApp}
+                    className="mt-3 mx-auto block text-[13px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                  >
+                    Job not in the list? WhatsApp us — we sort anything
+                  </button>
+
+                  {/* The build-up card — duration + rolling price + anchor.
+                      STICKY to the sheet's bottom edge (2026-07-24): on small
+                      phones the card sat below the fold, so the whole "watch
+                      the price build as you tick" moment was invisible while
+                      ticking. Now the rows scroll underneath and the rolling
+                      total never leaves the screen — the sheet's docked-bar
+                      pattern, one page earlier. */}
+                  <div className="sticky bottom-0 z-10 bg-cream pt-3 pb-1">
+                  <div className="surface-float rounded-2xl border border-border bg-white px-4 pt-3.5 pb-4">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className={cn('text-sm min-w-0', builderSize ? 'text-foreground/70' : 'text-muted-foreground')}>
                         {builderSize ? `About ${builderSize} · €18/hr` : 'Tick what needs doing'}
@@ -1271,16 +1292,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       {builderPriceCents != null ? `Continue · ${fmt(builderPriceCents)}` : 'Tick at least one job'}
                     </Button>
                   </div>
-
-                  {/* Never a dead end: a job the boxes don't cover still has a
-                      human door, right here — not after closing the sheet. */}
-                  <button
-                    type="button"
-                    onClick={sendWhatsApp}
-                    className="mt-3 mx-auto block text-[13px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
-                  >
-                    Job not in the list? WhatsApp us — we sort anything
-                  </button>
+                  </div>
                 </>
               ) : (
               <>
