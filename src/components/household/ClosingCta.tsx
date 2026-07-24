@@ -32,7 +32,7 @@ export const ClosingCta: React.FC = () => {
           Book help in 30 seconds
         </h2>
         <p className="text-white/70 text-sm sm:text-base mb-8 text-pretty leading-relaxed">
-          From €15, same-day in Galway. You only pay once a helper says yes.
+          Same-day in Galway. You only pay once a helper says yes.
         </p>
         <a
           href="#book"
@@ -40,7 +40,7 @@ export const ClosingCta: React.FC = () => {
           className="inline-flex h-[52px] items-center gap-2 rounded-full bg-primary px-8 text-base font-semibold text-primary-foreground shadow-primary-glow active:scale-[0.97] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
           <Zap className="w-4 h-4" aria-hidden="true" />
-          Pick a job — from €15
+          Pick a job — takes a minute
         </a>
       </motion.div>
     </section>

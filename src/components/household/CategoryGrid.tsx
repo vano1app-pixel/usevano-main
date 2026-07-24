@@ -15,6 +15,7 @@ import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
+import { BUILDER_TASKS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -33,14 +34,16 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
-    // Laundry: the helper collects, washes/dries/folds and returns it. Flat
-    // €30 (owner reprice 2026-07-23), one-off — finishes when the customer
-    // marks it done. Slug stays 'shopping' so existing bookings, pricing and
-    // the DB category all keep working; only the customer-facing wording
-    // changed.
+    // Laundry: the helper collects, washes/dries/folds and returns it.
+    // Priced per BAG since 2026-07-24 (€30/€50/€65 for 1/2/3 — the task is
+    // the unit, the machine does the hours); a missing size prices as the
+    // 1-bag €30 everywhere. Slug stays 'shopping' so existing bookings,
+    // pricing and the DB category all keep working; only the customer-facing
+    // wording changed.
     emoji: '🧺', label: 'Laundry', slug: 'shopping',
     hint: 'Collected, washed & returned folded',
     description: 'Your helper collects your laundry, washes, dries and folds it, and brings it back to your door — fresh and sorted.',
+    sizeLabel: 'How much laundry?', sizes: ['1 bag', '2 bags', '3 bags'],
   },
   {
     // BUSINESS temp staff (owner test, 2026-07-23): flyers, sampling, events,
@@ -251,7 +254,7 @@ const SUB_SERVICES: Record<string, { featured: SubService[]; more: SubService[] 
 
 // Smart defaults — most common booking for each service
 const DEFAULT_SIZE: Record<string, string> = {
-  shopping:  '',
+  shopping:  '1 bag',
   'dog-walk': '30 min',
   garden:    '2 hours',
   moving:    '2 hours',
@@ -484,8 +487,14 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // flow used, so the form/checkout below is untouched).
   const subServices = SUB_SERVICES[entryCat.slug];
   const isDescribe = entryCat.slug === 'custom' && !entryExtraLabel;
-  const startOnPick = (isDescribe || !!subServices) && !initialSize && !entryExtraLabel && !direct;
+  // Tick-box job builder (owner pick 2026-07-24): the hourly categories'
+  // page 1 is tick-the-tasks instead of pick-one-row. Ticks sum to minutes,
+  // minutes round UP to an existing size label — checkout still only ever
+  // sees category + size, so the server prices exactly as before.
+  const builderTasks = BUILDER_TASKS[entryCat.slug];
+  const startOnPick = (isDescribe || !!subServices || !!builderTasks) && !initialSize && !entryExtraLabel && !direct;
   const [step, setStep] = useState<'pick' | 'form'>(startOnPick ? 'pick' : 'form');
+  const [ticked, setTicked] = useState<string[]>([]);
   const [active, setActive] = useState<{ cat: Category; note?: string; extraLabel?: string }>(
     { cat: entryCat, note: entryNote, extraLabel: entryExtraLabel },
   );
@@ -605,6 +614,32 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       });
       setSize(short ? '30 min' : h === 1 ? '1 hour' : `${h} hours`);
     }
+    navDir.current = 1;
+    setStep('form');
+  }
+
+  // Builder page derived values — the ticked tasks priced through the same
+  // canonical table as everything else (the builder only ever picks a SIZE).
+  const builderSize = builderTasks && entryCat.sizes
+    ? builderSizeLabel(builderMinutes(entryCat.slug, ticked), entryCat.sizes)
+    : null;
+  const builderPriceCents = builderSize ? getPriceCents(entryCat.slug, builderSize) : null;
+  const builderMarket = builderSize ? builderMarketCents(entryCat.slug, builderSize) : null;
+
+  // Page 1 (builder) → page 2: same contract as applyPick — the ticked list
+  // rides note (full, for the helper) + extraLabel (short, for offers), and
+  // the computed size preselects the form's "How long?" chips, which stay
+  // live so the customer can still adjust.
+  function applyBuilderPick() {
+    if (!builderTasks || !builderSize) return;
+    haptic(10);
+    track('builder_continue', { category: entryCat.slug, tasks: ticked.length, size: builderSize });
+    setActive({
+      cat: entryCat,
+      note: builderNote(entryCat.slug, ticked),
+      extraLabel: builderShortLabel(entryCat.slug, ticked) ?? undefined,
+    });
+    setSize(builderSize);
     navDir.current = 1;
     setStep('form');
   }
@@ -1079,7 +1114,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     transition={{ duration: 0.25, delay: 0.05 }}
                   >
                     {step === 'pick'
-                      ? (isDescribe ? 'Tap a popular job, or type your own' : 'Tap one — it takes a second')
+                      ? (isDescribe
+                          ? 'Tap a popular job, or type your own'
+                          : builderTasks
+                            ? 'Tap all that apply — the price builds as you go'
+                            : 'Tap one — it takes a second')
                       : cat.hint}
                   </motion.span>
                 </p>
@@ -1170,6 +1209,93 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               )}
+              {builderTasks && !isDescribe ? (
+                /* ── Tick-box builder: tap the tasks, watch the price build.
+                    Each row is a task with an honest ~time; the card below
+                    rolls the total (AnimatedPrice) and anchors it against the
+                    display-only local going rate. Continue = applyBuilderPick. */
+                <>
+                  <div className="space-y-2" role="group" aria-label={pickTitle}>
+                    {builderTasks.map((t, i) => {
+                      const on = ticked.includes(t.key);
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => { haptic(8); setTicked((v) => on ? v.filter((k) => k !== t.key) : [...v, t.key]); }}
+                          className={cn(
+                            'cascade-in flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3.5 text-left transition-[border-color,background-color,transform] duration-150 active:scale-[0.98]',
+                            on ? 'border-sage bg-sage-light' : 'border-border/70 bg-white hover:border-sage/60 hover:bg-sage-light/30',
+                          )}
+                          style={{ '--cascade-i': Math.min(i, 8) } as React.CSSProperties}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150',
+                              on ? 'border-sage bg-sage' : 'border-foreground/30 bg-white',
+                            )}
+                          >
+                            {on && <Check className="h-4 w-4 text-white" strokeWidth={3.5} />}
+                          </span>
+                          <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{t.emoji}</span>
+                          {/* Wraps, never truncates — a slow reader must be able
+                              to read the whole task they're ticking (375px
+                              phones cut "Kitchen deep-cle…" with truncate). */}
+                          <span className="flex-1 min-w-0 text-[15px] font-semibold text-foreground leading-snug">{t.label}</span>
+                          <span className="text-xs font-semibold text-muted-foreground tabular-nums flex-shrink-0">{minutesLabel(t.minutes)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Never a dead end: a job the boxes don't cover still has a
+                      human door, right here — not after closing the sheet.
+                      Sits ABOVE the sticky card so it scrolls with the rows. */}
+                  <button
+                    type="button"
+                    onClick={sendWhatsApp}
+                    className="mt-3 mx-auto block text-[13px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                  >
+                    Job not in the list? WhatsApp us — we sort anything
+                  </button>
+
+                  {/* The build-up card — duration + rolling price + anchor.
+                      STICKY to the sheet's bottom edge (2026-07-24): on small
+                      phones the card sat below the fold, so the whole "watch
+                      the price build as you tick" moment was invisible while
+                      ticking. Now the rows scroll underneath and the rolling
+                      total never leaves the screen — the sheet's docked-bar
+                      pattern, one page earlier. */}
+                  <div className="sticky bottom-0 z-10 bg-cream pt-3 pb-1">
+                  <div className="surface-float rounded-2xl border border-border bg-white px-4 pt-3.5 pb-4">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className={cn('text-sm min-w-0', builderSize ? 'text-foreground/70' : 'text-muted-foreground')}>
+                        {builderSize ? `About ${builderSize} · €18/hr` : 'Tick what needs doing'}
+                      </span>
+                      {builderPriceCents != null
+                        ? <AnimatedPrice announce cents={builderPriceCents} className="text-2xl font-bold text-foreground flex-shrink-0" />
+                        : <span className="text-2xl font-bold text-foreground/25 tabular-nums flex-shrink-0" aria-hidden="true">€0</span>}
+                    </div>
+                    {builderPriceCents != null && builderMarket != null && builderMarket > builderPriceCents && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Typical Galway rate ~{fmt(builderMarket)} · <span className="font-semibold text-sage-dark">you save ~{fmt(builderMarket - builderPriceCents)}</span>
+                      </p>
+                    )}
+                    <Button
+                      type="button"
+                      disabled={!builderSize}
+                      onClick={applyBuilderPick}
+                      className="mt-3 w-full h-12 rounded-full text-[15px] font-bold"
+                    >
+                      {builderPriceCents != null ? `Continue · ${fmt(builderPriceCents)}` : 'Tick at least one job'}
+                    </Button>
+                  </div>
+                  </div>
+                </>
+              ) : (
+              <>
               <div className="space-y-2" role="list" aria-label={pickTitle}>
                 {isDescribe
                   ? describeRows.map((row, i) =>
@@ -1209,6 +1335,8 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 >
                   More options ↓
                 </button>
+              )}
+              </>
               )}
               <p className="text-center text-[13px] text-muted-foreground mt-4 leading-relaxed">
                 Fair prices, always — your helper earns above minimum wage on every job.
@@ -1442,6 +1570,16 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 job money goes to the helper (100%); the card is only ever
                 charged the fee (+ Cover), and only at accept. */}
             <motion.div variants={listItem} className="space-y-3 pt-1">
+              {/* The plain-words money explainer — first-timers meet the
+                  two-pot maths (job money vs VANO fee) right here, so one
+                  familiar sentence de-mystifies it BEFORE the numbers.
+                  Written for the slowest reader in the room, on purpose. */}
+              {priceCents && (
+                <p className="text-[13px] leading-relaxed text-muted-foreground text-center px-1">
+                  Like paying a babysitter — you pay your student directly once
+                  the job's done. The small VANO fee is what books them.
+                </p>
+              )}
               {priceCents && (
                 <div className="px-4 py-4 rounded-2xl bg-foreground/[0.04] border border-foreground/10">
                   <div className="flex items-center justify-between gap-3">
@@ -1812,35 +1950,33 @@ export const CategoryGrid: React.FC = () => {
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             whileTap={{ scale: 0.98 }}
             onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, direct: true }); }}
-            className="tile-float mb-2.5 sm:mb-3 flex w-full sm:max-w-xl sm:mx-auto items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 sm:py-3.5 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            // Compact by design (owner call 2026-07-24): a quiet one-line chip.
+            // The five tiles are the front door — the usual is a shortcut, not
+            // a second hero card competing with them.
+            className="tile-float mb-2.5 sm:mb-3 mx-auto flex w-fit max-w-full items-center gap-2 rounded-full border border-gold/50 bg-white pl-3 pr-3.5 py-2 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            <span className="text-2xl sm:text-3xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm sm:text-base font-bold text-foreground truncate">
-                Book your usual{usual.price ? ` · ${usual.price}` : ''}
-              </span>
-              <span className="block text-[13px] sm:text-sm text-foreground/75 truncate">
-                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved — one tap
-              </span>
+            <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="min-w-0 truncate text-[13px] sm:text-sm font-bold text-foreground">
+              Book your usual · {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''}{usual.price ? ` · ${usual.price}` : ''}
             </span>
-            <span className="text-gold text-lg sm:text-xl font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+            <span className="text-gold text-base font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
           </motion.button>
         )}
         <motion.div
           role="group"
           aria-label="Book a service in one tap"
-          // Phones: the tight 3×2 grid. Desktop: ONE Airbnb-style row of six,
-          // so the whole hero (heading → tiles → reassurance) fits a laptop
-          // viewport with no scrolling.
-          className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 lg:gap-4"
+          // Phones: 3 + 2 — six tracks with tiles spanning two each, and the
+          // 4th tile starting at track 2, so the final pair sits centered
+          // instead of leaving a hole. Desktop: ONE Airbnb-style row of five,
+          // so the whole hero fits a laptop viewport with no scrolling.
+          className="grid grid-cols-6 sm:grid-cols-5 gap-2 sm:gap-3 lg:gap-4"
           initial="hidden"
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
         >
-          {/* Business renders separately below as the NAVY 6th tile — the
-              five household tiles stay white. */}
-          {CATEGORIES.filter((c) => c.slug !== 'business').map((c) => {
-            const fromCents = getPriceCents(c.slug, c.sizes?.[0] ?? DEFAULT_SIZE[c.slug] ?? '');
+          {/* The five household tiles — the whole front door since the navy
+              Business tile was parked (2026-07-24). */}
+          {CATEGORIES.filter((c) => c.slug !== 'business').map((c, i) => {
             return (
               <motion.button
                 key={c.slug}
@@ -1850,14 +1986,24 @@ export const CategoryGrid: React.FC = () => {
                 whileTap={{ scale: 0.95 }}
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                 onClick={() => { haptic(10); track('hero_tile_tap', { category: c.slug }); openSheet(c); }}
-                aria-label={`Book ${c.label}${fromCents ? ` — from ${fmt(fromCents)}` : ''}`}
-                // Owner call (July 2026): tiles carry ONLY pic + name + price —
-                // same as the phone grid, just bigger. The job description
-                // (cat.hint) lives in the booking sheet header, not here.
+                aria-label={`Book ${c.label}`}
+                // Owner call (2026-07-24): tiles carry ONLY pic + name — the
+                // "from €X" price tags came OFF the front door ("so we don't
+                // scare them off"). Price now reveals inside the sheet once
+                // they're engaged: builder ticks build it up, the form card
+                // shows the full maths. Don't re-add prices here without the
+                // owner. The job description (cat.hint) lives in the booking
+                // sheet header, not here.
                 // Desktop (lg:) sizes run a step bigger than the usual scale on
                 // purpose — the paying customer skews 35+ and the tiles are the
                 // whole front door, so they must read from armchair distance.
-                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className={cn(
+                  'tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-black/5 bg-white px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold',
+                  'col-span-2 sm:col-span-1',
+                  // 5 tiles on a 6-track phone grid: the 4th starts at track 2
+                  // so the last pair renders centered under the top row of 3.
+                  i === 3 && 'col-start-2 sm:col-start-auto',
+                )}
               >
                 {/* Cleaning wears the same "Most booked" crown as the podium */}
                 {c.slug === 'cleaning' && (
@@ -1867,42 +2013,15 @@ export const CategoryGrid: React.FC = () => {
                 )}
                 <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
                 <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-foreground leading-tight">{c.label}</span>
-                {fromCents != null && (
-                  <span className="text-[13px] sm:text-base lg:text-lg font-semibold text-sage-dark tabular-nums leading-none sm:mt-0.5">from {fmt(fromCents)}</span>
-                )}
               </motion.button>
             );
           })}
-          {/* The 6th tile — the one NAVY tile is now BUSINESS (owner call
-              2026-07-23: it took the "Anything else" slot; the describe-it
-              door is parked — the catalogue still reaches customers through
-              each category's sub-picker and the WhatsApp door). Brand-navy +
-              the red TEMP STAFF tag = the B2B door reads special, priced. */}
-          {(() => {
-            const biz = CATEGORIES.find((c) => c.slug === 'business')!;
-            const bizFrom = getPriceCents(biz.slug, biz.sizes?.[0] ?? '');
-            return (
-              <motion.button
-                type="button"
-                variants={{ hidden: { opacity: 0, y: 12, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1 } }}
-                whileHover={{ y: -4 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 26 }}
-                onClick={() => { haptic(10); track('hero_tile_tap', { category: biz.slug }); openSheet(biz); }}
-                aria-label={`Book ${biz.label}${bizFrom ? ` — from ${fmt(bizFrom)}` : ''}`}
-                className="tile-float relative flex flex-col items-center justify-center gap-0.5 sm:gap-1 rounded-2xl lg:rounded-3xl border border-navy bg-navy px-1.5 py-2.5 sm:px-2 sm:py-6 lg:py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-              >
-                <span className="absolute -top-2 sm:-top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-white whitespace-nowrap shadow-sm">
-                  Temp staff
-                </span>
-                <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{biz.emoji}</span>
-                <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-white leading-tight">{biz.label}</span>
-                {bizFrom != null && (
-                  <span className="text-[13px] sm:text-base lg:text-lg font-semibold text-gold tabular-nums leading-none sm:mt-0.5">from {fmt(bizFrom)}</span>
-                )}
-              </motion.button>
-            );
-          })()}
+          {/* The navy BUSINESS (temp-staff) 6th tile is PARKED (owner call
+              2026-07-24: households only — five tiles, less to think about;
+              the one-day B2B test ended). Like CUSTOM_TILE, the machinery
+              stays: the category + its sub-picker live on in CATEGORIES so
+              old deep links and in-flight bookings keep working. Remount by
+              rendering a navy tile for CATEGORIES 'business' here. */}
         </motion.div>
       </div>
 

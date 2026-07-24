@@ -118,7 +118,10 @@ describe('shared price source matches the server', () => {
   });
 
   it('prices each category/size exactly as computePriceCents does', () => {
-    expect(getHouseholdPriceCents('shopping', '')).toBe(3000);   // flat laundry (€30, owner reprice 2026-07-23)
+    expect(getHouseholdPriceCents('shopping', '')).toBe(3000);   // laundry no-size fallback = 1-bag €30
+    expect(getHouseholdPriceCents('shopping', '1 bag')).toBe(3000);  // bag ladder (owner 2026-07-24)
+    expect(getHouseholdPriceCents('shopping', '2 bags')).toBe(5000);
+    expect(getHouseholdPriceCents('shopping', '3 bags')).toBe(6500);
     expect(getHouseholdPriceCents('dog-walk', '30 min')).toBe(1500);
     expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
     expect(getHouseholdPriceCents('cleaning', '2 hours')).toBe(3600);

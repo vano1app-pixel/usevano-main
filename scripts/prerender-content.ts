@@ -480,7 +480,7 @@ ${topNav}
 <h2>What jobs pay</h2>
 <ul>
 <li>Time-based work (cleaning, garden, moving) is priced at €18/hour — you keep the full €18, well above the Irish minimum wage.</li>
-<li>Flat-rate errands (laundry €15, dog walks €15–20) are priced per task so a short job is still worth your trip.</li>
+<li>Flat-rate errands (laundry €30 a bag, dog walks €15–20) are priced per task so a short job is still worth your trip.</li>
 </ul>
 <p><a href="/join">Apply now at vanojobs.com/join</a> — free to join, and job offers start as soon as your email and free ID check are done (both take minutes).</p>
 ${siteFooter}`.trim();

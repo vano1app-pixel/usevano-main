@@ -237,20 +237,22 @@ rounds or the `custom` catch-all.
   (€18/hr on cleaning, tutoring, garden, moving) — but the test still fails
   if a rate ever drops below the floor. *Job-based* flat prices (laundry,
   bins, errands) price the task, not the hour.
-- **`business` (owner test 2026-07-23):** temp staff for shops/brands (flyer
-  runs, sampling, busking/live music for pubs, events, shop cover — a wide
-  scrollable list, all licence-free work) at a PREMIUM **€22/hr, 2-hour
-  minimum** (both tables return null for '1 hour' — keep them agreeing). It
-  renders as **the NAVY 6th tile** (red "Temp staff" tag) — it took the
-  "Anything else" slot, so the describe-it door is PARKED (machinery kept in
-  CategoryGrid behind `CUSTOM_TILE`; the custom catalogue still reaches
-  customers via each category's sub-picker + WhatsApp). Laundry is back on
-  the grid at a flat **€30** (owner reprice, same day — content pages
-  updated too). The hero H1 dropped "at home" ("Get help from a trusted
-  local student") so the B2B door isn't contradicted. Dispatches like
-  `custom` (catch-all to ALL id_verified helpers — not a join-form skill;
-  gap nudges auto-skip). Same one booking path/pipeline — NOT a second flow.
-  The sheet's business sub-picks carry their label into note+extra_label
+- **`business` (owner test 2026-07-23 → tile PARKED 2026-07-24):** temp
+  staff for shops/brands (flyer runs, sampling, busking/live music for pubs,
+  events, shop cover — a wide scrollable list, all licence-free work) at a
+  PREMIUM **€22/hr, 2-hour minimum** (both tables return null for '1 hour' —
+  keep them agreeing). **The NAVY 6th tile is now PARKED** (owner call
+  2026-07-24: households only — the grid is FIVE white tiles, 3+2 centered
+  on phones, one row of five on desktop). Like `CUSTOM_TILE`, the machinery
+  stays in CategoryGrid (category entry + sub-picker) so old deep links and
+  in-flight bookings keep working; both pricing tables keep their `business`
+  entries so the lock-step tests hold. Don't remount without the owner.
+  Laundry prices per BAG since 2026-07-24 — **€30/€50/€65 for 1/2/3 bags**
+  (`LAUNDRY_BAG_CENTS`, mirrored in the server table; a missing/unknown size
+  falls back to the 1-bag €30 so WhatsApp drafts, memory rebooks and old
+  links keep pricing). Dispatches like `custom` (catch-all to ALL
+  id_verified helpers — not a join-form skill; gap nudges auto-skip). The
+  sheet's business sub-picks carry their label into note+extra_label
   (SubService `carry`) so offers/job screens name the real task.
 - **Vano's take (direct-pay):** ONLY the booking fee — 15% of the job price,
   min €4, charged to the customer's card at accept (+ €2 Cover if opted).
@@ -659,6 +661,7 @@ tick-eyebrows, floating cards.
 | Arrival codes | `functions/household-arrival` |
 | Customer bookings | `src/pages/MyBookings.tsx` + `functions/find-booking-by-phone` |
 | Custom jobs | `src/lib/customJobs.ts` + `functions/parse-custom-job` |
+| Job builder | `src/lib/jobBuilder.ts` (tick-tasks → size label; display-only market anchor) |
 | WhatsApp door | `functions/whatsapp-inbound` + `functions/_shared/waIntake.ts` |
 | Server price table | `functions/_shared/householdPricing.ts` (checkout + WhatsApp import it) |
 | Home memory | `household_homes` + `record_home_booking` RPC (migration `20260713000000`) |
@@ -797,3 +800,24 @@ cards first. Also shipped alongside: the Revolut-first pay-the-helper card
 (one-tap `revolut.me/<tag>/<amount>` prefilled link, huge amount, copy
 chips, desktop QR via lazy `qrcode` dep, cash as quiet secondary) mirrored
 into the completion email.
+
+**The tick-box job builder (2026-07-24, owner pick — "tap the boxes and
+watch the price build"):** cleaning / garden / moving's wizard page 1 is now
+tick-the-tasks (`src/lib/jobBuilder.ts` + the builder branch in
+CategoryGrid's pick page). Each task carries an honest ~minutes estimate;
+ticks sum and round UP to one of the category's EXISTING size labels, and
+checkout still receives only category + size — the server prices €18/hr
+exactly as before. **The builder can never invent a price**:
+`jobBuilder.test.ts` locks every possible tick combination to a priceable
+size label and keeps the display-only "typical Galway rate" anchors above
+€18/hr so "you save ~€X" can never read negative. The ticked list rides
+note + extra_label (the SubService `carry` contract) so dispatch offers and
+the helper job screen name the real tasks, and the form header quotes them.
+`builder_continue` is the funnel event between tile tap and submit. Laundry
++ Pets keep the classic picker; the builder categories' SUB_SERVICES rows
+are unreachable-but-kept. Shipped the same day: Business tile parked (the
+grid is FIVE white tiles — 3+2 centered on phones, one row of five on
+desktop) and the "book your usual" card shrunk to a compact one-line chip.
+Verified per the owner rule with a real-browser Playwright drive: tiles →
+builder ticks → form → submit, with the checkout POST intercepted and its
+payload asserted (category/size/note) so no real booking is created.

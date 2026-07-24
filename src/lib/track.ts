@@ -37,6 +37,10 @@ export type TrackEvent =
   // which is why the tiles are back as the primary).
   | 'hero_tile_tap'
   | 'hero_sub_pick'
+  // Tick-box job builder (cleaning/garden/moving page 1): fired on Continue
+  // with { category, tasks, size } — the funnel step between tile tap and
+  // checkout submit for builder categories.
+  | 'builder_continue'
   | 'hero_usual_tap'
   | 'hero_search_open'
   | 'hero_whatsapp_tap'

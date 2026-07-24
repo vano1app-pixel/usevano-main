@@ -198,25 +198,25 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     category: 'shopping',
     name: 'Laundry collection',
     shortLabel: 'Laundry',
-    title: 'Laundry Service in Galway — Collected & Returned, €30 Flat',
+    title: 'Laundry Service in Galway — Collected & Returned, from €30',
     description:
-      'Laundry collected from your door in Galway, washed, dried, folded and returned — €30 flat by an ID-verified student. Book in 30 seconds, pay when it’s back.',
-    h1: 'Laundry collected, washed & returned — €30 flat',
+      'Laundry collected from your door in Galway, washed, dried, folded and returned — from €30 a bag by an ID-verified student. Book in 30 seconds, pay when it’s back.',
+    h1: 'Laundry collected, washed & returned — from €30',
     intro:
-      'The basket’s overflowing and the week got away from you. An ID-verified local student collects your laundry from your door, washes, dries and folds it, and brings it back fresh — one flat €30, no weighing, no meters.',
+      'The basket’s overflowing and the week got away from you. An ID-verified local student collects your laundry from your door, washes, dries and folds it, and brings it back fresh — €30 a bag, no weighing, no meters.',
     body: [
       {
         heading: 'How it works',
-        text: 'Book in 30 seconds with your address and phone number. A nearby helper accepts — you see their name, photo and rating — then collects your bag at the door. It comes back washed, dried and folded, usually the same day. €30 flat covers a standard load; if you’ve got a mountain, split it into two bookings or mention it in the note.',
+        text: 'Book in 30 seconds with your address and phone number. A nearby helper accepts — you see their name, photo and rating — then collects your bags at the door. It comes back washed, dried and folded, usually the same day. One standard bag is €30; got a mountain? Pick 2 bags (€50) or 3 bags (€65) when you book.',
       },
       {
         heading: 'Honest pricing, honest work',
-        text: 'A launderette service wash in Galway runs €12–18 — before the two trips to drop off and collect. Vano is €30 flat fully door-to-door: collected, washed, dried, folded and returned while you do none of it, and the student doing it keeps 100% — the task is priced so it’s genuinely worth their trip, not squeezed to the minute.',
+        text: 'A launderette service wash in Galway runs €12–18 — before the two trips to drop off and collect. Vano is €30 a bag fully door-to-door: collected, washed, dried, folded and returned while you do none of it, and the student doing it keeps 100% — the task is priced so it’s genuinely worth their trip, not squeezed to the minute.',
       },
     ],
-    priceLabel: '€30 flat',
-    priceDetail: 'One standard load — collected, washed, dried, folded & returned.',
-    fromPriceEuro: 15,
+    priceLabel: 'from €30',
+    priceDetail: 'Per bag — collected, washed, dried, folded & returned. 2 bags €50 · 3 bags €65.',
+    fromPriceEuro: 30,
     included: [
       'Collected at your door',
       'Washed & dried',

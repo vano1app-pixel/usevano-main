@@ -35,7 +35,22 @@ export const HOURLY_RATE_CENTS: Record<string, number> = {
 
 /** Flat, JOB-BASED prices (one price for the task done), in cents. */
 export const FLAT_PRICE_CENTS: Record<string, number> = {
-  shopping: 3000, // Laundry — collected, washed, returned folded (€15→€30, owner reprice 2026-07-23)
+  shopping: 3000, // Laundry 1-bag baseline — also the no-size fallback (see LAUNDRY_BAG_CENTS)
+};
+
+/**
+ * Laundry — priced per BAG, not per hour (owner ladder 2026-07-24:
+ * €30 / €50 / €65 for 1 / 2 / 3 bags; the machine does the hours, so the
+ * task is the honest unit). Unknown/no size falls back to the 1-bag €30 —
+ * memory rebooks, old links and the WhatsApp door (which never asks laundry
+ * a size) all keep pricing. MUST mirror the 'shopping' branch in
+ * supabase/functions/_shared/householdPricing.ts — homeMemoryWhatsapp.test
+ * cross-checks the two.
+ */
+export const LAUNDRY_BAG_CENTS: Record<string, number> = {
+  '1 bag':  3000,
+  '2 bags': 5000,
+  '3 bags': 6500,
 };
 
 /** Leading hour count from a size label ("2 hours", "4+ hours") → 1–8 or null. */
@@ -58,6 +73,7 @@ function hoursFromLabel(size: string): number | null {
 export const MIN_BOOKING_CENTS = 1200;
 
 export function getHouseholdPriceCents(slug: string, size: string): number | null {
+  if (slug === 'shopping') return LAUNDRY_BAG_CENTS[size] ?? FLAT_PRICE_CENTS.shopping;
   if (slug in FLAT_PRICE_CENTS) return FLAT_PRICE_CENTS[slug];
   if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
   // Custom "name any job" supports short half-/three-quarter-hour visits for

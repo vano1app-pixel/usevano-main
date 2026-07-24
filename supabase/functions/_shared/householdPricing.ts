@@ -47,11 +47,20 @@ export const SERVICE_FEE_PCT = 0.075;
 export function computePriceCents(category: Category, sizeLabel: string, extraLabel: string): number | null {
   // Flat-rate errand services
   const flat: Partial<Record<Category, number>> = {
-    'shopping':      3000, // Laundry €15→€30 (owner reprice 2026-07-23) — mirror src/lib FLAT_PRICE_CENTS
     'post-office':   1000,
     'pharmacy-run':  1200, // €12 — covers student travel + time
   };
   if (category in flat) return flat[category]!;
+
+  // Laundry — priced per BAG (owner ladder 2026-07-24: €30/€50/€65 for
+  // 1/2/3 bags). No/unknown size falls back to the 1-bag €30 so WhatsApp
+  // drafts (needsSize('shopping') is false), stale clients and memory
+  // rebooks keep pricing. MUST mirror LAUNDRY_BAG_CENTS in
+  // src/lib/householdPricing.ts.
+  if (category === 'shopping') {
+    const bags: Record<string, number> = { '1 bag': 3000, '2 bags': 5000, '3 bags': 6500 };
+    return bags[sizeLabel] ?? 3000;
+  }
 
   // Grocery shopping — list size
   if (category === 'grocery-shopping') {
