@@ -7,5 +7,7 @@ export const SERVICE_LANDING_SLUGS = [
   'dog-walking-galway',
   'garden-help-galway',
   'laundry-service-galway',
+  // PARKED (2026-07-24): stays routed so ServiceLanding can redirect old
+  // links home — the content entry moved to PARKED_SERVICE_LANDINGS.
   'moving-help-galway',
 ] as const;

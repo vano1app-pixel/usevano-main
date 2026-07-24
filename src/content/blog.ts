@@ -62,7 +62,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "part-time-jobs-students-galway",
     title: "Part-Time Jobs for Students in Galway: Why Flexible Work Wins",
     summary:
-      "The best part-time jobs for students in Galway are flexible ones you pick up around lectures — short, local tasks like dog walks, cleaning and moving help that pay above minimum wage, with no fixed rota to clash with your timetable.",
+      "The best part-time jobs for students in Galway are flexible ones you pick up around lectures — short, local tasks like dog walks, cleaning and garden help that pay above minimum wage, with no fixed rota to clash with your timetable.",
     description:
       "Looking for part-time jobs in Galway as a student? Here's why flexible, same-day work that fits around lectures beats a fixed rota — and how to start.",
     keywords:
@@ -87,7 +87,6 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Dog walks</strong> — 30 minutes, often a five-minute cycle from campus.</li>
 <li><strong>Cleaning &amp; tidy-ups</strong> — a quick refresh of a flat or house.</li>
 <li><strong>Garden help</strong> — mowing, weeding, bagging waste.</li>
-<li><strong>Moving help</strong> — loading, carrying, the heavy stuff.</li>
 <li><strong>Grocery collection &amp; errands</strong> — pick up a click-and-collect order and drop it to someone's door.</li>
 <li><strong>Online tutoring</strong> — one-to-one online with adult learners (18+), in a subject you already know.</li>
 </ul>
@@ -101,7 +100,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["how-to-become-a-vano-helper", "why-vano-fair-pay-same-day", "atu-students-earning-with-vano"],
     faqs: [
-      { q: "What are the best part-time jobs for students in Galway?", a: "Flexible, local jobs you can do around lectures — dog walks, cleaning, garden help, moving help, errands and online tutoring — without committing to a fixed weekly rota." },
+      { q: "What are the best part-time jobs for students in Galway?", a: "Flexible, local jobs you can do around lectures — dog walks, cleaning, garden help, errands and online tutoring — without committing to a fixed weekly rota." },
       { q: "How many hours do I have to work?", a: "None are required. There's no rota and no minimum: you accept jobs only when you're free, and pause completely during exams." },
       { q: "Do part-time student jobs in Galway pay well?", a: "On Vano, time-based jobs pay €18 an hour and you keep 100% — well above Ireland's 2026 minimum wage of €14.15. Customers pay you directly after each job." },
       { q: "Can I really work around my college timetable?", a: "Yes. You pick up same-day jobs in the gaps between classes, so the work fits your week instead of the other way around." },
@@ -112,7 +111,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "atu-students-earning-with-vano",
     title: "How ATU Students Are Earning €18/hr With Vano Between Lectures",
     summary:
-      "ATU students earn €18 an hour — and keep 100% of it — doing short jobs near campus: dog walks, cleaning, moving help, picked up whenever they have a gap between lectures. Customers pay them directly after each job.",
+      "ATU students earn €18 an hour — and keep 100% of it — doing short jobs near campus: dog walks, cleaning, garden help, picked up whenever they have a gap between lectures. Customers pay them directly after each job.",
     description:
       "ATU Galway students are picking up same-day jobs around campus and keeping 100% of €18/hr. Here's how the money works and why students like it.",
     keywords:
@@ -129,7 +128,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bodyHtml: `
 <p><a href="/glossary/atu">ATU</a> — Atlantic Technological University — sits right in the middle of Vano's home turf in Galway, which makes its students some of our most active <a href="/glossary/vano-helper">helpers</a>. The pitch is simple: real money, earned around your timetable, on jobs a short walk or cycle from campus.</p>
 <h2>The number that matters: €18/hr, and it's all yours</h2>
-<p>Most student jobs quote you a gross hourly rate and let the reality sink in later. We do it the other way around. On every <strong>time-based</strong> job — cleaning, garden work, moving help, online tutoring — the customer pays you <strong>€18 an hour and you keep 100%</strong>. Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not to you. That's well above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15, and it's a rule we built into the pricing on purpose.</p>
+<p>Most student jobs quote you a gross hourly rate and let the reality sink in later. We do it the other way around. On every <strong>time-based</strong> job — cleaning, garden work, online tutoring — the customer pays you <strong>€18 an hour and you keep 100%</strong>. Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not to you. That's well above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15, and it's a rule we built into the pricing on purpose.</p>
 <p>Job-based tasks (a bag of laundry, a bin run, a quick errand) are priced for the task rather than the hour, but the same principle holds: the rate has to be worth your time or students simply won't accept it.</p>
 <h2>How a typical week looks</h2>
 <p>There's no rota. You open the app when you've got a gap, see what's nearby, and take what fits:</p>
@@ -149,7 +148,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["how-to-become-a-vano-helper", "part-time-jobs-students-galway", "why-now-galway-student-cost-of-living"],
     faqs: [
-      { q: "How much can ATU students earn with Vano?", a: "€18 an hour on time-based jobs like cleaning, garden, moving and online tutoring — and you keep 100% of it, well above the 2026 minimum wage. Job-based tasks are priced for the task." },
+      { q: "How much can ATU students earn with Vano?", a: "€18 an hour on time-based jobs like cleaning, garden and online tutoring — and you keep 100% of it, well above the 2026 minimum wage. Job-based tasks are priced for the task." },
       { q: "Are the jobs near the ATU Galway campus?", a: "Often, yes — many jobs are a short walk or cycle from campus around the city." },
       { q: "Do I have to be an ATU student to join?", a: "No. University of Galway students and other locals join too; ATU students are simply a large share of helpers." },
       { q: "When and how do I get paid?", a: "The customer pays you directly the moment the job's done — Revolut or cash, whichever suits — and you keep 100% of the job price." },
@@ -221,7 +220,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <p>There's no shortage of ways for a student to earn a bit of money. So <em>why Vano</em>? It comes down to three things we've built in on purpose: pay that actually clears minimum wage, work you can do today, and no boss standing over a rota.</p>
 <h2>1. Pay that clears minimum wage — by design</h2>
 <p>This is the one we're proudest of. A lot of gig platforms advertise a headline rate, then quietly shave it with fees until your real take-home dips below what the law guarantees. We refuse to do that. On Vano, <strong>you keep 100% of the job price</strong>: your <a href="/glossary/net-pay">take-home</a> on time-based jobs is the full <strong>€18 an hour</strong> — far above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15.</p>
-<p>Here's the actual maths, no hand-waving: cleaning, garden, moving and online tutoring are all quoted at €18/hr to the customer, and the customer pays you that directly when the job's done. Vano's <a href="/glossary/platform-fee">booking fee</a> (15% of the job price, minimum €4) is charged to the customer's card — none of it comes out of your pocket. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
+<p>Here's the actual maths, no hand-waving: cleaning, garden and online tutoring are all quoted at €18/hr to the customer, and the customer pays you that directly when the job's done. Vano's <a href="/glossary/platform-fee">booking fee</a> (15% of the job price, minimum €4) is charged to the customer's card — none of it comes out of your pocket. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
 <h2>2. Same-day, not "sometime next week"</h2>
 <p>Vano is built for <a href="/glossary/same-day-home-help">same-day</a> help. A customer books, the job is <a href="/glossary/job-dispatch">dispatched</a> to nearby helpers by SMS and push, and whoever accepts first gets it. For you that means you can earn <em>today</em> — open the app on a free afternoon and there may already be a job two streets away.</p>
 <h2>3. No awkward boss, no rota</h2>
@@ -242,13 +241,13 @@ export const BLOG_POSTS: BlogPost[] = [
 
   {
     slug: "what-vano-helpers-do",
-    title: "From Dog Walks to Moving Help: What You'll Do as a Vano Helper",
+    title: "From Dog Walks to Garden Days: What You'll Do as a Vano Helper",
     summary:
-      "Vano helpers do short, practical home jobs around Galway — dog walks, cleaning, garden work, moving help, errands and online tutoring — choosing only the jobs they accept, with no rota and no minimum number of jobs.",
+      "Vano helpers do short, practical home jobs around Galway — dog walks, cleaning, garden work, errands and online tutoring — choosing only the jobs they accept, with no rota and no minimum number of jobs.",
     description:
-      "Wondering what the work is actually like? Here's the full range of jobs Vano helpers do in Galway — dog walks, cleaning, garden, moving, errands and online tutoring.",
+      "Wondering what the work is actually like? Here's the full range of jobs Vano helpers do in Galway — dog walks, cleaning, garden, errands and online tutoring.",
     keywords:
-      "Vano helper jobs, student helper Galway, dog walking jobs Galway, cleaning jobs Galway students, moving help Galway, online tutoring jobs Galway",
+      "Vano helper jobs, student helper Galway, dog walking jobs Galway, cleaning jobs Galway students, online tutoring jobs Galway",
     eyebrow: "The work",
     datePublished: "2026-06-09",
     dateModified: "2026-06-16",
@@ -256,7 +255,7 @@ export const BLOG_POSTS: BlogPost[] = [
     author: "The Vano Team",
     heroGradient: "from-gold via-express-orange to-sage-dark",
     heroAlt:
-      "A collage of Vano helper tasks in Galway — dog walking, cleaning, garden work and moving help",
+      "A collage of Vano helper tasks in Galway — dog walking, cleaning, garden work and laundry runs",
     tags: ["The work", "Galway", "Helpers"],
     bodyHtml: `
 <p>"What would I actually be doing?" is the first thing most students ask. The honest answer: a varied mix of short, practical home jobs around Galway. You only ever do the ones you accept, so you can lean into the tasks you like and skip the rest.</p>
@@ -265,7 +264,6 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Dog walks</strong> — collect from the door, a 30-minute on-lead walk, home safely. Easily the most popular job with students.</li>
 <li><strong>Cleaning</strong> — hoovering, mopping, surfaces, kitchen and bathroom. A focused tidy-up, not a deep industrial clean.</li>
 <li><strong>Garden help</strong> — mowing, weeding, edging, and bagging the waste.</li>
-<li><strong>Moving help</strong> — loading, carrying and unloading. The heavy-lifting hand people need on the day.</li>
 <li><strong>Grocery collection &amp; errands</strong> — pick up a click-and-collect order or run a quick errand and drop it to the door.</li>
 <li><strong>Online tutoring</strong> — one-to-one online with adults (18+), in a subject you already know. Tutoring on Vano is online and adults-only — no in-home grinds for under-18s.</li>
 </ul>
@@ -286,7 +284,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["how-to-become-a-vano-helper", "why-vano-fair-pay-same-day", "part-time-jobs-students-galway"],
     faqs: [
-      { q: "What kind of jobs do Vano helpers do?", a: "Dog walks, cleaning, garden work, moving help, grocery collection and errands, and online tutoring — short, practical home jobs around Galway." },
+      { q: "What kind of jobs do Vano helpers do?", a: "Dog walks, cleaning, garden work, grocery collection and errands, and online tutoring — short, practical home jobs around Galway." },
       { q: "Do I have to do every type of job?", a: "No. You only do the jobs you accept, so you can stick to the tasks you like and skip the rest." },
       { q: "How long does a typical job take?", a: "Most are short — often an hour or two — and done the same day." },
       { q: "Is there regular work or only one-offs?", a: "Both. Some customers use Autopilot (weekly or monthly plans), which is scheduled work if you'd like something steadier." },
@@ -321,7 +319,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bodyHtml: `
 <p>Becoming a <a href="/glossary/vano-helper">Vano helper</a> takes minutes, and you can be accepting jobs the same week. Here's exactly what happens, step by step, so there are no surprises.</p>
 <h2>Step 1 — Sign up</h2>
-<p>Head to the <a href="/join">join page</a> and create your account. You'll tell us the basics: who you are, where in Galway you're based, and the kinds of jobs you're up for — <a href="/blog/what-vano-helpers-do">dog walks, cleaning, garden, moving, errands or online tutoring</a>.</p>
+<p>Head to the <a href="/join">join page</a> and create your account. You'll tell us the basics: who you are, where in Galway you're based, and the kinds of jobs you're up for — <a href="/blog/what-vano-helpers-do">dog walks, cleaning, garden, errands or online tutoring</a>.</p>
 <h2>Step 2 — Verify your ID</h2>
 <p>Vano is an <a href="/glossary/id-verified-helper">ID-verified</a> platform. That single step is what lets customers feel safe letting a student into their home, and it's non-negotiable for that reason. You verify once; it protects you too, because everyone on the platform is a real, checked person.</p>
 <h2>Step 3 — Add how you get paid</h2>
@@ -370,7 +368,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <p>Two problems, one platform:</p>
 <ul>
 <li><strong>For students:</strong> proper pay. Time-based jobs pay <strong>€18/hr and helpers keep 100%</strong> — far above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a> — with no fixed rota. The full breakdown is in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</li>
-<li><strong>For households:</strong> <a href="/glossary/same-day-home-help">same-day help</a> from an <a href="/glossary/id-verified-helper">ID-verified</a> local student — cleaning, dog walks, garden, moving, errands and more — without the hassle.</li>
+<li><strong>For households:</strong> <a href="/glossary/same-day-home-help">same-day help</a> from an <a href="/glossary/id-verified-helper">ID-verified</a> local student — cleaning, dog walks, garden, errands and more — without the hassle.</li>
 </ul>
 <figure><img src="/blog/team-podcast.jpg" alt="Vano's founders recording a podcast about building a student-run startup in Galway" class="rounded-2xl" loading="lazy" /><figcaption>Telling the story — building Vano in the open.</figcaption></figure>
 <h2>Where we're going</h2>
@@ -482,12 +480,12 @@ export const BLOG_POSTS: BlogPost[] = [
 <li>All bins out, no belongings left behind</li>
 </ul>
 <h2>Tips from hundreds of Galway move-outs</h2>
-<p><strong>Book before the final inspection, not after</strong> — a same-day re-clean is possible on Vano, but calm beats panic. <strong>Take photos when the clean is done</strong>; they're your evidence if there's any deposit debate. And if the place needs boxes shifted too, pair the clean with <a href="/services/moving-help-galway">moving help</a> — same booking flow, same €18/hr.</p>
+<p><strong>Book before the final inspection, not after</strong> — a same-day re-clean is possible on Vano, but calm beats panic. <strong>Take photos when the clean is done</strong>; they're your evidence if there's any deposit debate.</p>
 <h2>How to book it</h2>
 <p>Tap <strong>Cleaning → End-of-tenancy clean</strong> on <a href="/">vanojobs.com</a>, pick the hours, drop your phone number and the address. An <a href="/glossary/id-verified-helper">ID-verified</a> local student takes it on — you'll see their name, photo and rating before they arrive, and if anything's missed, tell us within 24 hours and we'll make it right.</p>
 <p><a href="/#book"><strong>Book an end-of-tenancy clean →</strong></a></p>
 `,
-    related: ["cleaner-cost-galway", "moving-help-galway", "deep-clean-vs-standard-clean"],
+    related: ["cleaner-cost-galway", "deep-clean-vs-standard-clean"],
     faqs: [
       { q: "How much is an end-of-tenancy clean in Galway?", a: "€54–€72 for most flats on Vano (3–4 hours at €18/hr), plus a small booking fee. Dedicated end-of-tenancy firms commonly charge €150–€300 for the same size of home." },
       { q: "How long does a move-out clean take?", a: "About 3 hours for a studio or one-bed, 4 hours for a two-bed — longer if the oven or bathroom needs serious work." },
@@ -496,7 +494,7 @@ export const BLOG_POSTS: BlogPost[] = [
     ],
     howTo: [
       { name: "Book the clean before your final inspection", text: "Book 3–4 hours of end-of-tenancy cleaning on vanojobs.com a day or two before handover — not after the landlord has already looked." },
-      { name: "Clear your belongings first", text: "The clean goes much faster in an empty home. Move boxes out (or book moving help) before the cleaner arrives." },
+      { name: "Clear your belongings first", text: "The clean goes much faster in an empty home. Move your boxes out before the cleaner arrives." },
       { name: "Point out the priority areas", text: "Use the booking note for what the landlord checks hardest: oven, limescale, inside cupboards." },
       { name: "Photograph every room after", text: "Take timestamped photos of the finished clean — your evidence if there's any deposit discussion." },
     ],
@@ -546,61 +544,6 @@ export const BLOG_POSTS: BlogPost[] = [
   },
 
   {
-    slug: "moving-help-galway",
-    title: "Moving in Galway: What Help Costs & a Stress-Free Checklist",
-    summary:
-      "Student moving help in Galway costs €18 an hour per helper on Vano — you arrange the van, they bring the muscle. Here's what a typical move costs and the checklist that keeps moving day calm.",
-    description:
-      "Help moving house in Galway: €18/hr per helper for lifting, loading and carrying. What a typical flat move costs in 2026, plus a stress-free moving day checklist.",
-    keywords:
-      "moving help Galway, man with a van Galway alternative, help moving house Ireland cost, furniture moving Galway, student movers Galway, moving day checklist",
-    eyebrow: "Moving",
-    datePublished: "2026-07-17",
-    dateModified: "2026-07-17",
-    readingMins: 6,
-    author: "The Vano Team",
-    heroGradient: "from-express-orange via-gold to-sage",
-    heroAlt: "Students carrying moving boxes into a house in Galway on moving day",
-    tags: ["Moving", "Prices", "Galway"],
-    bodyHtml: `
-<p>The hardest part of moving isn't the van — it's the fourth trip up the stairs with a couch. On Vano, <strong>moving help costs €18 an hour per helper</strong>: strong, careful lifting and carrying, booked for exactly the hours you need.</p>
-<h2>How it works (and what you arrange)</h2>
-<p>One honest thing upfront: <strong>you arrange the van</strong> (or use your own car for a small move). Vano helpers are the labour — they load, carry, and unload, but they never drive your belongings. That split keeps it simple and cheap: van hire in Galway runs roughly €40–€80 for a half day, and the muscle is €18/hr on top.</p>
-<h2>What a typical Galway move costs</h2>
-<ul>
-<li><strong>Student room move</strong> (boxes + a few bags, 2 hours, one helper) — €36</li>
-<li><strong>One-bed flat</strong> (3 hours, one helper) — €54</li>
-<li><strong>Two-bed with furniture</strong> (3 hours, two helpers booked together) — €108</li>
-</ul>
-<p>Each booking adds one small fee (15%, min €4), charged only <a href="/glossary/pay-after-accept">when a helper says yes</a>. Your helpers keep 100% of the job price — you pay them directly when the lifting's done.</p>
-<h2>The stress-free moving day checklist</h2>
-<ul>
-<li><strong>Book the van first, helpers second</strong> — match the helper hours to the van window.</li>
-<li><strong>Box everything before they arrive</strong> — €18/hr is for carrying, not bubble-wrapping mugs.</li>
-<li><strong>Heaviest furniture measured</strong> — check the couch actually fits the new stairwell.</li>
-<li><strong>Park close</strong> — five metres to the door beats fifty.</li>
-<li><strong>Keep kettle, chargers and keys in one "open me first" box.</strong></li>
-</ul>
-<h2>Moving out? Don't forget the clean</h2>
-<p>If it's a rental, the <a href="/glossary/end-of-tenancy-clean">end-of-tenancy clean</a> decides your deposit. Book it for after the furniture's out — an empty home cleans faster. Full checklist in our <a href="/blog/end-of-tenancy-cleaning-galway">end-of-tenancy guide</a>, and flat-pack going back together at the new place is a classic <a href="/glossary/flat-pack-assembly">assembly job</a>.</p>
-<p><a href="/#book"><strong>Book moving help in Galway →</strong></a></p>
-`,
-    related: ["end-of-tenancy-cleaning-galway", "cleaner-cost-galway", "what-vano-helpers-do"],
-    faqs: [
-      { q: "How much does moving help cost in Galway?", a: "€18 an hour per helper on Vano. A typical student room move is about €36 (2 hours); a one-bed flat about €54 (3 hours) — plus van hire, which you arrange." },
-      { q: "Do Vano helpers drive the van?", a: "No — helpers load, carry and unload, but never drive your belongings or passengers. You arrange the van or use your own car; that split is what keeps the price low." },
-      { q: "Can two helpers work the same move?", a: "Yes — book two moving jobs for the same time slot and note they're for the same move. Two sets of hands roughly halves the carrying time." },
-      { q: "How far in advance should I book?", a: "Same-day is often possible, but for a moving day with a hired van, booking a day or two ahead is safest so the van and the muscle line up." },
-    ],
-    howTo: [
-      { name: "Sort the van before the muscle", text: "Book your van (or borrow a car) first, then book Vano helpers for the same window at €18/hr each." },
-      { name: "Pack completely before helpers arrive", text: "Everything boxed, sealed and labelled — helper hours should go on carrying, not packing." },
-      { name: "Load heavy and awkward items first", text: "Couch, mattress, wardrobe into the van first; boxes fill the gaps around them." },
-      { name: "Book the end-of-tenancy clean for after", text: "Once furniture is out, a 3–4 hour move-out clean gets the deposit back — book it as a separate cleaning job." },
-    ],
-  },
-
-  {
     slug: "laundry-service-galway-cost",
     title: "Laundry Service in Galway: €30 Collected, Washed & Folded",
     summary:
@@ -628,7 +571,7 @@ export const BLOG_POSTS: BlogPost[] = [
 </ul>
 <p>You pay the €30 directly to your helper when it's back (Revolut or cash — they keep 100%), and one small €4.50 booking fee confirms the job <a href="/glossary/pay-after-accept">when a helper says yes</a>. So the true all-in cost is <strong>€34.50</strong>.</p>
 <h2>Who it suits</h2>
-<p><strong>Busy working households</strong> that never catch up on the basket; <strong>older neighbours</strong> for whom the machine, the line and the carrying have become a chore; <strong>students</strong> in accommodation where the shared machines eat coins; and anyone mid-<a href="/blog/moving-help-galway">move</a> whose machine is in a van somewhere.</p>
+<p><strong>Busy working households</strong> that never catch up on the basket; <strong>older neighbours</strong> for whom the machine, the line and the carrying have become a chore; <strong>students</strong> in accommodation where the shared machines eat coins; and anyone mid-move whose machine is in a van somewhere.</p>
 <h2>Compared with the alternatives</h2>
 <p>A launderette service wash in Ireland typically runs €12–€20 <em>plus</em> the two trips to drop off and collect. Big laundry apps charge by the kilo with delivery fees on top and mostly serve Dublin. Vano's €30-a-bag is fully door-to-door — collection and return included, none of your time — and the money goes to a local student, not a logistics chain.</p>
 <h2>Want ironing too?</h2>
@@ -698,6 +641,69 @@ export const BLOG_POSTS: BlogPost[] = [
     ],
   },
 ];
+
+// ── PARKED (owner call 2026-07-24: moving retired from the customer offer —
+// liability triage; see PARKED_SERVICE_LANDINGS in services.ts). Kept out of
+// BLOG_POSTS so the index, prerender, sitemap and related-links drop it
+// automatically. Don't re-add without the owner.
+const PARKED_BLOG_POSTS: BlogPost[] = [
+  {
+    slug: "moving-help-galway",
+    title: "Moving in Galway: What Help Costs & a Stress-Free Checklist",
+    summary:
+      "Student moving help in Galway costs €18 an hour per helper on Vano — you arrange the van, they bring the muscle. Here's what a typical move costs and the checklist that keeps moving day calm.",
+    description:
+      "Help moving house in Galway: €18/hr per helper for lifting, loading and carrying. What a typical flat move costs in 2026, plus a stress-free moving day checklist.",
+    keywords:
+      "moving help Galway, man with a van Galway alternative, help moving house Ireland cost, furniture moving Galway, student movers Galway, moving day checklist",
+    eyebrow: "Moving",
+    datePublished: "2026-07-17",
+    dateModified: "2026-07-17",
+    readingMins: 6,
+    author: "The Vano Team",
+    heroGradient: "from-express-orange via-gold to-sage",
+    heroAlt: "Students carrying moving boxes into a house in Galway on moving day",
+    tags: ["Moving", "Prices", "Galway"],
+    bodyHtml: `
+<p>The hardest part of moving isn't the van — it's the fourth trip up the stairs with a couch. On Vano, <strong>moving help costs €18 an hour per helper</strong>: strong, careful lifting and carrying, booked for exactly the hours you need.</p>
+<h2>How it works (and what you arrange)</h2>
+<p>One honest thing upfront: <strong>you arrange the van</strong> (or use your own car for a small move). Vano helpers are the labour — they load, carry, and unload, but they never drive your belongings. That split keeps it simple and cheap: van hire in Galway runs roughly €40–€80 for a half day, and the muscle is €18/hr on top.</p>
+<h2>What a typical Galway move costs</h2>
+<ul>
+<li><strong>Student room move</strong> (boxes + a few bags, 2 hours, one helper) — €36</li>
+<li><strong>One-bed flat</strong> (3 hours, one helper) — €54</li>
+<li><strong>Two-bed with furniture</strong> (3 hours, two helpers booked together) — €108</li>
+</ul>
+<p>Each booking adds one small fee (15%, min €4), charged only <a href="/glossary/pay-after-accept">when a helper says yes</a>. Your helpers keep 100% of the job price — you pay them directly when the lifting's done.</p>
+<h2>The stress-free moving day checklist</h2>
+<ul>
+<li><strong>Book the van first, helpers second</strong> — match the helper hours to the van window.</li>
+<li><strong>Box everything before they arrive</strong> — €18/hr is for carrying, not bubble-wrapping mugs.</li>
+<li><strong>Heaviest furniture measured</strong> — check the couch actually fits the new stairwell.</li>
+<li><strong>Park close</strong> — five metres to the door beats fifty.</li>
+<li><strong>Keep kettle, chargers and keys in one "open me first" box.</strong></li>
+</ul>
+<h2>Moving out? Don't forget the clean</h2>
+<p>If it's a rental, the <a href="/glossary/end-of-tenancy-clean">end-of-tenancy clean</a> decides your deposit. Book it for after the furniture's out — an empty home cleans faster. Full checklist in our <a href="/blog/end-of-tenancy-cleaning-galway">end-of-tenancy guide</a>, and flat-pack going back together at the new place is a classic <a href="/glossary/flat-pack-assembly">assembly job</a>.</p>
+<p><a href="/#book"><strong>Book moving help in Galway →</strong></a></p>
+`,
+    related: ["end-of-tenancy-cleaning-galway", "cleaner-cost-galway", "what-vano-helpers-do"],
+    faqs: [
+      { q: "How much does moving help cost in Galway?", a: "€18 an hour per helper on Vano. A typical student room move is about €36 (2 hours); a one-bed flat about €54 (3 hours) — plus van hire, which you arrange." },
+      { q: "Do Vano helpers drive the van?", a: "No — helpers load, carry and unload, but never drive your belongings or passengers. You arrange the van or use your own car; that split is what keeps the price low." },
+      { q: "Can two helpers work the same move?", a: "Yes — book two moving jobs for the same time slot and note they're for the same move. Two sets of hands roughly halves the carrying time." },
+      { q: "How far in advance should I book?", a: "Same-day is often possible, but for a moving day with a hired van, booking a day or two ahead is safest so the van and the muscle line up." },
+    ],
+    howTo: [
+      { name: "Sort the van before the muscle", text: "Book your van (or borrow a car) first, then book Vano helpers for the same window at €18/hr each." },
+      { name: "Pack completely before helpers arrive", text: "Everything boxed, sealed and labelled — helper hours should go on carrying, not packing." },
+      { name: "Load heavy and awkward items first", text: "Couch, mattress, wardrobe into the van first; boxes fill the gaps around them." },
+      { name: "Book the end-of-tenancy clean for after", text: "Once furniture is out, a 3–4 hour move-out clean gets the deposit back — book it as a separate cleaning job." },
+    ],
+  },
+];
+void PARKED_BLOG_POSTS; // kept for history / re-mount, not rendered
+
 
 /** Lookup by slug — used by the route and the prerenderer. */
 export function getPostBySlug(slug: string): BlogPost | undefined {

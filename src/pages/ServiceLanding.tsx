@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, ShieldCheck, Eye, BadgeCheck, Zap } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
@@ -8,7 +8,7 @@ import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { CategoryGrid } from '@/components/household/CategoryGrid';
 import { Reveal } from '@/components/Reveal';
 import NotFound from '@/pages/NotFound';
-import { getServiceLanding, SERVICE_LANDINGS } from '@/content/services';
+import { getServiceLanding, SERVICE_LANDINGS, PARKED_SERVICE_SLUGS } from '@/content/services';
 
 /**
  * Per-service SEO landing page (/cleaning-galway, /dog-walking-galway, …).
@@ -22,6 +22,10 @@ const ServiceLanding: React.FC = () => {
   // Routes are static top-level paths (/cleaning-galway), not a :slug param —
   // the slug IS the pathname.
   const slug = useLocation().pathname.replace(/^\/+|\/+$/g, '');
+  // Parked services (moving, 2026-07-24): old links land on the homepage
+  // instead of a 404 — kinder for stale Google results, and the offer they
+  // came for genuinely lives behind the tiles now.
+  if ((PARKED_SERVICE_SLUGS as readonly string[]).includes(slug)) return <Navigate to="/" replace />;
   const service = getServiceLanding(slug);
   if (!service) return <NotFound />;
 
