@@ -44,6 +44,13 @@ describe('server price table (shared module) matches the frontend canonical tabl
 
   it('prices the flat and short-visit combinations identically', () => {
     expect(computePriceCents('shopping', '', '')).toBe(getHouseholdPriceCents('shopping', ''));
+    // Laundry bag ladder (owner 2026-07-24) — server and frontend must agree
+    // on every rung AND on the no-size fallback above.
+    for (const bags of ['1 bag', '2 bags', '3 bags']) {
+      expect(computePriceCents('shopping', bags, ''), `shopping / ${bags}`)
+        .toBe(getHouseholdPriceCents('shopping', bags));
+    }
+    expect(getHouseholdPriceCents('shopping', '2 bags')).toBe(5000);
     expect(computePriceCents('dog-walk', '30 min', '')).toBe(getHouseholdPriceCents('dog-walk', '30 min'));
     expect(computePriceCents('dog-walk', '1 hour', '')).toBe(getHouseholdPriceCents('dog-walk', '1 hour'));
     expect(computePriceCents('moving', '4+ hours', '')).toBe(getHouseholdPriceCents('moving', '4+ hours'));

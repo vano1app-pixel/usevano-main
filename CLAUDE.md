@@ -247,8 +247,10 @@ rounds or the `custom` catch-all.
   stays in CategoryGrid (category entry + sub-picker) so old deep links and
   in-flight bookings keep working; both pricing tables keep their `business`
   entries so the lock-step tests hold. Don't remount without the owner.
-  Laundry stays on the grid at a flat **€30** (owner reprice 2026-07-23 —
-  content pages updated too). Dispatches like `custom` (catch-all to ALL
+  Laundry prices per BAG since 2026-07-24 — **€30/€50/€65 for 1/2/3 bags**
+  (`LAUNDRY_BAG_CENTS`, mirrored in the server table; a missing/unknown size
+  falls back to the 1-bag €30 so WhatsApp drafts, memory rebooks and old
+  links keep pricing). Dispatches like `custom` (catch-all to ALL
   id_verified helpers — not a join-form skill; gap nudges auto-skip). The
   sheet's business sub-picks carry their label into note+extra_label
   (SubService `carry`) so offers/job screens name the real task.

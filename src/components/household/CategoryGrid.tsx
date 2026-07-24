@@ -34,14 +34,16 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
-    // Laundry: the helper collects, washes/dries/folds and returns it. Flat
-    // €30 (owner reprice 2026-07-23), one-off — finishes when the customer
-    // marks it done. Slug stays 'shopping' so existing bookings, pricing and
-    // the DB category all keep working; only the customer-facing wording
-    // changed.
+    // Laundry: the helper collects, washes/dries/folds and returns it.
+    // Priced per BAG since 2026-07-24 (€30/€50/€65 for 1/2/3 — the task is
+    // the unit, the machine does the hours); a missing size prices as the
+    // 1-bag €30 everywhere. Slug stays 'shopping' so existing bookings,
+    // pricing and the DB category all keep working; only the customer-facing
+    // wording changed.
     emoji: '🧺', label: 'Laundry', slug: 'shopping',
     hint: 'Collected, washed & returned folded',
     description: 'Your helper collects your laundry, washes, dries and folds it, and brings it back to your door — fresh and sorted.',
+    sizeLabel: 'How much laundry?', sizes: ['1 bag', '2 bags', '3 bags'],
   },
   {
     // BUSINESS temp staff (owner test, 2026-07-23): flyers, sampling, events,
@@ -252,7 +254,7 @@ const SUB_SERVICES: Record<string, { featured: SubService[]; more: SubService[] 
 
 // Smart defaults — most common booking for each service
 const DEFAULT_SIZE: Record<string, string> = {
-  shopping:  '',
+  shopping:  '1 bag',
   'dog-walk': '30 min',
   garden:    '2 hours',
   moving:    '2 hours',
