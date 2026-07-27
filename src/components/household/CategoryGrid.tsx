@@ -1049,6 +1049,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         city,
         lastCategory: cat.slug,
         lastSize:     size,
+        // The dog answer is PRICED — a rebook that dropped it would quietly
+        // underpay the student. Saves merge, so readers gate on lastCategory.
+        ...(cat.slug === 'dog-walk' && extraLabel ? { lastExtra: extraLabel } : {}),
       });
       // Same-origin handoff (the /track page) rides the SPA router — no
       // white-flash full reload at the peak-momentum moment. A short
@@ -2055,8 +2058,14 @@ export const CategoryGrid: React.FC = () => {
     const cat = CATEGORIES.find(c => c.slug === mem.lastCategory);
     if (!cat) return null;
     const memSize = mem.lastSize && cat.sizes?.includes(mem.lastSize) ? mem.lastSize : undefined;
-    const cents = getPriceCents(cat.slug, memSize ?? DEFAULT_SIZE[cat.slug] ?? '');
-    return { cat, size: memSize, price: cents ? fmt(cents) : null };
+    // The priced extra (the dog answer) rides the rebook so the chip's price
+    // is what checkout will actually charge — gated on lastCategory because
+    // memory saves merge and a stale extra can outlive a category switch.
+    const memExtra = cat.slug === 'dog-walk' && typeof mem.lastExtra === 'string' && mem.lastExtra
+      ? mem.lastExtra
+      : undefined;
+    const cents = getPriceCents(cat.slug, memSize ?? DEFAULT_SIZE[cat.slug] ?? '', memExtra);
+    return { cat, size: memSize, extra: memExtra, price: cents ? fmt(cents) : null };
   }, []);
 
   // Support the vano:select-category custom event (PopularCategories podium,
@@ -2085,7 +2094,7 @@ export const CategoryGrid: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, direct: true }); }}
+            onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size, note: usual.extra, extraLabel: usual.extra, direct: true }); }}
             // Compact by design (owner call 2026-07-24): a quiet one-line chip.
             // The five tiles are the front door — the usual is a shortcut, not
             // a second hero card competing with them.
