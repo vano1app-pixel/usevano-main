@@ -15,7 +15,7 @@ import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
-import { BUILDER_TASKS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, hoursFromSizeLabel } from '@/lib/jobBuilder';
+import { BUILDER_TASKS, SIZING_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, scaledTaskMinutes, hoursFromSizeLabel, type SizingOption } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -498,6 +498,19 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const startOnPick = (isDescribe || !!subServices || !!builderTasks) && !initialSize && !entryExtraLabel && !direct;
   const [step, setStep] = useState<'pick' | 'form'>(startOnPick ? 'pick' : 'form');
   const [ticked, setTicked] = useState<string[]>([]);
+  // The one-tap sizing question (2026-07-27, owner ask: "after they choose
+  // the category it asks a small question — how big is the garden, how big
+  // is the place, what type of dog — so the price is fairest for both
+  // sides"). Builder categories ask it FIRST (the answer's factor scales the
+  // tick estimates); Pets/Laundry ask it right after the core sub-pick.
+  // Rebooks + deep links with a size (`direct`/`initialSize`) never re-ask.
+  const question = SIZING_QUESTIONS[entryCat.slug];
+  const [sizing, setSizing] = useState<SizingOption | null>(null);
+  // Page-1 phase: 'ask' = the sizing question, 'main' = ticks (builders) or
+  // the sub-service list (everything else).
+  const [pickPhase, setPickPhase] = useState<'ask' | 'main'>(
+    startOnPick && question && builderTasks ? 'ask' : 'main',
+  );
   const [active, setActive] = useState<{ cat: Category; note?: string; extraLabel?: string }>(
     { cat: entryCat, note: entryNote, extraLabel: entryExtraLabel },
   );
@@ -594,6 +607,14 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         extraLabel: sub.carry ? sub.label : undefined,
       });
       if (sub.size) setSize(sub.size);
+      // Speed-wizard beat: a core pick in a question category (dog walks,
+      // laundry) pauses on the one-tap sizing question before the form.
+      // Custom rows keep their own flow — the catalogue job IS the answer.
+      if (question) {
+        navDir.current = 1;
+        setPickPhase('ask');
+        return;
+      }
     } else {
       const job = customJobByKey(sub.jobKey);
       track('hero_sub_pick', { category: entryCat.slug, sub: job.key });
@@ -621,10 +642,33 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     setStep('form');
   }
 
+  // One tap answers the sizing question. Builders move on to the ticks (the
+  // factor is applied to the estimates live); Pets/Laundry go straight to the
+  // form — a `size` answer jumps to that existing label (laundry bags), a
+  // carry-only answer rides note + extra_label (dog type) so dispatch offers
+  // and the helper's job screen name the real ask. Never invents a price.
+  function applySizing(opt: SizingOption) {
+    haptic(10);
+    track('hero_size_pick', { category: entryCat.slug, answer: opt.key });
+    setSizing(opt);
+    if (opt.size) setSize(opt.size);
+    navDir.current = 1;
+    if (builderTasks) {
+      setPickPhase('main');
+      return;
+    }
+    if (opt.carry) setActive((a) => ({ ...a, note: opt.carry, extraLabel: opt.carry }));
+    setPickPhase('main'); // so "back" from the form lands on the sub list, not the question
+    setStep('form');
+  }
+
   // Builder page derived values — the ticked tasks priced through the same
   // canonical table as everything else (the builder only ever picks a SIZE).
+  // The sizing answer scales the MINUTES (estimates are calibrated to the
+  // middle answer), so the total still rounds onto an existing size label.
+  const sizingFactor = sizing?.factor ?? 1;
   const builderSize = builderTasks && entryCat.sizes
-    ? builderSizeLabel(builderMinutes(entryCat.slug, ticked), entryCat.sizes)
+    ? builderSizeLabel(builderMinutes(entryCat.slug, ticked, sizingFactor), entryCat.sizes)
     : null;
   const builderPriceCents = builderSize ? getPriceCents(entryCat.slug, builderSize) : null;
   const builderMarket = builderSize ? builderMarketCents(entryCat.slug, builderSize) : null;
@@ -632,14 +676,20 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Page 1 (builder) → page 2: same contract as applyPick — the ticked list
   // rides note (full, for the helper) + extraLabel (short, for offers), and
   // the computed size preselects the form's "How long?" chips, which stay
-  // live so the customer can still adjust.
+  // live so the customer can still adjust. The sizing answer leads the note
+  // ("3-bed home · Kitchen deep-clean + …") so the helper reads the scope.
   function applyBuilderPick() {
     if (!builderTasks || !builderSize) return;
     haptic(10);
-    track('builder_continue', { category: entryCat.slug, tasks: ticked.length, size: builderSize });
+    track('builder_continue', {
+      category: entryCat.slug,
+      tasks: ticked.length,
+      size: builderSize,
+      ...(sizing ? { sizing: sizing.key } : {}),
+    });
     setActive({
       cat: entryCat,
-      note: builderNote(entryCat.slug, ticked),
+      note: [sizing?.carry, builderNote(entryCat.slug, ticked)].filter(Boolean).join(' · '),
       extraLabel: builderShortLabel(entryCat.slug, ticked) ?? undefined,
     });
     setSize(builderSize);
@@ -658,6 +708,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     business:   'What does your business need?',
   };
   const pickTitle = isDescribe ? 'What do you need done?' : (PICK_TITLES[entryCat.slug] ?? `What kind of ${entryCat.label.toLowerCase()}?`);
+  // The sizing question takes over page 1's header while it's being asked.
+  const asking = step === 'pick' && pickPhase === 'ask' && !!question;
+  const headerTitle = asking && question ? question.title : pickTitle;
+  const headerWhy = asking && question ? question.why : null;
+  // Laundry's answer rows show the real bag prices — the single price source,
+  // never hardcoded. Factor/carry answers price nothing (that's the point).
+  const sizingPriceLabel = (opt: SizingOption): string => {
+    if (!opt.size) return '';
+    const cents = getPriceCents(entryCat.slug, opt.size);
+    return cents ? fmt(cents) : '';
+  };
   const visibleSubs: SubService[] = subServices
     ? [...subServices.featured, ...(showMoreSubs ? subServices.more : [])]
     : [];
@@ -730,7 +791,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   }, [onClose]);
 
   // Every wizard page starts from the top — landing mid-scroll reads as a glitch.
-  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [step]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [step, pickPhase]);
 
   // Focus the phone field only AFTER the sheet (or page) has finished sliding —
   // the keyboard rising mid-slide shoves the whole sheet around, which is
@@ -1067,12 +1128,19 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               {/* Back — grows in from zero width so the title glides right
                   instead of being shoved when the button appears. */}
               <AnimatePresence initial={false}>
-                {startOnPick && step === 'form' && (
+                {startOnPick && (step === 'form' || (asking && !builderTasks)) && (
                   <motion.button
                     key="wizard-back"
                     type="button"
-                    onClick={() => { navDir.current = -1; setStep('pick'); }}
-                    aria-label="Back to job types"
+                    // From the form → back to page 1 (ticks/list). From the
+                    // sizing question after a sub-pick (pets/laundry) → back
+                    // to the list. Builders asking FIRST have nothing behind.
+                    onClick={() => {
+                      navDir.current = -1;
+                      if (step === 'form') setStep('pick');
+                      else setPickPhase('main');
+                    }}
+                    aria-label={step === 'form' ? 'Back to job types' : 'Back to job list'}
                     initial={{ width: 0, marginLeft: 0, opacity: 0, scale: 0.6 }}
                     animate={{ width: 36, marginLeft: -8, opacity: 1, scale: 1 }}
                     exit={{ width: 0, marginLeft: 0, opacity: 0, scale: 0.6 }}
@@ -1098,30 +1166,31 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   </motion.span>
                   <h2 className="font-display text-xl font-bold text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
                     <motion.span
-                      key={step === 'pick' ? pickTitle : cat.label}
+                      key={step === 'pick' ? headerTitle : cat.label}
                       className="inline-block"
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.25, ease: SHEET_EASE }}
                     >
-                      {step === 'pick' ? pickTitle : cat.label}
+                      {step === 'pick' ? headerTitle : cat.label}
                     </motion.span>
                   </h2>
                 </div>
                 <p className="text-sm text-muted-foreground ml-9">
                   <motion.span
-                    key={step === 'pick' ? 'pick-sub' : cat.hint}
+                    key={step === 'pick' ? `pick-sub-${pickPhase}` : cat.hint}
                     className="inline-block"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.25, delay: 0.05 }}
                   >
                     {step === 'pick'
-                      ? (isDescribe
-                          ? 'Tap a popular job, or type your own'
-                          : builderTasks
-                            ? 'Tap all that apply — the price builds as you go'
-                            : 'Tap one — it takes a second')
+                      ? (headerWhy
+                          ?? (isDescribe
+                            ? 'Tap a popular job, or type your own'
+                            : builderTasks
+                              ? 'Tap all that apply — the price builds as you go'
+                              : 'Tap one — it takes a second'))
                       : cat.hint}
                   </motion.span>
                 </p>
@@ -1184,9 +1253,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               slip away before the new one arrives, so heights never fight. */}
           <AnimatePresence mode="wait" custom={navDir.current}>
           {step === 'pick' ? (
-            /* ── Wizard page 1: sub-service picker / describe-it ─────────── */
+            /* ── Wizard page 1: sizing question / sub-service picker / describe-it ── */
             <motion.div
-              key="pick-page"
+              // Keyed on the phase so ask → ticks/list hands off with the same
+              // directional slide the pick → form transition uses.
+              key={`pick-${pickPhase}`}
               custom={navDir.current}
               variants={pickPage}
               initial="hidden"
@@ -1212,12 +1283,45 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               )}
-              {builderTasks && !isDescribe ? (
+              {question && pickPhase === 'ask' && !isDescribe ? (
+                /* ── The one-tap sizing question (the speed wizard). Rows use
+                    the same grammar as the sub-picker: emoji + label + honest
+                    hint, price only where the answer IS a price (laundry
+                    bags). One tap → applySizing moves the wizard on. */
+                <div className="space-y-2" role="list" aria-label={question.title}>
+                  {question.options.map((opt, i) =>
+                    renderSubRow(
+                      opt.key,
+                      opt.emoji,
+                      opt.label,
+                      opt.hint ?? null,
+                      // Coming back via "Change"? Tick the current answer.
+                      (opt.key === sizing?.key ? '✓ ' : '') + sizingPriceLabel(opt),
+                      () => applySizing(opt),
+                      i,
+                    ))}
+                </div>
+              ) : builderTasks && !isDescribe ? (
                 /* ── Tick-box builder: tap the tasks, watch the price build.
                     Each row is a task with an honest ~time; the card below
                     rolls the total (AnimatedPrice) and anchors it against the
                     display-only local going rate. Continue = applyBuilderPick. */
                 <>
+                  {/* The sizing answer stays visible + changeable while
+                      ticking — it's scaling every estimate below. */}
+                  {sizing && (
+                    <button
+                      type="button"
+                      onClick={() => { haptic(8); navDir.current = -1; setPickPhase('ask'); }}
+                      className="mb-2.5 flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-white px-3.5 py-2.5 text-left transition-colors hover:bg-secondary/40"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
+                        <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{sizing.emoji}</span>
+                        <span className="font-semibold truncate">{sizing.carry ?? sizing.label}</span>
+                      </span>
+                      <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">Change</span>
+                    </button>
+                  )}
                   <div className="space-y-2" role="group" aria-label={pickTitle}>
                     {builderTasks.map((t, i) => {
                       const on = ticked.includes(t.key);
@@ -1247,7 +1351,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                               to read the whole task they're ticking (375px
                               phones cut "Kitchen deep-cle…" with truncate). */}
                           <span className="flex-1 min-w-0 text-[15px] font-semibold text-foreground leading-snug">{t.label}</span>
-                          <span className="text-xs font-semibold text-muted-foreground tabular-nums flex-shrink-0">{minutesLabel(t.minutes)}</span>
+                          {/* Estimates scale with the sizing answer — a 4-bed
+                              hoover-through honestly takes longer than a 1-bed */}
+                          <span className="text-xs font-semibold text-muted-foreground tabular-nums flex-shrink-0">{minutesLabel(scaledTaskMinutes(t.minutes, sizingFactor))}</span>
                         </button>
                       );
                     })}

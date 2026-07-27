@@ -61,12 +61,97 @@ export const BUILDER_MARKET_RATE_CENTS: Record<string, number> = {
   moving:   3500,
 };
 
+// ── The one-tap sizing question (2026-07-27, owner ask: "after they choose
+// the category it asks a small question — roughly how big is the garden, how
+// big is the room, what type of dog — so the price is fairest for the
+// students AND the households"). ONE question per category, one tap to
+// answer, and it obeys the same invariant as the tick boxes: an answer can
+// NEVER invent a price. Three honest mechanisms, one per option kind:
+//   factor — builder categories: scales the ticked MINUTES (the task
+//            estimates are calibrated to the middle answer), so the total
+//            still rounds onto the category's existing half-hour labels and
+//            the server prices the label exactly as before;
+//   size   — jumps straight to an EXISTING size label (laundry's bag
+//            ladder, priced up front instead of defaulting to 1 bag);
+//   carry-only — changes no number at all: the answer rides note +
+//            extra_label so dispatch offers and the helper's job screen
+//            name the real ask (a lab is not a chihuahua) before accepting.
+// jobBuilder.test.ts locks all three shapes.
+
+export interface SizingOption {
+  key: string;
+  emoji: string;
+  label: string;
+  /** One-line example under the label ("Terrier, pug…"). */
+  hint?: string;
+  /** Builder categories: multiplies the summed task minutes. */
+  factor?: number;
+  /** Non-builder categories: picks an existing size label outright. */
+  size?: string;
+  /** Rides into note/extra_label so the helper reads the real ask. */
+  carry?: string;
+}
+
+export interface SizingQuestion {
+  title: string;
+  /** The honest why-we-ask line, shown under the title. */
+  why: string;
+  options: SizingOption[];
+}
+
+export const SIZING_QUESTIONS: Record<string, SizingQuestion> = {
+  cleaning: {
+    title: 'Roughly how big is your place?',
+    why: 'One tap — it sizes the clean fairly for you and your helper',
+    options: [
+      { key: 'small',   emoji: '🏢', label: '1–2 bedrooms', hint: 'Apartment or small house',        factor: 0.75, carry: '1–2 bed home' },
+      { key: 'typical', emoji: '🏠', label: '3 bedrooms',   hint: 'A typical semi-D',                factor: 1,    carry: '3-bed home' },
+      { key: 'large',   emoji: '🏡', label: '4+ bedrooms',  hint: 'More rooms, more ground to cover', factor: 1.35, carry: '4+ bed home' },
+    ],
+  },
+  garden: {
+    title: 'Roughly how big is the garden?',
+    why: 'One tap — it sizes the job fairly for you and your helper',
+    options: [
+      { key: 'small',   emoji: '🌱', label: 'Small',   hint: 'Patio or courtyard',        factor: 0.7, carry: 'Small garden' },
+      { key: 'typical', emoji: '🌿', label: 'Average', hint: 'A typical back garden',     factor: 1,   carry: 'Average garden' },
+      { key: 'large',   emoji: '🌳', label: 'Large',   hint: 'Big lawn, front and back',  factor: 1.5, carry: 'Large garden' },
+    ],
+  },
+  // Info-only: walk prices don't change, but the helper accepting a walk
+  // deserves to know who's on the lead. Rides note + extra_label.
+  'dog-walk': {
+    title: 'What kind of dog?',
+    why: 'So the right helper says yes — they see this before accepting',
+    options: [
+      { key: 'small',  emoji: '🐕', label: 'Small dog',  hint: 'Terrier, pug, dachshund…',      carry: 'Small dog' },
+      { key: 'medium', emoji: '🦮', label: 'Medium dog', hint: 'Spaniel, collie, beagle…',      carry: 'Medium dog' },
+      { key: 'big',    emoji: '🐕‍🦺', label: 'Big dog',    hint: 'Labrador, retriever, husky…', carry: 'Big dog' },
+      { key: 'two',    emoji: '🐾', label: 'Two dogs',   hint: 'Walked together',               carry: 'Two dogs' },
+    ],
+  },
+  // Laundry already had the bag ladder — this just asks it UP FRONT with the
+  // real prices on the rows, instead of quietly defaulting to 1 bag behind
+  // the form's "Change" fold. The sizes MUST stay the LAUNDRY_BAG_CENTS keys.
+  shopping: {
+    title: 'How much laundry?',
+    why: 'A bag is about one full washing-machine load',
+    options: [
+      { key: '1bag',  emoji: '🧺', label: '1 bag',  hint: 'About one machine load', size: '1 bag' },
+      { key: '2bags', emoji: '🧺', label: '2 bags', hint: 'Two loads',              size: '2 bags' },
+      { key: '3bags', emoji: '🧺', label: '3 bags', hint: 'The big catch-up',       size: '3 bags' },
+    ],
+  },
+};
+
 const taskByKey = (slug: string, key: string): BuilderTask | undefined =>
   BUILDER_TASKS[slug]?.find((t) => t.key === key);
 
-/** Sum of ticked minutes (unknown keys are ignored — fail-soft). */
-export function builderMinutes(slug: string, keys: string[]): number {
-  return keys.reduce((sum, k) => sum + (taskByKey(slug, k)?.minutes ?? 0), 0);
+/** Sum of ticked minutes × the sizing answer's factor (unknown keys are
+ *  ignored — fail-soft; no answer = factor 1, exactly the old behaviour). */
+export function builderMinutes(slug: string, keys: string[], factor = 1): number {
+  const base = keys.reduce((sum, k) => sum + (taskByKey(slug, k)?.minutes ?? 0), 0);
+  return Math.round(base * factor);
 }
 
 /** Leading hour count from a size label ("2 hours", "1.5 hours", "4+ hours")
@@ -119,6 +204,13 @@ export function builderShortLabel(slug: string, keys: string[]): string | null {
   const picked = (BUILDER_TASKS[slug] ?? []).filter((t) => keys.includes(t.key));
   if (!picked.length) return null;
   return picked.length === 1 ? picked[0].label : `${picked[0].label} +${picked.length - 1}`;
+}
+
+/** A task row's minutes under the sizing answer, tidied to 5-min steps so
+ *  the "~" chips stay readable ("~25 min", never "~22.5 min"). Display-only —
+ *  the billed total comes from builderMinutes, not a sum of these. */
+export function scaledTaskMinutes(minutes: number, factor: number): number {
+  return Math.max(5, Math.round((minutes * factor) / 5) * 5);
 }
 
 /** "~45 min" / "~1 hr" chip text for a task row. */

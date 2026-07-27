@@ -677,7 +677,7 @@ tick-eyebrows, floating cards.
 | Arrival codes | `functions/household-arrival` |
 | Customer bookings | `src/pages/MyBookings.tsx` + `functions/find-booking-by-phone` |
 | Custom jobs | `src/lib/customJobs.ts` + `functions/parse-custom-job` |
-| Job builder | `src/lib/jobBuilder.ts` (tick-tasks → size label; display-only market anchor) |
+| Job builder | `src/lib/jobBuilder.ts` (tick-tasks → size label; SIZING_QUESTIONS one-tap wizard; display-only market anchor) |
 | WhatsApp door | `functions/whatsapp-inbound` + `functions/_shared/waIntake.ts` |
 | Server price table | `functions/_shared/householdPricing.ts` (checkout + WhatsApp import it) |
 | Home memory | `household_homes` + `record_home_booking` RPC (migration `20260713000000`) |
@@ -843,3 +843,32 @@ desktop) and the "book your usual" card shrunk to a compact one-line chip.
 Verified per the owner rule with a real-browser Playwright drive: tiles →
 builder ticks → form → submit, with the checkout POST intercepted and its
 payload asserted (category/size/note) so no real booking is created.
+
+**The one-tap sizing question (2026-07-27, owner ask — "after they choose
+the category, ask one small question so the price is fairest for the
+students and the households"):** `SIZING_QUESTIONS` in `src/lib/jobBuilder.ts`
++ the `ask` phase of CategoryGrid's pick page. ONE question per category,
+one tap, and the same invariant as the tick boxes — **an answer can never
+invent a price** (three shapes only, locked by jobBuilder.test.ts):
+- **Cleaning/Garden ask FIRST** ("Roughly how big is your place / the
+  garden?"): the answer's `factor` scales the tick-task MINUTES (estimates
+  are calibrated to the middle answer, factors ascend small→large), so the
+  total still rounds onto an EXISTING half-hour label and the server prices
+  it exactly as before — every tick-combo × factor is enumerated priceable
+  in the test. The answer stays visible/changeable as a chip above the
+  ticks (row estimates re-scale live) and LEADS the note
+  ("4+ bed home · Kitchen deep-clean + …") so the helper reads the scope.
+- **Dog walks ask AFTER the walk row** ("What kind of dog?"): info-only —
+  walk prices untouched; the answer rides note + extra_label so dispatch
+  offers name the real ask before a helper accepts. ("Two dogs" is
+  deliberately NOT surcharged yet — pricing it is an owner call.)
+- **Laundry asks the bag ladder UP FRONT** at the real €30/€50/€65 row
+  prices (the canonical `LAUNDRY_BAG_CENTS` labels) instead of quietly
+  defaulting to 1 bag behind the form's "Change" fold.
+Rebooks + deep links that carry a size (`direct`/`initialSize`) never
+re-ask; the WhatsApp door is untouched (its step machine already asks
+size). Funnel event: `hero_size_pick` { category, answer } between
+tile/sub pick and ticks/form. Verified per the owner rule with a 4-flow
+real-browser Playwright drive at a phone viewport (cleaning re-price via
+Change, pets carry, laundry ladder, garden factor), checkout POST
+intercepted + payload asserted, zero page errors.
