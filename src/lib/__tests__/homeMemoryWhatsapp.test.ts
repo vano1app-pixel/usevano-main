@@ -44,7 +44,7 @@ describe('server price table (shared module) matches the frontend canonical tabl
 
   it('prices the builder half-hour steps identically on both tables', () => {
     const HALF_LABELS: Record<string, string[]> = {
-      cleaning: ['1.5 hours', '2.5 hours', '3.5 hours', '4.5 hours'], // halves to 4.5 since the 5h cap (2026-07-27)
+      cleaning: ['1.5 hours', '2.5 hours', '3.5 hours', '4.5 hours', '5.5 hours'], // halves to 5.5 since the 6h cap (2026-07-27)
       garden:   ['1.5 hours', '2.5 hours', '3.5 hours', '4.5 hours', '5.5 hours', '6.5 hours', '7.5 hours'],
       moving:   ['1.5 hours', '2.5 hours', '3.5 hours'],
     };

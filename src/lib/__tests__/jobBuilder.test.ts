@@ -20,7 +20,7 @@ import { computePriceCents } from '../../../supabase/functions/_shared/household
 // sizes change, this test is the tripwire that the builder still rounds to
 // labels the sheet and server actually price.
 const SHEET_SIZES: Record<string, string[]> = {
-  cleaning: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours'], // cap 3h → 5h 2026-07-27 (suitable-money rule)
+  cleaning: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours'], // cap 3h → 6h 2026-07-27 (suitable-money rule + the condition tick)
   garden:   ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
   moving:   ['1 hour', '2 hours', '3 hours', '4+ hours'],
 };
@@ -60,13 +60,13 @@ describe('jobBuilder — the builder can never invent a price', () => {
     expect(builderSizeLabel(builderMinutes('garden', ['mowing']), sizes)).toBe('1 hour'); // 45 min → 1h floor
     expect(builderSizeLabel(builderMinutes('garden', ['mowing', 'weeding']), sizes)).toBe('1.5 hours'); // 90 min
     expect(builderSizeLabel(builderMinutes('garden', ['mowing', 'weeding', 'hedges']), sizes)).toBe('2 hours'); // 120 min
-    // All six cleaning tasks = 3h30m and BOOK as 3.5h since the cap raise —
-    // the booked time covers the ticked work (it used to cap at 3h).
+    // All SEVEN cleaning ticks (six tasks + the extra-messy condition) = 4h
+    // and book exactly that — the booked time covers the ticked work.
     const allCleaning = BUILDER_TASKS.cleaning.map((t) => t.key);
-    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning), SHEET_SIZES.cleaning)).toBe('3.5 hours');
-    // The biggest possible cleaning ask (4+ bed, everything) books 5h — the
-    // cap exists but sits ABOVE every honest estimate.
-    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning, 1.35), SHEET_SIZES.cleaning)).toBe('5 hours');
+    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning), SHEET_SIZES.cleaning)).toBe('4 hours');
+    // The biggest possible cleaning ask (4+ bed, everything, extra messy)
+    // books 5.5h — the cap exists but sits ABOVE every honest estimate.
+    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning, 1.35), SHEET_SIZES.cleaning)).toBe('5.5 hours');
   });
 
   it('SUITABLE-MONEY INVARIANT: the booked time always covers the estimated work (owner rule 2026-07-27)', () => {

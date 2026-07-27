@@ -34,6 +34,11 @@ export const BUILDER_TASKS: Record<string, BuilderTask[]> = {
     { key: 'floors',   emoji: '🧽', label: 'Floors throughout',        minutes: 30 },
     { key: 'oven',     emoji: '🔥', label: 'Inside the oven & fridge', minutes: 30 },
     { key: 'windows',  emoji: '🪟', label: 'Windows (inside)',         minutes: 30 },
+    // Condition tick (2026-07-27): size is only half the fairness question —
+    // the other half is how the place is RIGHT NOW. Self-confessed, priced
+    // like any tick, and it rides the note so the helper knows what they're
+    // walking into. Last on purpose: it reads as the honest footnote.
+    { key: 'messy',    emoji: '🌪️', label: 'Extra messy right now',    minutes: 30 },
   ],
   garden: [
     { key: 'mowing',   emoji: '🌱', label: 'Lawn mowing',              minutes: 45 },
@@ -42,6 +47,8 @@ export const BUILDER_TASKS: Record<string, BuilderTask[]> = {
     { key: 'planting', emoji: '🪴', label: 'Planting',                 minutes: 30 },
     { key: 'power',    emoji: '💦', label: 'Power washing',            minutes: 60 },
     { key: 'leaves',   emoji: '🍂', label: 'Leaves & tidy-up',         minutes: 30 },
+    // Condition tick — a jungle takes honestly longer than a kept lawn.
+    { key: 'overgrown', emoji: '🌾', label: 'Quite overgrown',         minutes: 45 },
   ],
   moving: [
     { key: 'furniture', emoji: '🛋️', label: 'Furniture & heavy lifting', minutes: 60 },

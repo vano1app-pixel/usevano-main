@@ -41,12 +41,13 @@ const CATEGORIES: Category[] = [
     hint: 'Kitchen, bathroom, floors & surfaces',
     description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
     popular: true,
-    // Cap raised 3h → 5h (2026-07-27, the suitable-money rule): a 4+ bed
-    // home with everything ticked estimates ~4.7h — billing that at a 3h
-    // cap paid the student under the €18/hr promise. The server already
-    // priced 4/5h; jobBuilder.test now fails if any tick×size combo
-    // estimates more time than the cap can book.
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours'],
+    // Cap raised 3h → 5h → 6h (2026-07-27, the suitable-money rule): a 4+
+    // bed home with everything ticked INCLUDING the extra-messy condition
+    // tick estimates 5.4h — the cap must sit above the biggest honest
+    // estimate or the student gets booked for less time than the listed
+    // work. jobBuilder.test's suitable-money invariant enforces exactly
+    // that for every tick × size combination.
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours'],
   },
   {
     // BUSINESS temp staff (owner test, 2026-07-23): flyers, sampling, events,
@@ -543,6 +544,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const [editDetails, setEditDetails] = useState(false);
   // Optional Vano Cover add-on — customer-elected at booking, flat €2.
   const [coverOpted, setCoverOpted] = useState(false);
+  // The open question the form never asked (2026-07-27): gate code, parking,
+  // the dog's name. Collapsed to one quiet line — zero friction for everyone
+  // who skips it; the text rides the booking note to dispatch offers and the
+  // helper's job screen (and through the server's free-text safety screen).
+  const [customerNote, setCustomerNote] = useState('');
+  const [showNoteField, setShowNoteField] = useState(false);
   const [size,     setSize]    = useState(
     // Honour the caller's size even when no size chips are shown (custom jobs
     // already pick the duration on the first page, so the sheet doesn't re-ask).
@@ -589,6 +596,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // re-render, so a fast double-tap can fire handleBook twice before then. This
   // ref flips instantly, closing that window (server-side dedupe is the backstop).
   const submitLock = useRef(false);
+  // A fast double-tap on the opening tile lands its SECOND tap on the
+  // backdrop — it mounts full-screen the instant the sheet starts rising, so
+  // onClose fired and the sheet slid straight back down (owner repro
+  // 2026-07-27: "I tapped and it went straight down"). The backdrop's
+  // tap-to-close arms only after the entrance settles (rise is 420ms); the
+  // X, Escape and the drag handle stay live the whole time.
+  const backdropArmed = useRef(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => { backdropArmed.current = true; }, 600);
+    return () => window.clearTimeout(t);
+  }, []);
 
   function forgetMe() {
     clearBookingMemory();
@@ -1018,7 +1036,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           scheduled:        isScheduledAhead,
           cover:            coverOpted,
           ...(computeScheduledAt(when) ? { scheduled_at: computeScheduledAt(when) } : {}),
-          note:             note ?? '',
+          // Wizard scope first, then the customer's own words — one string
+          // the helper reads top to bottom ("3-bed home · Kitchen … · Gate
+          // code 1234").
+          note:             [note ?? '', customerNote.trim()].filter(Boolean).join(' · '),
           ...(extraLabel ? { extra_label: extraLabel } : {}),
           customer_name:    'Guest', // quick sheet doesn't ask for a name (pay happens later, so Stripe never collects one either)
           customer_phone:   phoneClean,
@@ -1095,7 +1116,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         exit={{ opacity: 0 }}
         transition={{ duration: 0.22 }}
         className="fixed inset-0 z-[69] bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={() => { if (backdropArmed.current) onClose(); }}
         aria-hidden="true"
       />
 
@@ -1697,6 +1718,38 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   </motion.div>
                 )}
               </AnimatePresence>
+            </motion.div>
+
+            {/* The open question — one quiet dashed line; unfolds a small box
+                whose text rides the note to dispatch + the helper's job
+                screen. Stays open once it holds text. */}
+            <motion.div variants={listItem}>
+              {!showNoteField && !customerNote.trim() ? (
+                <button
+                  type="button"
+                  onClick={() => setShowNoteField(true)}
+                  className="w-full rounded-xl border border-dashed border-border bg-white px-4 py-3 text-left text-sm font-semibold text-foreground/60 hover:text-foreground hover:border-sage/50 transition-colors"
+                >
+                  + Add a note for your helper{' '}
+                  <span className="font-normal text-muted-foreground">— gate code, parking, your dog's name…</span>
+                </button>
+              ) : (
+                <div className="rounded-xl border border-border bg-white px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2">
+                    Anything your helper should know?
+                  </p>
+                  <textarea
+                    value={customerNote}
+                    onChange={(e) => setCustomerNote(e.target.value)}
+                    maxLength={240}
+                    rows={2}
+                    autoFocus
+                    placeholder="e.g. Gate code 1234 · park on the street · Luna is friendly"
+                    aria-label="Anything your helper should know?"
+                    className="w-full resize-none rounded-lg border border-border bg-white px-3 py-2 text-[15px] placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                  />
+                </div>
+              )}
             </motion.div>
 
             </div>
