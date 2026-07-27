@@ -272,3 +272,8 @@ export const CATEGORY_LABELS: Record<string, string> = {
   'airbnb-premium':     'Airbnb Host Full Management',
   custom:               'Custom job',
 };
+
+// Deploy retry marker 2026-07-27: the post-#379 deploy run died on a
+// transient esm.sh 522 while bundling (CDN outage, not a code failure) —
+// this touch re-fires the supabase-deploy workflow so the half-hour price
+// entries above actually reach production. Safe to remove on any future edit.
