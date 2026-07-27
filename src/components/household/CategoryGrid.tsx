@@ -589,6 +589,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // re-render, so a fast double-tap can fire handleBook twice before then. This
   // ref flips instantly, closing that window (server-side dedupe is the backstop).
   const submitLock = useRef(false);
+  // A fast double-tap on the opening tile lands its SECOND tap on the
+  // backdrop — it mounts full-screen the instant the sheet starts rising, so
+  // onClose fired and the sheet slid straight back down (owner repro
+  // 2026-07-27: "I tapped and it went straight down"). The backdrop's
+  // tap-to-close arms only after the entrance settles (rise is 420ms); the
+  // X, Escape and the drag handle stay live the whole time.
+  const backdropArmed = useRef(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => { backdropArmed.current = true; }, 600);
+    return () => window.clearTimeout(t);
+  }, []);
 
   function forgetMe() {
     clearBookingMemory();
@@ -1095,7 +1106,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         exit={{ opacity: 0 }}
         transition={{ duration: 0.22 }}
         className="fixed inset-0 z-[69] bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={() => { if (backdropArmed.current) onClose(); }}
         aria-hidden="true"
       />
 

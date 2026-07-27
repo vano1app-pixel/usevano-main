@@ -887,7 +887,13 @@ invent a price** (three shapes only, locked by jobBuilder.test.ts):
 Rebooks + deep links that carry a size (`direct`/`initialSize`) never
 re-ask; the WhatsApp door is untouched (its step machine already asks
 size). Funnel event: `hero_size_pick` { category, answer } between
-tile/sub pick and ticks/form. Verified per the owner rule with a 4-flow
+tile/sub pick and ticks/form. **Double-tap dismissal fix (2026-07-27,
+owner repro "I tapped and it went straight down"):** the sheet backdrop
+mounts full-screen the instant a tile is tapped, so a fast double-tap's
+second tap hit it and closed the whole sheet — the backdrop's
+tap-to-close now arms 600ms after open (`backdropArmed`); X, Escape and
+the drag handle stay live throughout. Latent since the sheet shipped —
+keep the arm delay if the backdrop is ever reworked. Verified per the owner rule with a 4-flow
 real-browser Playwright drive at a phone viewport (cleaning re-price via
 Change, pets carry, laundry ladder, garden factor), checkout POST
 intercepted + payload asserted, zero page errors.
