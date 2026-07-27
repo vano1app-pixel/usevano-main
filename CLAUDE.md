@@ -677,7 +677,7 @@ tick-eyebrows, floating cards.
 | Arrival codes | `functions/household-arrival` |
 | Customer bookings | `src/pages/MyBookings.tsx` + `functions/find-booking-by-phone` |
 | Custom jobs | `src/lib/customJobs.ts` + `functions/parse-custom-job` |
-| Job builder | `src/lib/jobBuilder.ts` (tick-tasks → size label; display-only market anchor) |
+| Job builder | `src/lib/jobBuilder.ts` (tick-tasks → size label; SIZING_QUESTIONS one-tap wizard; display-only market anchor) |
 | WhatsApp door | `functions/whatsapp-inbound` + `functions/_shared/waIntake.ts` |
 | Server price table | `functions/_shared/householdPricing.ts` (checkout + WhatsApp import it) |
 | Home memory | `household_homes` + `record_home_booking` RPC (migration `20260713000000`) |
@@ -843,3 +843,51 @@ desktop) and the "book your usual" card shrunk to a compact one-line chip.
 Verified per the owner rule with a real-browser Playwright drive: tiles →
 builder ticks → form → submit, with the checkout POST intercepted and its
 payload asserted (category/size/note) so no real booking is created.
+
+**The one-tap sizing question (2026-07-27, owner ask — "after they choose
+the category, ask one small question so the price is fairest for the
+students and the households"):** `SIZING_QUESTIONS` in `src/lib/jobBuilder.ts`
++ the `ask` phase of CategoryGrid's pick page. ONE question per category,
+one tap, and the same invariant as the tick boxes — **an answer can never
+invent a price** (three shapes only, locked by jobBuilder.test.ts):
+- **Cleaning/Garden ask FIRST** ("Roughly how big is your place / the
+  garden?"): the answer's `factor` scales the tick-task MINUTES (estimates
+  are calibrated to the middle answer, factors ascend small→large), so the
+  total still rounds onto an EXISTING half-hour label and the server prices
+  it exactly as before — every tick-combo × factor is enumerated priceable
+  in the test. The answer stays visible/changeable as a chip above the
+  ticks (row estimates re-scale live) and LEADS the note
+  ("4+ bed home · Kitchen deep-clean + …") so the helper reads the scope.
+  **Cleaning's bookable cap was raised 3h → 5h the same day (the
+  suitable-money rule):** a 4+ bed home with everything ticked estimates
+  ~4.7h, and billing that at the old 3h cap paid the student under the
+  €18/hr promise. Both tables grew the 3.5/4.5 halves, and
+  jobBuilder.test's SUITABLE-MONEY INVARIANT now enumerates every
+  tick-subset × sizing factor asserting **booked time ≥ estimated
+  minutes** — a category cap can never again sit below the biggest honest
+  estimate.
+- **Dog walks ask AFTER the walk row** ("What kind of dog?") and the answer
+  is PRICED (owner call, same day: a bigger/stronger dog or a second lead
+  is more work — the walk price must say so). The carry rides note +
+  extra_label as before, and the SERVER prices extra_label exactly like
+  tutoring's level: Small/Medium = base €15/€20, **Big dog +€3, Two dogs
+  +€5** — the map lives in the server dog-walk branch, mirrored for display
+  as `DOG_UPCHARGE_CENTS` in src/lib/householdPricing.ts, and
+  jobBuilder.test.ts holds carries ↔ display map ↔ server table in
+  three-way lock-step. The question rows show the resulting walk price
+  BEFORE the tap; the sub-list walk rows say "from €15" for the same
+  reason. No/unknown extra (WhatsApp door, memory rebooks, old links)
+  prices at base — fail-soft, never a 400. There is deliberately NO
+  "aggressive dog" tier: dispatching a known-aggressive dog to a student
+  at a premium is the moving-tile class of liability — big/strong is
+  priced, dangerous is not a product.
+- **Laundry asks the bag ladder UP FRONT** at the real €30/€50/€65 row
+  prices (the canonical `LAUNDRY_BAG_CENTS` labels) instead of quietly
+  defaulting to 1 bag behind the form's "Change" fold.
+Rebooks + deep links that carry a size (`direct`/`initialSize`) never
+re-ask; the WhatsApp door is untouched (its step machine already asks
+size). Funnel event: `hero_size_pick` { category, answer } between
+tile/sub pick and ticks/form. Verified per the owner rule with a 4-flow
+real-browser Playwright drive at a phone viewport (cleaning re-price via
+Change, pets carry, laundry ladder, garden factor), checkout POST
+intercepted + payload asserted, zero page errors.

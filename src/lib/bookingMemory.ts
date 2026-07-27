@@ -19,6 +19,12 @@ export interface BookingMemory {
   /** Last booked job — powers the one-tap "book your usual" shortcut. */
   lastCategory?: string;
   lastSize?:     string;
+  /** Priced extra riding with the usual (today: the dog-walk answer, e.g.
+   *  "Big dog" — its surcharge must survive a rebook or the student quietly
+   *  loses it). Only meaningful for the category it was saved with: readers
+   *  MUST gate on lastCategory, because saves merge and a stale extra can
+   *  outlive a category switch. */
+  lastExtra?:    string;
   savedAt:  number;
 }
 

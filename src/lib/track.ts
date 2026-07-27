@@ -37,6 +37,10 @@ export type TrackEvent =
   // which is why the tiles are back as the primary).
   | 'hero_tile_tap'
   | 'hero_sub_pick'
+  // The one-tap sizing question (speed wizard, 2026-07-27): fired on answer
+  // with { category, answer } — how big is the place/garden, what kind of
+  // dog, how many bags. The funnel beat between tile/sub pick and ticks/form.
+  | 'hero_size_pick'
   // Tick-box job builder (cleaning/garden/moving page 1): fired on Continue
   // with { category, tasks, size } — the funnel step between tile tap and
   // checkout submit for builder categories.

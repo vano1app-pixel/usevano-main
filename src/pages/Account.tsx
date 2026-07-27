@@ -43,6 +43,7 @@ const Account: React.FC = () => {
       city: addressUnchanged ? prev?.city : undefined,
       lastCategory: prev?.lastCategory,
       lastSize: prev?.lastSize,
+      lastExtra: prev?.lastExtra, // the usual's priced extra (dog answer) survives a contact edit
     });
     setMem(loadBookingMemory());
     setEditing(false);

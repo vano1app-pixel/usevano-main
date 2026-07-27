@@ -83,7 +83,21 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       // CategoryGrid quick-book — must match the prices shown in the sheet
       '30 min': 1500, '1 hour': 2000,
     };
-    return combined[sizeLabel] ?? null;
+    const base = combined[sizeLabel] ?? null;
+    if (base == null) return null;
+    // Dog-type surcharge (owner call 2026-07-27: a bigger/stronger dog or a
+    // second lead is genuinely more work — the walk price must say so). The
+    // sheet's one-tap "What kind of dog?" answer rides in extra_label and is
+    // priced HERE, exactly like tutoring's level — the client only ever
+    // displays these numbers. Keys MUST match the carries in
+    // src/lib/jobBuilder.ts SIZING_QUESTIONS['dog-walk'] and the display map
+    // DOG_UPCHARGE_CENTS in src/lib/householdPricing.ts — jobBuilder.test.ts
+    // holds all three in lock-step. No/unknown extra (the WhatsApp door,
+    // memory rebooks, old links) prices at base — fail-soft, never a 400.
+    const dogUpcharge: Record<string, number> = {
+      'Small dog': 0, 'Medium dog': 0, 'Big dog': 300, 'Two dogs': 500,
+    };
+    return base + (dogUpcharge[extraLabel] ?? 0);
   }
 
   // Garden / lawn mowing — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)
@@ -131,8 +145,11 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
       '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
       // half-hour billing steps (tick-box builder, 2026-07-27 — every tick
-      // moves the price; the sheet's chips cap cleaning at 3h)
-      '1.5 hours': 2700, '2.5 hours': 4500,
+      // moves the price). The sheet's cleaning chips cap at 5h since
+      // 2026-07-27 (was 3h — a 4+ bed home with every task ticked estimates
+      // ~4.7h, and billing that at 3h paid the student under the €18/hr
+      // promise), so the halves run to 4.5.
+      '1.5 hours': 2700, '2.5 hours': 4500, '3.5 hours': 6300, '4.5 hours': 8100,
       // area-based (TaskShowcase)
       'Small area':  2200,
       'Medium area': 3800,
