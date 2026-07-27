@@ -822,12 +822,17 @@ watch the price build"):** cleaning / garden's wizard page 1 is now
 tick-the-tasks (`src/lib/jobBuilder.ts` + the builder branch in
 CategoryGrid's pick page; `BUILDER_TASKS.moving` exists but is unreachable
 since the moving tile was parked the same day). Each task carries an honest ~minutes estimate;
-ticks sum and round UP to one of the category's EXISTING size labels, and
-checkout still receives only category + size — the server prices €18/hr
-exactly as before. **The builder can never invent a price**:
-`jobBuilder.test.ts` locks every possible tick combination to a priceable
-size label and keeps the display-only "typical Galway rate" anchors above
-€18/hr so "you save ~€X" can never read negative. The ticked list rides
+ticks sum and round UP in **HALF-HOUR billing steps** (owner call
+2026-07-27: with whole-hour rounding, 2 ticks and 3 ticks kept costing the
+same — every tick must move the price; floor 1 hour, cap at the category
+max) to a computed size label ('1.5 hours'…) that BOTH price tables carry,
+and checkout still receives only category + size — the server prices €18/hr
+exactly as before. The Change-panel duration chips inject a non-standard
+half-hour size so the selection stays visible. **The builder can never
+invent a price**: `jobBuilder.test.ts` locks every possible tick
+combination to a priceable half-hour label within the category cap and
+keeps the display-only "typical Galway rate" anchors above €18/hr so "you
+save ~€X" can never read negative. The ticked list rides
 note + extra_label (the SubService `carry` contract) so dispatch offers and
 the helper job screen name the real tasks, and the form header quotes them.
 `builder_continue` is the funnel event between tile tap and submit. Laundry

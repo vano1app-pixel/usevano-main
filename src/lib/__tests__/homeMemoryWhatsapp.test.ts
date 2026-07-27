@@ -42,6 +42,22 @@ describe('server price table (shared module) matches the frontend canonical tabl
     expect(getHouseholdPriceCents('business', '1 hour')).toBeNull();
   });
 
+  it('prices the builder half-hour steps identically on both tables', () => {
+    const HALF_LABELS: Record<string, string[]> = {
+      cleaning: ['1.5 hours', '2.5 hours'],
+      garden:   ['1.5 hours', '2.5 hours', '3.5 hours', '4.5 hours', '5.5 hours', '6.5 hours', '7.5 hours'],
+      moving:   ['1.5 hours', '2.5 hours', '3.5 hours'],
+    };
+    for (const [slug, labels] of Object.entries(HALF_LABELS)) {
+      for (const size of labels) {
+        expect(computePriceCents(slug as Category, size, ''), `${slug} / ${size}`)
+          .toBe(getHouseholdPriceCents(slug, size));
+        expect(getHouseholdPriceCents(slug, size)).not.toBeNull();
+      }
+    }
+    expect(getHouseholdPriceCents('cleaning', '1.5 hours')).toBe(2700); // €18/hr × 1.5
+  });
+
   it('prices the flat and short-visit combinations identically', () => {
     expect(computePriceCents('shopping', '', '')).toBe(getHouseholdPriceCents('shopping', ''));
     // Laundry bag ladder (owner 2026-07-24) — server and frontend must agree
