@@ -858,6 +858,14 @@ invent a price** (three shapes only, locked by jobBuilder.test.ts):
   in the test. The answer stays visible/changeable as a chip above the
   ticks (row estimates re-scale live) and LEADS the note
   ("4+ bed home · Kitchen deep-clean + …") so the helper reads the scope.
+  **Cleaning's bookable cap was raised 3h → 5h the same day (the
+  suitable-money rule):** a 4+ bed home with everything ticked estimates
+  ~4.7h, and billing that at the old 3h cap paid the student under the
+  €18/hr promise. Both tables grew the 3.5/4.5 halves, and
+  jobBuilder.test's SUITABLE-MONEY INVARIANT now enumerates every
+  tick-subset × sizing factor asserting **booked time ≥ estimated
+  minutes** — a category cap can never again sit below the biggest honest
+  estimate.
 - **Dog walks ask AFTER the walk row** ("What kind of dog?") and the answer
   is PRICED (owner call, same day: a bigger/stronger dog or a second lead
   is more work — the walk price must say so). The carry rides note +

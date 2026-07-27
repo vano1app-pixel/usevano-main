@@ -20,7 +20,7 @@ import { computePriceCents } from '../../../supabase/functions/_shared/household
 // sizes change, this test is the tripwire that the builder still rounds to
 // labels the sheet and server actually price.
 const SHEET_SIZES: Record<string, string[]> = {
-  cleaning: ['1 hour', '2 hours', '3 hours'],
+  cleaning: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours'], // cap 3h → 5h 2026-07-27 (suitable-money rule)
   garden:   ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
   moving:   ['1 hour', '2 hours', '3 hours', '4+ hours'],
 };
@@ -60,10 +60,34 @@ describe('jobBuilder — the builder can never invent a price', () => {
     expect(builderSizeLabel(builderMinutes('garden', ['mowing']), sizes)).toBe('1 hour'); // 45 min → 1h floor
     expect(builderSizeLabel(builderMinutes('garden', ['mowing', 'weeding']), sizes)).toBe('1.5 hours'); // 90 min
     expect(builderSizeLabel(builderMinutes('garden', ['mowing', 'weeding', 'hedges']), sizes)).toBe('2 hours'); // 120 min
-    // Cleaning maxes at 3 hours: all six tasks (3h30m) cap there — the note
-    // still lists everything, so the helper knows the full ask.
+    // All six cleaning tasks = 3h30m and BOOK as 3.5h since the cap raise —
+    // the booked time covers the ticked work (it used to cap at 3h).
     const allCleaning = BUILDER_TASKS.cleaning.map((t) => t.key);
-    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning), SHEET_SIZES.cleaning)).toBe('3 hours');
+    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning), SHEET_SIZES.cleaning)).toBe('3.5 hours');
+    // The biggest possible cleaning ask (4+ bed, everything) books 5h — the
+    // cap exists but sits ABOVE every honest estimate.
+    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning, 1.35), SHEET_SIZES.cleaning)).toBe('5 hours');
+  });
+
+  it('SUITABLE-MONEY INVARIANT: the booked time always covers the estimated work (owner rule 2026-07-27)', () => {
+    // A student must never be booked for less time than the ticks add up to
+    // — €18/hr only nets €18/hr if the hours are real. Rounding UP grows the
+    // booking; the only way to violate this is a category cap below the
+    // biggest honest estimate (exactly the old cleaning-3h bug). Enumerates
+    // every subset × every sizing factor (and factor 1 for wizard-less cats).
+    for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
+      const factors = SIZING_QUESTIONS[slug]?.options.map((o) => o.factor as number) ?? [1];
+      for (const factor of factors) {
+        for (const subset of allSubsets(tasks.map((t) => t.key))) {
+          if (subset.length === 0) continue;
+          const minutes = builderMinutes(slug, subset, factor);
+          const size = builderSizeLabel(minutes, SHEET_SIZES[slug]) as string;
+          const bookedMinutes = Number(size.match(/^\d+(\.\d+)?/)?.[0]) * 60;
+          expect(bookedMinutes, `${slug} ×${factor} ${subset.join('+')} estimates ${minutes}m but books ${bookedMinutes}m`)
+            .toBeGreaterThanOrEqual(minutes);
+        }
+      }
+    }
   });
 
   it('every extra tick moves the price (the 2026-07-27 owner report: 2 vs 3 cleaning choices cost the same)', () => {

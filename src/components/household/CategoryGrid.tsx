@@ -41,7 +41,12 @@ const CATEGORIES: Category[] = [
     hint: 'Kitchen, bathroom, floors & surfaces',
     description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
     popular: true,
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
+    // Cap raised 3h → 5h (2026-07-27, the suitable-money rule): a 4+ bed
+    // home with everything ticked estimates ~4.7h — billing that at a 3h
+    // cap paid the student under the €18/hr promise. The server already
+    // priced 4/5h; jobBuilder.test now fails if any tick×size combo
+    // estimates more time than the cap can book.
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours'],
   },
   {
     // BUSINESS temp staff (owner test, 2026-07-23): flyers, sampling, events,
