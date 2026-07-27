@@ -858,14 +858,25 @@ invent a price** (three shapes only, locked by jobBuilder.test.ts):
   in the test. The answer stays visible/changeable as a chip above the
   ticks (row estimates re-scale live) and LEADS the note
   ("4+ bed home · Kitchen deep-clean + …") so the helper reads the scope.
-  **Cleaning's bookable cap was raised 3h → 5h the same day (the
-  suitable-money rule):** a 4+ bed home with everything ticked estimates
-  ~4.7h, and billing that at the old 3h cap paid the student under the
-  €18/hr promise. Both tables grew the 3.5/4.5 halves, and
-  jobBuilder.test's SUITABLE-MONEY INVARIANT now enumerates every
-  tick-subset × sizing factor asserting **booked time ≥ estimated
-  minutes** — a category cap can never again sit below the biggest honest
-  estimate.
+  **Cleaning's bookable cap was raised 3h → 6h the same day (the
+  suitable-money rule):** a 4+ bed home with everything ticked (incl. the
+  condition tick below) estimates 5.4h, and billing that at the old 3h cap
+  paid the student under the €18/hr promise. Both tables grew the
+  3.5/4.5/5.5 halves, and jobBuilder.test's SUITABLE-MONEY INVARIANT now
+  enumerates every tick-subset × sizing factor asserting **booked time ≥
+  estimated minutes** — a category cap can never again sit below the
+  biggest honest estimate.
+- **Condition ticks (same day):** size is only half the fairness question,
+  so cleaning/garden each end their task list with one self-confessed
+  condition row — "Extra messy right now" (+30 min) / "Quite overgrown"
+  (+45 min) — an ordinary BUILDER_TASKS entry (priced by the same
+  rounding, scaled by the same size factor, listed in the same note), NOT
+  a second question screen.
+- **The open note (same day):** the form's "+ Add a note for your helper"
+  (collapsed dashed one-liner → 240-char box) appends the customer's own
+  words to the wizard note (" · "-joined), riding the existing note field
+  through the server safety screen to dispatch + the job screen. Skipping
+  it costs nothing.
 - **Dog walks ask AFTER the walk row** ("What kind of dog?") and the answer
   is PRICED (owner call, same day: a bigger/stronger dog or a second lead
   is more work — the walk price must say so). The carry rides note +

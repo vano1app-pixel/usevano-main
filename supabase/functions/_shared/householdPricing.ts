@@ -145,11 +145,12 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
       '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
       // half-hour billing steps (tick-box builder, 2026-07-27 — every tick
-      // moves the price). The sheet's cleaning chips cap at 5h since
-      // 2026-07-27 (was 3h — a 4+ bed home with every task ticked estimates
-      // ~4.7h, and billing that at 3h paid the student under the €18/hr
-      // promise), so the halves run to 4.5.
-      '1.5 hours': 2700, '2.5 hours': 4500, '3.5 hours': 6300, '4.5 hours': 8100,
+      // moves the price). The sheet's cleaning chips cap at 6h since
+      // 2026-07-27 (was 3h — a 4+ bed home with every task ticked, incl.
+      // the extra-messy condition tick, estimates 5.4h; billing that at a
+      // low cap paid the student under the €18/hr promise), so the halves
+      // run to 5.5.
+      '1.5 hours': 2700, '2.5 hours': 4500, '3.5 hours': 6300, '4.5 hours': 8100, '5.5 hours': 9900,
       // area-based (TaskShowcase)
       'Small area':  2200,
       'Medium area': 3800,
