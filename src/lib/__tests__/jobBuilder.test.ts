@@ -31,8 +31,9 @@ describe('jobBuilder — the builder can never invent a price', () => {
     }
   });
 
-  it('every possible tick combination rounds to a size the category offers and the table prices', () => {
+  it('every possible tick combination computes a priceable half-hour size within the category cap', () => {
     for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
+      const maxHours = Math.max(...SHEET_SIZES[slug].map((s) => Number(s.match(/^\d+(\.\d+)?/)?.[0] ?? 0)));
       for (const subset of allSubsets(tasks.map((t) => t.key))) {
         const size = builderSizeLabel(builderMinutes(slug, subset), SHEET_SIZES[slug]);
         if (subset.length === 0) {
@@ -40,21 +41,33 @@ describe('jobBuilder — the builder can never invent a price', () => {
           continue;
         }
         expect(size, `${slug} ${subset.join('+')}`).not.toBeNull();
-        expect(SHEET_SIZES[slug]).toContain(size as string);
-        expect(getHouseholdPriceCents(slug, size as string)).not.toBeNull();
+        const hours = Number((size as string).match(/^\d+(\.\d+)?/)?.[0]);
+        expect(hours).toBeGreaterThanOrEqual(1);
+        expect(hours).toBeLessThanOrEqual(maxHours);
+        expect(hours * 2, 'half-hour steps only').toBe(Math.round(hours * 2));
+        expect(getHouseholdPriceCents(slug, size as string), `${slug} / ${size}`).not.toBeNull();
       }
     }
   });
 
-  it('rounds minutes UP and caps at the biggest label', () => {
+  it('rounds minutes UP in half-hour steps and caps at the biggest label', () => {
     const sizes = SHEET_SIZES.garden;
-    expect(builderSizeLabel(builderMinutes('garden', ['mowing']), sizes)).toBe('1 hour'); // 45 min
-    expect(builderSizeLabel(builderMinutes('garden', ['mowing', 'weeding']), sizes)).toBe('2 hours'); // 90 min
+    expect(builderSizeLabel(builderMinutes('garden', ['mowing']), sizes)).toBe('1 hour'); // 45 min → 1h floor
+    expect(builderSizeLabel(builderMinutes('garden', ['mowing', 'weeding']), sizes)).toBe('1.5 hours'); // 90 min
     expect(builderSizeLabel(builderMinutes('garden', ['mowing', 'weeding', 'hedges']), sizes)).toBe('2 hours'); // 120 min
     // Cleaning maxes at 3 hours: all six tasks (3h30m) cap there — the note
     // still lists everything, so the helper knows the full ask.
     const allCleaning = BUILDER_TASKS.cleaning.map((t) => t.key);
     expect(builderSizeLabel(builderMinutes('cleaning', allCleaning), SHEET_SIZES.cleaning)).toBe('3 hours');
+  });
+
+  it('every extra tick moves the price (the 2026-07-27 owner report: 2 vs 3 cleaning choices cost the same)', () => {
+    const sizes = SHEET_SIZES.cleaning;
+    const price = (keys: string[]) =>
+      getHouseholdPriceCents('cleaning', builderSizeLabel(builderMinutes('cleaning', keys), sizes) as string);
+    expect(price(['kitchen', 'bathroom'])).toBe(2700);                        // 75 min → 1.5h
+    expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(3600);            // 120 min → 2h
+    expect(price(['kitchen', 'bathroom', 'bedrooms', 'floors'])).toBe(4500);  // 150 min → 2.5h
   });
 
   it('market anchors stay display-only, conservative, and above the €18/hr rate', () => {

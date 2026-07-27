@@ -53,9 +53,11 @@ export const LAUNDRY_BAG_CENTS: Record<string, number> = {
   '3 bags': 6500,
 };
 
-/** Leading hour count from a size label ("2 hours", "4+ hours") → 1–8 or null. */
+/** Leading hour count from a size label ("2 hours", "1.5 hours", "4+ hours")
+ *  → 1–8 (halves allowed — the job builder bills in half-hour steps since
+ *  2026-07-27) or null. */
 function hoursFromLabel(size: string): number | null {
-  const n = Number(size.match(/^\d+/)?.[0]);
+  const n = Number(size.match(/^\d+(\.\d+)?/)?.[0]);
   return Number.isFinite(n) && n >= 1 && n <= 8 ? n : null;
 }
 

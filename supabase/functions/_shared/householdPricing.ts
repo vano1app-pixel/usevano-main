@@ -92,6 +92,10 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       // time-based (CategoryGrid)
       '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
       '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // half-hour billing steps (tick-box builder, 2026-07-27 — every tick
+      // moves the price; mirror src/lib hoursFromLabel's decimal parsing)
+      '1.5 hours': 2700, '2.5 hours': 4500, '3.5 hours': 6300, '4.5 hours': 8100,
+      '5.5 hours': 9900, '6.5 hours': 11700, '7.5 hours': 13500,
       'Half day': 7200,
       // size-based (TaskShowcase)
       'Small (terrace / apartment)': 2200,
@@ -108,6 +112,9 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       // time-based (CategoryGrid)
       '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200, '4+ hours': 7200,
       '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // half-hour billing steps (builder machinery — category parked but the
+      // tables stay lock-step)
+      '1.5 hours': 2700, '2.5 hours': 4500, '3.5 hours': 6300,
       // job-size (TaskShowcase)
       'A few boxes / items': 2500,
       'One room':            4000,
@@ -123,6 +130,9 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       // time-based (CategoryGrid)
       '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
       '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // half-hour billing steps (tick-box builder, 2026-07-27 — every tick
+      // moves the price; the sheet's chips cap cleaning at 3h)
+      '1.5 hours': 2700, '2.5 hours': 4500,
       // area-based (TaskShowcase)
       'Small area':  2200,
       'Medium area': 3800,

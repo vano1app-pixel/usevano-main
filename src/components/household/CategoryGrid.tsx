@@ -15,7 +15,7 @@ import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
-import { BUILDER_TASKS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel } from '@/lib/jobBuilder';
+import { BUILDER_TASKS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, hoursFromSizeLabel } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -1490,7 +1490,14 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                             {cat.sizeLabel ?? 'How long?'}
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {cat.sizes.map(opt => (
+                            {/* The builder can set a half-hour size ('1.5
+                                hours') that isn't a standard chip — inject it
+                                in duration order so the selection is always
+                                visible and tappable. */}
+                            {(size && !cat.sizes.includes(size)
+                              ? [...cat.sizes, size].sort((a, b) => (hoursFromSizeLabel(a) ?? 99) - (hoursFromSizeLabel(b) ?? 99))
+                              : cat.sizes
+                            ).map(opt => (
                               <Chip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
                                 {opt}
                               </Chip>

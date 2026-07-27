@@ -69,25 +69,33 @@ export function builderMinutes(slug: string, keys: string[]): number {
   return keys.reduce((sum, k) => sum + (taskByKey(slug, k)?.minutes ?? 0), 0);
 }
 
-/** Leading hour count from a size label ("2 hours", "4+ hours") — mirrors
- *  householdPricing's parser so the two can never disagree on a label. */
+/** Leading hour count from a size label ("2 hours", "1.5 hours", "4+ hours")
+ *  — decimal-aware, mirrors householdPricing's parser so the two can never
+ *  disagree on a label. */
 export function hoursFromSizeLabel(size: string): number | null {
-  const n = Number(size.match(/^\d+/)?.[0]);
+  const n = Number(size.match(/^\d+(\.\d+)?/)?.[0]);
   return Number.isFinite(n) && n >= 1 ? n : null;
 }
 
 /**
- * Round summed minutes UP to one of the category's real size labels.
- * 0 minutes → null (nothing ticked yet). More minutes than the biggest
- * label → the biggest label (the visit is capped, the note tells the
- * helper everything that's wanted).
+ * Round summed minutes UP to the next HALF-HOUR billing step (owner call
+ * 2026-07-27: with whole-hour rounding, two ticks and three ticks kept
+ * landing on the same price — every tick must move the number). Floor is
+ * 1 hour (the booking minimum), cap is the category's biggest bookable
+ * duration (the note still lists everything ticked, so the helper knows
+ * the full ask). 0 minutes → null (nothing ticked yet).
+ *
+ * The label is computed ("1.5 hours", "2 hours"), not picked from the
+ * chips array — both price tables carry the half-hour entries, and the
+ * lock-step tests fail if a computable label ever isn't priceable.
  */
 export function builderSizeLabel(minutes: number, sizes: string[]): string | null {
   if (minutes <= 0) return null;
-  const hours = Math.max(1, Math.ceil(minutes / 60));
-  const hourly = sizes.filter((s) => hoursFromSizeLabel(s) != null);
-  if (!hourly.length) return null;
-  return hourly.find((s) => (hoursFromSizeLabel(s) as number) >= hours) ?? hourly[hourly.length - 1];
+  const maxHours = sizes.reduce((m, s) => Math.max(m, hoursFromSizeLabel(s) ?? 0), 0);
+  if (!maxHours) return null;
+  const halfSteps = Math.max(2, Math.ceil(minutes / 30)); // in half-hours, min 1h
+  const hours = Math.min(maxHours, halfSteps / 2);
+  return hours === 1 ? '1 hour' : `${hours} hours`;
 }
 
 /** Display-only market comparison for the chosen duration, or null. */
