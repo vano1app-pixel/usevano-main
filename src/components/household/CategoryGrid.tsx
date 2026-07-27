@@ -33,17 +33,15 @@ interface Category {
 }
 
 const CATEGORIES: Category[] = [
+  // Array order IS the tile order. Cleaning leads top-left (owner call
+  // 2026-07-24: the most-booked service takes the strongest slot — eyes land
+  // top-left first); Laundry takes cleaning's old bottom-right spot.
   {
-    // Laundry: the helper collects, washes/dries/folds and returns it.
-    // Priced per BAG since 2026-07-24 (€30/€50/€65 for 1/2/3 — the task is
-    // the unit, the machine does the hours); a missing size prices as the
-    // 1-bag €30 everywhere. Slug stays 'shopping' so existing bookings,
-    // pricing and the DB category all keep working; only the customer-facing
-    // wording changed.
-    emoji: '🧺', label: 'Laundry', slug: 'shopping',
-    hint: 'Collected, washed & returned folded',
-    description: 'Your helper collects your laundry, washes, dries and folds it, and brings it back to your door — fresh and sorted.',
-    sizeLabel: 'How much laundry?', sizes: ['1 bag', '2 bags', '3 bags'],
+    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',
+    hint: 'Kitchen, bathroom, floors & surfaces',
+    description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
+    popular: true,
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
     // BUSINESS temp staff (owner test, 2026-07-23): flyers, sampling, events,
@@ -80,11 +78,16 @@ const CATEGORIES: Category[] = [
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
   },
   {
-    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',
-    hint: 'Kitchen, bathroom, floors & surfaces',
-    description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
-    popular: true,
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
+    // Laundry: the helper collects, washes/dries/folds and returns it.
+    // Priced per BAG since 2026-07-24 (€30/€50/€65 for 1/2/3 — the task is
+    // the unit, the machine does the hours); a missing size prices as the
+    // 1-bag €30 everywhere. Slug stays 'shopping' so existing bookings,
+    // pricing and the DB category all keep working; only the customer-facing
+    // wording changed.
+    emoji: '🧺', label: 'Laundry', slug: 'shopping',
+    hint: 'Collected, washed & returned folded',
+    description: 'Your helper collects your laundry, washes, dries and folds it, and brings it back to your door — fresh and sorted.',
+    sizeLabel: 'How much laundry?', sizes: ['1 bag', '2 bags', '3 bags'],
   },
   // In-home Tutoring tile removed — one-to-one teaching of minors needs Garda
   // vetting. Tutoring is now online/adults-only and lives in the custom job

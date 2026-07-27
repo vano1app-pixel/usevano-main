@@ -257,8 +257,10 @@ rounds or the `custom` catch-all.
 - **`moving` (PARKED 2026-07-24, same day — liability triage):** heavy items
   + other people's valuables with no goods-in-transit or injury cover is the
   same risk class that retired `midnight-lift` and `plumbing`, and moving is
-  the one non-recurring category. **The grid is FOUR white tiles** (Laundry,
-  Pets, Garden, Cleaning — 2×2 on phones, one row of four on desktop). All
+  the one non-recurring category. **The grid is FOUR white tiles** (Cleaning
+  top-left with the crown, then Pets / Garden, Laundry — 2×2 on phones, one
+  row of four on desktop; owner call 2026-07-24: most-booked takes the
+  strongest slot). All
   machinery kept (CATEGORIES entry, SUB_SERVICES, BUILDER_TASKS.moving, both
   pricing tables) for old deep links + in-flight bookings; the
   `moving-help-galway` service landing + blog post moved to
