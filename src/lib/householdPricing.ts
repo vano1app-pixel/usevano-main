@@ -74,10 +74,29 @@ function hoursFromLabel(size: string): number | null {
  */
 export const MIN_BOOKING_CENTS = 1200;
 
-export function getHouseholdPriceCents(slug: string, size: string): number | null {
+/**
+ * Dog-type surcharge for quick-book walks (owner call 2026-07-27: a bigger/
+ * stronger dog or a second lead is more work — the walk price must say so).
+ * Keyed on the extra_label the sheet's "What kind of dog?" answer sends; the
+ * SERVER re-prices it authoritatively (the same map lives in the dog-walk
+ * branch of supabase/functions/_shared/householdPricing.ts — jobBuilder.test
+ * keeps the two in lock-step). Small + Medium sit at 0 on purpose: the
+ * ladder reads as "big dogs cost a bit more", never "small dogs got cheaper".
+ */
+export const DOG_UPCHARGE_CENTS: Record<string, number> = {
+  'Small dog':  0,
+  'Medium dog': 0,
+  'Big dog':    300,
+  'Two dogs':   500,
+};
+
+export function getHouseholdPriceCents(slug: string, size: string, extraLabel?: string): number | null {
   if (slug === 'shopping') return LAUNDRY_BAG_CENTS[size] ?? FLAT_PRICE_CENTS.shopping;
   if (slug in FLAT_PRICE_CENTS) return FLAT_PRICE_CENTS[slug];
-  if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
+  if (slug === 'dog-walk') {
+    const base = size === '30 min' ? 1500 : 2000;
+    return base + (extraLabel ? DOG_UPCHARGE_CENTS[extraLabel] ?? 0 : 0);
+  }
   // Custom "name any job" supports short half-/three-quarter-hour visits for
   // quick jobs (dog walk, bins, key-drop…), floored at the booking minimum.
   if (slug === 'custom') {

@@ -10,7 +10,10 @@ import {
   builderSizeLabel,
   scaledTaskMinutes,
 } from '../jobBuilder';
-import { HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, getHouseholdPriceCents } from '../householdPricing';
+import { DOG_UPCHARGE_CENTS, HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, getHouseholdPriceCents } from '../householdPricing';
+// The REAL server table (pure TS, no Deno APIs) — the dog surcharge is priced
+// server-side off extra_label, so the ladder is cross-checked on actual code.
+import { computePriceCents } from '../../../supabase/functions/_shared/householdPricing';
 
 // The size chips each builder category offers in CategoryGrid. Kept in
 // lock-step by hand (the arrays live inside the component) — if the sheet's
@@ -157,15 +160,35 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
     expect(cents).toEqual([1800, 2700, 3600]);
   });
 
-  it('dog answers are info-only (walk prices untouched) and laundry answers are the real bag ladder', () => {
-    for (const opt of SIZING_QUESTIONS['dog-walk'].options) {
-      expect(opt.factor).toBeUndefined();
-      expect(opt.size).toBeUndefined();
-      expect(opt.carry).toBeTruthy();
+  it('the dog ladder prices identically on BOTH tables and only ever climbs (owner call: bigger dog costs more)', () => {
+    const opts = SIZING_QUESTIONS['dog-walk'].options;
+    // Every carry has a surcharge entry and vice versa — the three sources
+    // (question carries, frontend display map, server table) cannot drift.
+    expect(opts.map((o) => o.carry)).toEqual(Object.keys(DOG_UPCHARGE_CENTS));
+    for (const dur of ['30 min', '1 hour']) {
+      const base = getHouseholdPriceCents('dog-walk', dur) as number;
+      // No answer (WhatsApp door, memory rebooks, old links) = base, fail-soft
+      expect(computePriceCents('dog-walk', dur, '')).toBe(base);
+      expect(computePriceCents('dog-walk', dur, 'not-a-dog-label')).toBe(base);
+      let prev = base;
+      for (const opt of opts) {
+        const front = getHouseholdPriceCents('dog-walk', dur, opt.carry) as number;
+        expect(front, `${dur} / ${opt.carry}`).toBe(computePriceCents('dog-walk', dur, opt.carry as string));
+        expect(front).toBeGreaterThanOrEqual(prev); // small → two dogs only climbs
+        prev = front;
+      }
+      expect(prev).toBeGreaterThan(base); // …and genuinely moves by the top
     }
+    // The exact sheet ladder (owner call 2026-07-27): base / base / +€3 / +€5.
+    const ladder = (dur: string) => opts.map((o) => getHouseholdPriceCents('dog-walk', dur, o.carry));
+    expect(ladder('30 min')).toEqual([1500, 1500, 1800, 2000]);
+    expect(ladder('1 hour')).toEqual([2000, 2000, 2300, 2500]);
+    // Small/Medium ARE the old base prices — the ladder never discounts.
     expect(getHouseholdPriceCents('dog-walk', '30 min')).toBe(1500);
     expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
-    // Laundry asks the FULL ladder, in ladder order, using the canonical labels
+  });
+
+  it('laundry answers are the real bag ladder, in ladder order, on the canonical labels', () => {
     expect(SIZING_QUESTIONS.shopping.options.map((o) => o.size)).toEqual(Object.keys(LAUNDRY_BAG_CENTS));
   });
 

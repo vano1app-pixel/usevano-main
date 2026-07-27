@@ -83,7 +83,21 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       // CategoryGrid quick-book — must match the prices shown in the sheet
       '30 min': 1500, '1 hour': 2000,
     };
-    return combined[sizeLabel] ?? null;
+    const base = combined[sizeLabel] ?? null;
+    if (base == null) return null;
+    // Dog-type surcharge (owner call 2026-07-27: a bigger/stronger dog or a
+    // second lead is genuinely more work — the walk price must say so). The
+    // sheet's one-tap "What kind of dog?" answer rides in extra_label and is
+    // priced HERE, exactly like tutoring's level — the client only ever
+    // displays these numbers. Keys MUST match the carries in
+    // src/lib/jobBuilder.ts SIZING_QUESTIONS['dog-walk'] and the display map
+    // DOG_UPCHARGE_CENTS in src/lib/householdPricing.ts — jobBuilder.test.ts
+    // holds all three in lock-step. No/unknown extra (the WhatsApp door,
+    // memory rebooks, old links) prices at base — fail-soft, never a 400.
+    const dogUpcharge: Record<string, number> = {
+      'Small dog': 0, 'Medium dog': 0, 'Big dog': 300, 'Two dogs': 500,
+    };
+    return base + (dogUpcharge[extraLabel] ?? 0);
   }
 
   // Garden / lawn mowing — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)

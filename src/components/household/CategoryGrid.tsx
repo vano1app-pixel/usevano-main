@@ -645,8 +645,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // One tap answers the sizing question. Builders move on to the ticks (the
   // factor is applied to the estimates live); Pets/Laundry go straight to the
   // form — a `size` answer jumps to that existing label (laundry bags), a
-  // carry-only answer rides note + extra_label (dog type) so dispatch offers
-  // and the helper's job screen name the real ask. Never invents a price.
+  // carry answer rides note + extra_label (dog type) so dispatch offers and
+  // the helper's job screen name the real ask — and for dog walks the SERVER
+  // prices that extra_label (the surcharge ladder). The client never invents
+  // a price: checkout recomputes the same category+size+extra pair.
   function applySizing(opt: SizingOption) {
     haptic(10);
     track('hero_size_pick', { category: entryCat.slug, answer: opt.key });
@@ -712,11 +714,18 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const asking = step === 'pick' && pickPhase === 'ask' && !!question;
   const headerTitle = asking && question ? question.title : pickTitle;
   const headerWhy = asking && question ? question.why : null;
-  // Laundry's answer rows show the real bag prices — the single price source,
-  // never hardcoded. Factor/carry answers price nothing (that's the point).
+  // Answer rows carry the real resulting price — the single price source,
+  // never hardcoded. Laundry rows price their bag label; dog rows price the
+  // picked walk duration WITH that answer (€15/€15/€18/€20), so the
+  // surcharge is visible BEFORE the tap, never after. Builder answers scale
+  // the ticks, so there's no price to show yet.
   const sizingPriceLabel = (opt: SizingOption): string => {
-    if (!opt.size) return '';
-    const cents = getPriceCents(entryCat.slug, opt.size);
+    if (opt.factor) return '';
+    const cents = opt.size
+      ? getPriceCents(entryCat.slug, opt.size)
+      : opt.carry
+        ? getPriceCents(entryCat.slug, size, opt.carry)
+        : null;
     return cents ? fmt(cents) : '';
   };
   const visibleSubs: SubService[] = subServices
@@ -729,6 +738,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     if (s.kind === 'custom') return isShortVisit(s.jobKey) ? 'from €12' : '€18/hr';
     const cents = getPriceCents(entryCat.slug, s.size ?? entryCat.sizes?.[0] ?? '');
     if (!cents) return '€18/hr';
+    // Walk rows read "from €15": the dog question after this pick can raise
+    // the price (big dog / two dogs), so an exact figure here would lie.
+    if (entryCat.slug === 'dog-walk' && s.size) return `from ${fmt(cents)}`;
     return s.size || !entryCat.sizes ? fmt(cents) : `from ${fmt(cents)}`;
   };
   // cascadeIndex staggers the row's entrance (.cascade-in, pure CSS) so a
@@ -829,7 +841,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const isScheduledAhead = when.startsWith('Tomorrow');
   // Direct-pay: the job price is the helper's money (no book-ahead discount —
   // Vano can't discount money it never collects; discounts live on the fee).
-  const priceCents = getPriceCents(cat.slug, size);
+  // extraLabel rides along for the dog-walk surcharge (the ONLY branch that
+  // prices it — builder "+2" labels and custom job names are ignored); the
+  // server re-prices the same pair authoritatively at checkout.
+  const priceCents = getPriceCents(cat.slug, size, extraLabel);
   const priceLabel = priceCents ? fmt(priceCents) : null;
 
   // Live field validity — drives the small green ✓ next to each label as it's

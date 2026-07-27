@@ -73,10 +73,16 @@ export const BUILDER_MARKET_RATE_CENTS: Record<string, number> = {
 //            the server prices the label exactly as before;
 //   size   — jumps straight to an EXISTING size label (laundry's bag
 //            ladder, priced up front instead of defaulting to 1 bag);
-//   carry-only — changes no number at all: the answer rides note +
-//            extra_label so dispatch offers and the helper's job screen
-//            name the real ask (a lab is not a chihuahua) before accepting.
-// jobBuilder.test.ts locks all three shapes.
+//   carry   — the answer rides note + extra_label so dispatch offers and
+//            the helper's job screen name the real ask (a lab is not a
+//            chihuahua) before accepting. For dog walks the carry is ALSO
+//            priced — by the SERVER, which reads extra_label exactly like
+//            tutoring's level (owner call 2026-07-27: a bigger/stronger dog
+//            or a second lead is more work, so the walk price says so).
+//            The client only ever displays the mirrored numbers
+//            (DOG_UPCHARGE_CENTS in householdPricing.ts).
+// jobBuilder.test.ts locks all three shapes, and locks the dog ladder to
+// the server table.
 
 export interface SizingOption {
   key: string;
@@ -118,16 +124,21 @@ export const SIZING_QUESTIONS: Record<string, SizingQuestion> = {
       { key: 'large',   emoji: '🌳', label: 'Large',   hint: 'Big lawn, front and back',  factor: 1.5, carry: 'Large garden' },
     ],
   },
-  // Info-only: walk prices don't change, but the helper accepting a walk
-  // deserves to know who's on the lead. Rides note + extra_label.
+  // Priced carries (owner call 2026-07-27): the answer rides extra_label and
+  // the SERVER adds the dog surcharge — Small/Medium at base, Big +€3, Two
+  // +€5. The `why` line carries the honest reason (bigger dogs + second
+  // leads are more work — strength is what the premium buys), but there is
+  // deliberately NO "aggressive dog" tier: selling students a
+  // known-aggressive dog at a premium is the moving-tile class of
+  // liability. The rows show the real resulting walk price before the tap.
   'dog-walk': {
     title: 'What kind of dog?',
-    why: 'So the right helper says yes — they see this before accepting',
+    why: 'Bigger dogs and second leads are more work — the price stays fair to your helper',
     options: [
       { key: 'small',  emoji: '🐕', label: 'Small dog',  hint: 'Terrier, pug, dachshund…',      carry: 'Small dog' },
       { key: 'medium', emoji: '🦮', label: 'Medium dog', hint: 'Spaniel, collie, beagle…',      carry: 'Medium dog' },
-      { key: 'big',    emoji: '🐕‍🦺', label: 'Big dog',    hint: 'Labrador, retriever, husky…', carry: 'Big dog' },
-      { key: 'two',    emoji: '🐾', label: 'Two dogs',   hint: 'Walked together',               carry: 'Two dogs' },
+      { key: 'big',    emoji: '🐕‍🦺', label: 'Big dog',    hint: 'Labrador, boxer, husky…',       carry: 'Big dog' },
+      { key: 'two',    emoji: '🐾', label: 'Two dogs',   hint: 'Walked together by one helper', carry: 'Two dogs' },
     ],
   },
   // Laundry already had the bag ladder — this just asks it UP FRONT with the

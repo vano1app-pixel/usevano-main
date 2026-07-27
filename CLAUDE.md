@@ -858,10 +858,21 @@ invent a price** (three shapes only, locked by jobBuilder.test.ts):
   in the test. The answer stays visible/changeable as a chip above the
   ticks (row estimates re-scale live) and LEADS the note
   ("4+ bed home · Kitchen deep-clean + …") so the helper reads the scope.
-- **Dog walks ask AFTER the walk row** ("What kind of dog?"): info-only —
-  walk prices untouched; the answer rides note + extra_label so dispatch
-  offers name the real ask before a helper accepts. ("Two dogs" is
-  deliberately NOT surcharged yet — pricing it is an owner call.)
+- **Dog walks ask AFTER the walk row** ("What kind of dog?") and the answer
+  is PRICED (owner call, same day: a bigger/stronger dog or a second lead
+  is more work — the walk price must say so). The carry rides note +
+  extra_label as before, and the SERVER prices extra_label exactly like
+  tutoring's level: Small/Medium = base €15/€20, **Big dog +€3, Two dogs
+  +€5** — the map lives in the server dog-walk branch, mirrored for display
+  as `DOG_UPCHARGE_CENTS` in src/lib/householdPricing.ts, and
+  jobBuilder.test.ts holds carries ↔ display map ↔ server table in
+  three-way lock-step. The question rows show the resulting walk price
+  BEFORE the tap; the sub-list walk rows say "from €15" for the same
+  reason. No/unknown extra (WhatsApp door, memory rebooks, old links)
+  prices at base — fail-soft, never a 400. There is deliberately NO
+  "aggressive dog" tier: dispatching a known-aggressive dog to a student
+  at a premium is the moving-tile class of liability — big/strong is
+  priced, dangerous is not a product.
 - **Laundry asks the bag ladder UP FRONT** at the real €30/€50/€65 row
   prices (the canonical `LAUNDRY_BAG_CENTS` labels) instead of quietly
   defaulting to 1 bag behind the form's "Change" fold.
