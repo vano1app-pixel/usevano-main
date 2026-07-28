@@ -12,6 +12,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 //   - StudentJobDetail via functions.invoke (helper_arrived)
 //   - notify-household-on-way (helper_on_way)
 //   - capture-household-payment (job_complete)
+//   - household-arrival (helper_sos — the panic button; also sends direct SMS)
 // Unknown types with a `message` field are forwarded as-is, so new senders
 // can never lose a message to a 400.
 
@@ -76,11 +77,46 @@ async function sendWhatsApp(to: string, body: string): Promise<boolean> {
   }
 }
 
+// Direct SMS — the loudest pocket channel, reserved for the SOS type only
+// (WhatsApp needs data + an open app; a plain text buzzes any phone). Gated
+// on the same env as every other SMS sender (VANO_SMS_ENABLED + a non-
+// whatsapp from number). Best-effort like the rest.
+async function sendSms(to: string, body: string): Promise<boolean> {
+  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
+  const authToken  = Deno.env.get('TWILIO_AUTH_TOKEN');
+  if (!accountSid || !authToken) return false;
+  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
+  const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!from || from.startsWith('whatsapp:')) return false;
+  try {
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ From: from, To: to, Body: body }).toString(),
+      },
+    );
+    if (!resp.ok) {
+      console.warn('[notify-admin-whatsapp] SMS error', resp.status, (await resp.text()).slice(0, 300));
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[notify-admin-whatsapp] SMS exception', e);
+    return false;
+  }
+}
+
 // Email fallback — guaranteed delivery channel. contactPhone (when present)
-// becomes a one-tap "WhatsApp them" button.
-async function emailAdmin(subject: string, message: string, contactPhone?: string | null): Promise<void> {
+// becomes a one-tap "WhatsApp them" button. Returns whether Resend accepted
+// it, so urgent callers (helper_sos) can report honestly that a page landed.
+async function emailAdmin(subject: string, message: string, contactPhone?: string | null): Promise<boolean> {
   const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
-  if (!resendKey) { console.warn('[notify-admin-whatsapp] RESEND_API_KEY not set — message lost'); return; }
+  if (!resendKey) { console.warn('[notify-admin-whatsapp] RESEND_API_KEY not set — message lost'); return false; }
   const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
   const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim() || 'vano1app@gmail.com';
   const wa = waLink(contactPhone);
@@ -91,7 +127,7 @@ async function emailAdmin(subject: string, message: string, contactPhone?: strin
     .replace(/\n/g, '<br>');
 
   try {
-    await fetch('https://api.resend.com/emails', {
+    const resp = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -107,8 +143,11 @@ async function emailAdmin(subject: string, message: string, contactPhone?: strin
         text: message + (wa ? `\n\nWhatsApp them: ${wa}` : ''),
       }),
     });
+    if (!resp.ok) console.warn('[notify-admin-whatsapp] Resend error', resp.status, (await resp.text()).slice(0, 300));
+    return resp.ok;
   } catch (e) {
     console.warn('[notify-admin-whatsapp] email fallback failed', e);
+    return false;
   }
 }
 
@@ -148,7 +187,7 @@ serve(async (req) => {
       .replace(/\s{2,}/g, ' ')
       .trim()
       .slice(0, 200);
-    for (const k of ['name', 'customer_name', 'helper_name', 'email', 'customer_email', 'city', 'reason']) {
+    for (const k of ['name', 'customer_name', 'helper_name', 'email', 'customer_email', 'city', 'reason', 'customer_address']) {
       if (typeof body[k] === 'string') body[k] = clean(body[k]);
     }
     const cat = (c: string) => CATEGORY_LABELS[c] ?? c;
@@ -246,6 +285,35 @@ serve(async (req) => {
         `Price: €${price_euros ?? '?'}\nRef: ${ref(booking_id)}`;
       contactPhone = customer_phone;
 
+    } else if (type === 'helper_sos') {
+      // 🆘 The panic button. A helper on a live job says they need help —
+      // the one page that must never be missable, so the send block below
+      // adds a direct SMS on top of WhatsApp + email for this type only.
+      // The first move for the owner is always: CALL THE HELPER.
+      const { helper_name, helper_phone, customer_name, customer_phone, customer_address, category, booking_id, maps_url, job_status, resolved } = body;
+      const mapsLine = typeof maps_url === 'string' && maps_url.startsWith('https://www.google.com/maps')
+        ? maps_url
+        : null;
+      if (resolved === true) {
+        subject = `✅ SOS resolved — ${helper_name ?? 'helper'} says they're safe — ${ref(booking_id)}`;
+        message =
+          `✅ *SOS resolved* — ${helper_name ?? 'The helper'} marked themselves safe.\n` +
+          `Job: ${cat(category)} (${ref(booking_id)})\n` +
+          `Still worth a quick check-in call: ${helper_phone ?? '—'}`;
+      } else {
+        subject = `🆘 SOS — ${helper_name ?? 'A helper'} needs help — ${cat(category)} — ${ref(booking_id)}`;
+        message =
+          `🆘 *SOS — ${helper_name ?? 'A helper'} pressed the emergency button on a live job.*\n` +
+          `CALL THEM NOW: ${helper_phone ?? 'no number on file'}\n\n` +
+          `Job: ${cat(category)} (${ref(booking_id)}) · status: ${job_status ?? '—'}\n` +
+          `Customer: ${customer_name || '—'} · ${customer_phone || '—'}\n` +
+          `Address: ${customer_address || '—'}\n` +
+          `Live location: ${mapsLine ?? 'no GPS fix — use the address above'}\n` +
+          `Watch live: ${siteUrl}/track/${booking_id}\n\n` +
+          `If you can't reach them within a couple of minutes, ring 999 and send them to the address.`;
+      }
+      contactPhone = helper_phone ?? null;
+
     } else if (typeof body?.message === 'string' && body.message.trim()) {
       // Generic passthrough — unknown senders never lose a message to a 400
       subject = body.subject ?? `VANO admin ping — ${type ?? 'message'}`;
@@ -259,9 +327,16 @@ serve(async (req) => {
     }
 
     const waOk = await sendWhatsApp(adminNumber, message);
-    await emailAdmin(subject, message, contactPhone);
+    const emailOk = await emailAdmin(subject, message, contactPhone);
+    // SOS only: also hit the owner's phone with a plain SMS — the loudest
+    // channel there is. All-clears (resolved) stay WhatsApp + email.
+    let smsOk = false;
+    if (type === 'helper_sos' && body?.resolved !== true) {
+      const smsTo = Deno.env.get('ADMIN_PHONE')?.trim() || Deno.env.get('ADMIN_WHATSAPP_TO')?.trim() || adminNumber;
+      smsOk = await sendSms(smsTo, message.replace(/\*/g, ''));
+    }
 
-    return new Response(JSON.stringify({ sent: true, whatsapp: waOk, email: true }), {
+    return new Response(JSON.stringify({ sent: waOk || emailOk || smsOk, whatsapp: waOk, email: emailOk, sms: smsOk }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (err) {

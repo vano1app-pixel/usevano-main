@@ -121,7 +121,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
     const action = (body?.action === 'verify' || body?.action === 'finished' || body?.action === 'start_without_code'
-      || body?.action === 'confirm_paid' || body?.action === 'report_unpaid' || body?.action === 'start_gps')
+      || body?.action === 'confirm_paid' || body?.action === 'report_unpaid' || body?.action === 'start_gps'
+      || body?.action === 'sos' || body?.action === 'sos_safe')
       ? body.action : 'request';
     const code = typeof body?.code === 'string' ? body.code.trim() : '';
     if (!bookingId) return bad(400, 'booking_id required');
@@ -130,9 +131,9 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, paid_at, price_estimate_cents, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name, customer_phone, customer_lat, customer_lng, worker_lat, worker_lng')
+      .select('id, student_id, status, paid_at, price_estimate_cents, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name, customer_phone, customer_address, customer_lat, customer_lng, worker_lat, worker_lng')
       .eq('id', bookingId)
-      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; paid_at: string | null; price_estimate_cents: number | null; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null; customer_phone: string | null; customer_lat: number | null; customer_lng: number | null; worker_lat: number | null; worker_lng: number | null } | null; error: unknown };
+      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; paid_at: string | null; price_estimate_cents: number | null; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null; customer_phone: string | null; customer_address: string | null; customer_lat: number | null; customer_lng: number | null; worker_lat: number | null; worker_lng: number | null } | null; error: unknown };
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
@@ -147,6 +148,97 @@ serve(async (req) => {
     const advancingActions = ['request', 'verify', 'start_without_code', 'start_gps'];
     if (advancingActions.includes(action) && ((booking.price_estimate_cents ?? 0) > 0) && !booking.paid_at) {
       return bad(409, 'This job can be started once the customer has paid.');
+    }
+
+    if (action === 'sos' || action === 'sos_safe') {
+      // ── Helper SOS (the panic button) ───────────────────────────────────
+      // Deliberately NO status gate: an emergency button that 409s because a
+      // cancel/complete raced it is exactly the wrong failure mode. The only
+      // gate is the one that matters — the caller is the booking's assigned
+      // helper (checked above). Nothing here is ever surfaced to the
+      // customer (no job_updates row, no booking_data stamp): the customer
+      // may be the reason the button was pressed.
+      let helperName = 'A helper';
+      let helperPhone: string | null = null;
+      const { data: sosHelper } = await supabase
+        .from('household_helpers').select('name, phone').eq('user_id', callerId).maybeSingle() as { data: { name?: string | null; phone?: string | null } | null };
+      if (sosHelper?.name) helperName = sosHelper.name;
+      if (sosHelper?.phone) helperPhone = sosHelper.phone;
+
+      if (action === 'sos_safe') {
+        // "I'm safe now" — resolve every active event on this booking and
+        // send the all-clear (best-effort; the resolve itself is what counts).
+        const { error: resolveErr } = await supabase
+          .from('helper_sos_events')
+          .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+          .eq('booking_id', bookingId)
+          .eq('helper_id', callerId)
+          .eq('status', 'active');
+        if (resolveErr) { console.error('[household-arrival] sos resolve failed', resolveErr); return bad(500, 'Could not update — the team will still check on you'); }
+        void fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'helper_sos',
+            resolved: true,
+            booking_id: bookingId,
+            category: booking.category ?? 'job',
+            helper_name: helperName,
+            helper_phone: helperPhone,
+          }),
+        }).catch(() => {});
+        return json(200, { ok: true, resolved: true });
+      }
+
+      // Record the event FIRST, fail-soft — a dead insert must never stop
+      // the page going out. Coords are optional (GPS denied/failed): the
+      // alert still carries the job address either way.
+      const sosLat = Number.isFinite(Number(body?.lat)) ? Number(body.lat) : null;
+      const sosLng = Number.isFinite(Number(body?.lng)) ? Number(body.lng) : null;
+      const sosAccuracy = Number.isFinite(Number(body?.accuracy)) ? Number(body.accuracy) : null;
+      try {
+        const { error: sosInsErr } = await supabase.from('helper_sos_events').insert({
+          booking_id: bookingId,
+          helper_id: callerId,
+          lat: sosLat,
+          lng: sosLng,
+          accuracy_m: sosAccuracy,
+        });
+        if (sosInsErr) console.error('[household-arrival] sos insert failed', sosInsErr);
+      } catch (e) { console.error('[household-arrival] sos insert threw', e); }
+
+      // Best coords for the owner: the fresh fix from the tap, else the last
+      // position streamed while on the way.
+      const bestLat = sosLat ?? booking.worker_lat;
+      const bestLng = sosLng ?? booking.worker_lng;
+      const mapsUrl = (bestLat != null && bestLng != null) ? `https://www.google.com/maps?q=${bestLat},${bestLng}` : null;
+
+      // Page the owner on every channel and AWAIT the answer — the helper's
+      // screen tells them honestly whether a human was reached, and falls
+      // back to direct WhatsApp + 999 when not.
+      let alerted = false;
+      try {
+        const resp = await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'helper_sos',
+            booking_id: bookingId,
+            category: booking.category ?? 'job',
+            job_status: booking.status,
+            helper_name: helperName,
+            helper_phone: helperPhone,
+            customer_name: booking.customer_name ?? '',
+            customer_phone: booking.customer_phone ?? '',
+            customer_address: booking.customer_address ?? '',
+            maps_url: mapsUrl,
+          }),
+        });
+        const sent = await resp.json().catch(() => null) as { sent?: boolean } | null;
+        alerted = resp.ok && sent?.sent !== false;
+      } catch (e) { console.error('[household-arrival] sos admin page failed', e); }
+
+      return json(200, { ok: true, alerted });
     }
 
     if (action === 'request') {

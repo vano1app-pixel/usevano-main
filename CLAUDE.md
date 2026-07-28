@@ -182,6 +182,28 @@ sweep, and the unpaid-release sweep.
   the phone at checkout** (owner can clear rows to unblock). Checkout stamps
   a `customer_rep` snapshot into booking_data so dispatch offers show "Pays
   promptly · N jobs · ★X" / "⚠ N unpaid reports" before a helper accepts.
+- **Helper SOS (safety, 2026-07-28):** the job screen header carries a red
+  SOS pill for the assigned helper in every non-cancelled status (incl. the
+  post-finish get-paid moment). The sheet's order is fixed — **Call 999
+  first** (tel link, visible in every state; VANO is not an emergency
+  service), then "Alert the VANO team": `household-arrival`'s `sos` action
+  (deliberately NO status gate — a raced cancel must never 409 an
+  emergency; auth = assigned-helper JWT like every action there) records
+  `helper_sos_events` FAIL-SOFT (service-role-only table, migration
+  `20260728000000`) and pages the owner via `notify-admin-whatsapp`'s
+  `helper_sos` type — WhatsApp + email + (this type only) a direct SMS —
+  with the helper's phone, customer name/address, best GPS fix (fresh tap
+  fix, else last streamed `worker_lat/lng`) and the /track link. The
+  function AWAITS the page and returns an honest `alerted` flag; `false`
+  flips the sheet to the go-direct fallback (owner WhatsApp + 999) — an SOS
+  can never dead-end. After a sent alert the page restarts the 15s GPS
+  stream so /track is live for the owner; `sos_safe` resolves the events +
+  sends the all-clear. **The customer must never see any of it** — no
+  booking writes, no job_updates row, RLS-sealed ledger (the customer may
+  be the reason it was pressed). An active SOS survives reload via
+  localStorage (`vano-sos-active-<bookingId>`) as a red banner until "I'm
+  safe now". UI lives in `components/household/HelperSOS.tsx`; the quiet
+  "Report a problem" WhatsApp link stays as the non-emergency path.
 - **Anonymous customers poll** — TrackBooking refreshes by 5s polling via
   SECURITY-DEFINER RPCs (`get_household_booking`); the realtime
   subscriptions only work for signed-in users. Don't "fix" the polling.
