@@ -1115,7 +1115,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.22 }}
-        className="fixed inset-0 z-[69] bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-[69] bg-navy/50 backdrop-blur-sm"
         onClick={() => { if (backdropArmed.current) onClose(); }}
         aria-hidden="true"
       />

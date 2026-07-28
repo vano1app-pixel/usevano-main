@@ -815,8 +815,23 @@ const StudentDashboard = () => {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+          // Structural skeleton in the shape of the incoming job list — the
+          // layout holds steady instead of a lone spinner popping into cards.
+          // One .shimmer sweep on the container, grey blocks stay static.
+          <div className="shimmer space-y-3 py-2" aria-busy="true" aria-label="Loading your jobs">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="rounded-2xl border border-border/60 bg-white p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 w-28 rounded bg-secondary" />
+                  <div className="h-5 w-16 rounded-full bg-secondary" />
+                </div>
+                <div className="h-4 w-3/4 rounded bg-secondary" />
+                <div className="flex items-center gap-2">
+                  <div className="h-3.5 w-24 rounded bg-secondary" />
+                  <div className="h-3.5 w-16 rounded bg-secondary" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <AnimatePresence mode="wait">

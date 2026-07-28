@@ -48,7 +48,7 @@ const Refer: React.FC = () => {
           className="mb-5"
         >
           <p className="eyebrow mb-3">Refer &amp; earn</p>
-          <h1 className="display-lg text-foreground text-3xl">Your link. Your earnings.</h1>
+          <h1 className="display-lg text-foreground">Your link. Your earnings.</h1>
           <p className="text-sm text-foreground/70 mt-2 leading-relaxed">
             Share your code once. Every job a student you brought in completes earns you
             3% — automatically, for their whole first year. Here it is, live.

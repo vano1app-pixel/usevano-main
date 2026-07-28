@@ -30,7 +30,7 @@ const Privacy = () => (
         Back to home
       </Link>
 
-      <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-2">
+      <h1 className="display-lg text-foreground mb-2">
         Privacy Policy
       </h1>
       <p className="text-sm text-muted-foreground mb-10">Last updated: {LAST_UPDATED}</p>

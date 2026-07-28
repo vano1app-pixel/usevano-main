@@ -9,26 +9,22 @@ import typography from "@tailwindcss/typography";
  * not what looks nice in isolation. Users subconsciously learn these roles
  * within 1–2 sessions and move faster because of them.
  *
- *   primary (sage)   → Main platform action. Book / Send / Continue.
- *                      Exactly ONE primary button per card / form.
- *                      On /home this is sage green; replaces the old blue.
- *   sage (green)     → Household CTA, trust, safety, verification badges.
- *                      Use for: Book Now, verified-student badge, safety items.
- *   navy             → Footer, hero headings, high-contrast anchors.
- *   gold             → Star ratings, premium quality signal, VANO Weekly.
- *   express-orange   → Express / urgent booking tier (≤1 hr dispatch).
- *   emerald          → Trust, money, verified, available, success.
- *                      Use for: €0 fee anchors, Verified by Vano badge,
- *                      online dots, success toasts, completed checklist items.
- *   amber            → Attention, scarcity, quality signal, premium.
- *                      Use for: Hire-now urgency, Top profile badge,
- *                      Recommended pill, quick-wins nudges, warnings-to-act.
- *   rose             → Destructive actions ONLY (delete, remove, sign out).
- *                      Never used for prompts or nudges.
+ *   primary (sage)   → THE action + trust colour. Book / Continue / Save,
+ *                      verification badges, safety items. Exactly ONE primary
+ *                      button per card / form.
+ *   navy             → Hero + footer bands, display headings, high-contrast
+ *                      anchors, tinted backdrops/shadows.
+ *   gold             → The single accent: star ratings, "most booked" crown,
+ *                      focus halos, the booking-lookup button. Sparingly.
+ *   cream            → The page. Warm base everywhere (never pure white pages).
+ *   express-orange   → Express / urgent tier only.
+ *   emerald          → Success + live signals: online dots, "booking received",
+ *                      success toasts.
+ *   amber            → Warnings-to-act and honest heads-ups (skip-verify card,
+ *                      photo-quality notes).
+ *   destructive/rose → Destructive actions ONLY (cancel booking, delete
+ *                      account, unpaid strikes). Never for prompts or nudges.
  *   muted / secondary → Supporting UI: Back, Cancel, borders, body copy.
- *
- * The completeness meter in Profile.tsx is the one exception: it ramps
- * rose → amber → emerald as a deliberate operant-reward gradient.
  */
 export default {
   darkMode: ["class"],
@@ -120,59 +116,13 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      // Only the keyframes with live call sites. The old mascot family
+      // (walk/wave/celebrate/…) and the marketplace-era entrances were dead
+      // config that misled new work; framer-motion or index.css own the rest.
+      // NOTE: the `shimmer` keyframes live in index.css (a translateX sweep) —
+      // the config used to define a colliding backgroundPosition version,
+      // which fought the .shimmer skeleton + the "most booked" badge sweep.
       keyframes: {
-        "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
-        },
-        "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
-        },
-        "zoom-in": {
-          "0%": {
-            transform: "scale(1.05)"
-          },
-          "100%": {
-            transform: "scale(1)"
-          }
-        },
-        "fade-zoom-in": {
-          "0%": {
-            opacity: "0",
-            transform: "scale(1.1)"
-          },
-          "100%": {
-            opacity: "1",
-            transform: "scale(1)"
-          }
-        },
-        "fade-in": {
-          "0%": {
-            opacity: "0",
-            transform: "translateY(10px)"
-          },
-          "100%": {
-            opacity: "1",
-            transform: "translateY(0)"
-          }
-        },
-        "slide-in-right": {
-          "0%": {
-            transform: "translateX(100%)"
-          },
-          "100%": {
-            transform: "translateX(0)"
-          }
-        },
         "scroll-left": {
           "0%": {
             transform: "translate3d(0, 0, 0)"
@@ -185,97 +135,9 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-12px)" },
         },
-        "shimmer": {
-          "0%": { backgroundPosition: "-200% center" },
-          "100%": { backgroundPosition: "200% center" },
-        },
-        "slide-up-fade": {
-          "0%": { opacity: "0", transform: "translateY(20px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        "scale-in": {
-          "0%": { opacity: "0", transform: "scale(0.92)" },
-          "100%": { opacity: "1", transform: "scale(1)" },
-        },
-        "pulse-ring": {
-          "0%": { transform: "scale(1)", opacity: "0.6" },
-          "100%": { transform: "scale(2.5)", opacity: "0" },
-        },
-        "walk-left": {
-          "0%, 100%": { transform: "rotate(-15deg)" },
-          "50%": { transform: "rotate(15deg)" },
-        },
-        "walk-right": {
-          "0%, 100%": { transform: "rotate(15deg)" },
-          "50%": { transform: "rotate(-15deg)" },
-        },
-        "arm-swing-left": {
-          "0%, 100%": { transform: "rotate(20deg)" },
-          "50%": { transform: "rotate(-20deg)" },
-        },
-        "arm-swing-right": {
-          "0%, 100%": { transform: "rotate(-20deg)" },
-          "50%": { transform: "rotate(20deg)" },
-        },
-        "wave": {
-          "0%, 100%": { transform: "rotate(-10deg)" },
-          "25%": { transform: "rotate(-40deg)" },
-          "75%": { transform: "rotate(-5deg)" },
-        },
-        "celebrate-left": {
-          "0%, 100%": { transform: "rotate(-60deg)" },
-          "50%": { transform: "rotate(-80deg)" },
-        },
-        "celebrate-right": {
-          "0%, 100%": { transform: "rotate(60deg)" },
-          "50%": { transform: "rotate(80deg)" },
-        },
-        "jump": {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-6px)" },
-        },
-        "head-bob": {
-          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
-          "50%": { transform: "translateY(-3px) rotate(3deg)" },
-        },
-        "head-tilt": {
-          "0%, 100%": { transform: "rotate(0deg)" },
-          "50%": { transform: "rotate(8deg)" },
-        },
-        "think": {
-          "0%, 100%": { transform: "rotate(0deg) translateY(0)" },
-          "50%": { transform: "rotate(-15deg) translateY(-8px)" },
-        },
-        "build": {
-          "0%, 100%": { transform: "rotate(0deg)" },
-          "30%": { transform: "rotate(-30deg)" },
-          "60%": { transform: "rotate(5deg)" },
-        },
-        "sparkle": {
-          "0%, 100%": { opacity: "1", transform: "scale(1)" },
-          "50%": { opacity: "0.3", transform: "scale(0.6)" },
-        },
-        "shake": {
-          "0%, 100%": { transform: "translateX(0) rotate(0deg)" },
-          "20%": { transform: "translateX(-3px) rotate(-3deg)" },
-          "40%": { transform: "translateX(3px) rotate(3deg)" },
-          "60%": { transform: "translateX(-2px) rotate(-2deg)" },
-          "80%": { transform: "translateX(2px) rotate(2deg)" },
-        },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-        "fade-zoom-in": "fade-zoom-in 1s ease-out",
-        "fade-in": "fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-        "slide-in-right": "slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
         "scroll-left": "scroll-left 40s linear infinite",
-        "scroll-left-fast": "scroll-left 110s linear infinite",
-        "shimmer": "shimmer 4s ease-in-out infinite",
-        "shimmer-slow": "shimmer 8s ease-in-out infinite",
-        "slide-up-fade": "slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-        "scale-in": "scale-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-        "pulse-ring": "pulse-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite",
         "float": "float 6s ease-in-out infinite",
       },
     },
