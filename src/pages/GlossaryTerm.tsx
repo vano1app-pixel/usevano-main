@@ -107,7 +107,7 @@ export default function GlossaryTerm() {
           <p className="mt-2 text-white/70 text-sm">Join as a verified Vano helper in Galway and pick up jobs that fit your week.</p>
           <Link
             to="/join"
-            className="mt-4 inline-flex items-center rounded-full bg-sage px-5 py-2.5 font-semibold text-white hover:bg-sage-dark transition-colors"
+            className="mt-4 inline-flex items-center rounded-full bg-sage px-5 py-2.5 font-semibold text-white hover:bg-sage-dark transition-[background-color,transform] duration-150 active:scale-[0.97]"
           >
             Join as helper
           </Link>

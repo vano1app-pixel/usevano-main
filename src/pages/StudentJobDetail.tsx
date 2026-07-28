@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
-import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound, ShieldCheck, Camera, ClipboardList, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound, ShieldCheck, Camera, ClipboardList, Check, Star } from 'lucide-react';
 import { uploadJobPhoto } from '@/lib/jobPhotos';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -168,6 +168,15 @@ function jobDetailLines(category: string, d: Record<string, unknown>): { label: 
       add('Tasks', d.cleaningTasks); add('Time needed', d.cleaningDuration); break;
   }
   add('Notes', d.description);
+  // The live quick-book flow writes its scope into note + extra_label
+  // (the SubService `carry` contract) — the per-category keys above only
+  // exist on legacy multi-step bookings. Without these, every current
+  // booking showed an empty "What needs doing" card.
+  if (lines.length === 0) {
+    add('Job', d.extra_label);
+    add('What they asked for', d.note);
+    add('Booked time', d.size_label);
+  }
   return lines;
 }
 
@@ -929,7 +938,7 @@ const StudentJobDetail = () => {
                   href={googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 h-11 rounded-full bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
+                  className="flex-1 h-11 rounded-full bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-[background-color,transform] duration-150 active:scale-[0.98]"
                 >
                   <Navigation size={15} /> Google Maps
                 </a>
@@ -937,7 +946,7 @@ const StudentJobDetail = () => {
                   href={wazeUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 h-11 rounded-full bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-secondary/70 transition-colors"
+                  className="flex-1 h-11 rounded-full bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-secondary/70 transition-[background-color,transform] duration-150 active:scale-[0.98]"
                 >
                   <Navigation size={15} /> Waze
                 </a>
@@ -1278,6 +1287,7 @@ const StudentJobDetail = () => {
               value={arrivalCode}
               onChange={(e) => { setArrivalCode(e.target.value.replace(/\D/g, '').slice(0, 4)); setCodeError(false); }}
               placeholder="0000"
+              aria-label="4-digit arrival code from the customer's screen"
               className={cn(
                 'w-full h-14 rounded-xl bg-background border text-center text-2xl font-bold tracking-[0.5em] tabular-nums focus:outline-none focus:ring-2 focus:ring-ring',
                 codeError ? 'border-destructive' : 'border-border/60',
@@ -1441,9 +1451,9 @@ const StudentJobDetail = () => {
                   type="button"
                   onClick={() => setPaidStars(n === paidStars ? 0 : n)}
                   aria-label={`${n} star${n === 1 ? '' : 's'}`}
-                  className="text-2xl leading-none active:scale-90 transition-transform"
+                  className="p-0.5 leading-none active:scale-90 transition-transform"
                 >
-                  <span className={n <= paidStars ? 'grayscale-0' : 'grayscale opacity-40'}>⭐</span>
+                  <Star size={24} className={n <= paidStars ? 'fill-gold text-gold' : 'text-navy/25'} />
                 </button>
               ))}
               <span className="text-[11px] text-muted-foreground ml-1">rate them (optional)</span>

@@ -37,8 +37,9 @@ function selectCategory(slug: string, size: string): void {
   window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug, size: size || undefined } }));
 }
 
-// Column drives the hover/tap state; the emoji rides the same `hover` variant so
-// it springs and wiggles when the tile is hovered (delight, not just a lift).
+// The TILE drives the hover/tap state via string variants ("hover"/"tap") so
+// the emoji child inherits them and wiggles when the tile is hovered — object
+// props would not propagate to children.
 const colV = {
   hidden: { opacity: 0, y: 18, scale: 0.95 },
   show:   { opacity: 1, y: 0, scale: 1 },
@@ -72,8 +73,10 @@ export const PopularCategories: React.FC = () => {
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Popular services</p>
-          <h2 className="text-3xl lg:text-4xl font-bold text-white text-balance" style={{ letterSpacing: '-0.02em' }}>
+          {/* Shared .eyebrow + .display-lg so the navy bands speak the same
+              heading voice (Bricolage) as every cream section. */}
+          <p className="eyebrow text-white/40 before:bg-white/25 mb-3">Popular services</p>
+          <h2 className="display-lg text-white text-balance">
             The help people book most
           </h2>
           <p className="text-white/70 text-sm sm:text-base mt-3 max-w-md mx-auto text-pretty">
@@ -111,8 +114,9 @@ export const PopularCategories: React.FC = () => {
                 <motion.button
                   type="button"
                   onClick={() => selectCategory(c.slug, c.size)}
-                  whileHover={tileHover}
-                  whileTap={{ scale: 0.96 }}
+                  variants={{ hover: tileHover, tap: { scale: 0.96 } }}
+                  whileHover="hover"
+                  whileTap="tap"
                   transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                   className={`tile-float group relative z-10 flex w-full flex-col items-center justify-center gap-1 rounded-2xl border border-black/5 bg-white px-1.5 py-4 sm:px-3 sm:py-6 text-center origin-bottom focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${p.ring} ${p.tile}`}
                 >
@@ -131,11 +135,12 @@ export const PopularCategories: React.FC = () => {
                     </span>
                   )}
 
+                  {/* No whileHover/whileTap here: hovering anywhere on the TILE
+                      propagates the string variants down, so the emoji wiggles
+                      for the whole hit area, not just its own glyph. */}
                   <motion.span
                     className="text-3xl sm:text-4xl leading-none select-none"
                     variants={emojiV}
-                    whileHover="hover"
-                    whileTap="tap"
                     transition={{ duration: 0.45, ease: 'easeInOut' }}
                     aria-hidden="true"
                   >

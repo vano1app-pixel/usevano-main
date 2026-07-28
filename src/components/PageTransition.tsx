@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 export type TransitionVariant = 'portal' | 'rise' | 'morph' | 'default' | 'liquid' | 'dissolve';
 
@@ -18,7 +18,26 @@ export type TransitionVariant = 'portal' | 'rise' | 'morph' | 'default' | 'liqui
  *
  * `exit` was previously dropped because AnimatePresence + the reconciler
  * raced and surfaced "removeChild" errors. Enter-only is enough.
+ *
+ * The class MUST come off once the animation finishes: `animation … both`
+ * retains the final keyframe's `transform: translateY(0)` forever, and any
+ * non-none transform turns this wrapper into the containing block for every
+ * `position:fixed` descendant — the site nav, the job screen's SOS header,
+ * TrackBooking's bottom panel all silently became page-absolute and scrolled
+ * away with the content. Dropping the class after animationend releases them
+ * back to the viewport. (If animationend never fires we just keep today's
+ * behaviour — strictly no worse.)
  */
 export function PageTransition({ children }: { children: ReactNode; variant?: TransitionVariant }) {
-  return <div className="animate-page-enter">{children}</div>;
+  const [settled, setSettled] = useState(false);
+  return (
+    <div
+      className={settled ? undefined : 'animate-page-enter'}
+      onAnimationEnd={(e) => {
+        if (e.target === e.currentTarget) setSettled(true);
+      }}
+    >
+      {children}
+    </div>
+  );
 }

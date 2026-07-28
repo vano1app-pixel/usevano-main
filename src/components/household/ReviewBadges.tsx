@@ -56,9 +56,11 @@ export const ReviewBadges: React.FC<{ inline?: boolean }> = ({ inline = false })
   if (PLATFORMS.length === 0) return null;
 
   return (
+    // In `inline` mode the parent row (the hero) owns the entrance — animating
+    // here too made the chips visibly fade in twice, out of sync.
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={inline ? false : { opacity: 0, y: 6 }}
+      animate={inline ? undefined : { opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className={`${inline ? '' : 'mb-3'} flex flex-wrap items-center justify-center gap-2`}
     >

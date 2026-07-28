@@ -93,7 +93,7 @@ const Account: React.FC = () => {
                   onChange={e => setPhoneDraft(e.target.value)}
                   placeholder="+353 87 123 4567"
                   autoFocus
-                  className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               <div>
@@ -104,7 +104,7 @@ const Account: React.FC = () => {
                   value={addressDraft}
                   onChange={e => setAddressDraft(e.target.value)}
                   placeholder="e.g. 12 Shop Street, Galway"
-                  className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
             </div>
@@ -118,7 +118,7 @@ const Account: React.FC = () => {
               </button>
               <button
                 onClick={() => setEditing(false)}
-                className="rounded-full bg-secondary px-5 py-2 text-sm font-semibold text-foreground"
+                className="rounded-full bg-secondary px-5 py-2 text-sm font-semibold text-foreground transition-[background-color,transform] duration-150 hover:bg-secondary/70 active:scale-[0.98]"
               >
                 Cancel
               </button>

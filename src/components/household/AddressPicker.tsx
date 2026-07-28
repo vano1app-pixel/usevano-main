@@ -217,7 +217,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
           <button
             type="button"
             onClick={() => { setEditRequested(true); onTextChange?.(query); }}
-            className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
+            className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3 rounded-lg transition-[color,transform] duration-150 hover:text-sage active:scale-95"
           >
             Change
           </button>
@@ -238,12 +238,12 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
             disabled={locating}
             className={cn(
               'w-full flex items-center gap-2.5 rounded-xl border border-primary/25',
-              'bg-primary/8 px-3.5 py-3 text-sm text-primary font-semibold mb-2',
-              'hover:bg-primary/12 active:scale-[0.98]',
+              'bg-primary/[0.08] px-3.5 py-3 text-sm text-primary font-semibold mb-2',
+              'hover:bg-primary/[0.12] active:scale-[0.98]',
               'transition-[background-color,transform] duration-150 disabled:opacity-60',
             )}
           >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/12 flex-shrink-0" aria-hidden="true">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/[0.12] flex-shrink-0" aria-hidden="true">
               {locating
                 ? <Loader2 size={14} className="animate-spin" />
                 : <LocateFixed size={14} />
@@ -264,7 +264,9 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
               onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
               placeholder={placeholder}
               className={cn(
-                'w-full rounded-xl border bg-background pl-8 pr-10 py-2.5 text-sm',
+                // text-base on phones: 14px inputs make iOS Safari zoom the
+                // whole sheet on focus (the class beats the 16px base rule).
+                'w-full rounded-xl border bg-background pl-8 pr-10 py-2.5 text-base sm:text-sm',
                 'placeholder:text-muted-foreground/50',
                 'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
                 'transition-[border-color,box-shadow] duration-150',
@@ -317,7 +319,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
             className="mt-2 overflow-hidden"
           >
             <div className="rounded-xl overflow-hidden border border-border/50 relative">
-              <Suspense fallback={<div className="h-[190px] w-full bg-secondary animate-pulse" aria-hidden="true" />}>
+              <Suspense fallback={<div className="shimmer h-[190px] w-full bg-secondary" aria-hidden="true" />}>
                 <AddressMap lat={coords.lat} lng={coords.lng} onMove={pinMoved} />
               </Suspense>
               {pinBusy && (

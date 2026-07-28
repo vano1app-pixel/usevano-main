@@ -188,9 +188,9 @@ export const HelperPublicProfile: React.FC = () => {
             </p>
             <Link
               to="/home"
-              className="inline-flex items-center rounded-full bg-primary text-primary-foreground px-6 py-2.5 text-sm font-semibold hover:-translate-y-px transition-transform duration-150"
+              className="inline-flex items-center rounded-full bg-primary text-primary-foreground px-6 py-2.5 text-sm font-semibold hover:-translate-y-px active:scale-[0.97] transition-transform duration-150"
             >
-              Browse helpers →
+              Book home help →
             </Link>
           </div>
         )}
@@ -365,18 +365,21 @@ export const HelperPublicProfile: React.FC = () => {
             {/* Trust note + CTA */}
             <motion.section variants={cardItem} className="bg-sage-light rounded-3xl border border-sage/20 p-6 text-center">
               <ShieldCheck className="w-6 h-6 text-sage mx-auto mb-2" aria-hidden="true" />
+              {/* Direct-pay truth: "you don't pay" was escrow-era copy, and
+                  Cover is a €2 OPT-IN at checkout — say so, don't promise it. */}
               <p className="text-sm text-foreground/80 leading-relaxed max-w-sm mx-auto">
                 {helper.id_verified
                   ? `${firstName} has passed photo-ID and selfie verification with Stripe.
-                     Not happy with a task? You don't pay.`
-                  : `Book through VANO and you're protected — track your helper live, and if
-                     you're not happy with a task, you don't pay.`}
-                {' '}Accidental damage is covered up to €250 by{' '}
-                <Link to="/cover" className="font-semibold underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</Link>.
+                     Book through VANO and you're protected by our money-back guarantee.`
+                  : `Book through VANO and you're protected — track your helper live, with a
+                     money-back guarantee if it's not right.`}
+                {' '}Add{' '}
+                <Link to="/cover" className="font-semibold underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</Link>
+                {' '}for €2 at checkout and accidental damage is covered up to €250.
               </p>
               <Link
                 to="/home#category-grid"
-                className="mt-5 inline-flex items-center rounded-full bg-primary text-primary-foreground px-7 py-3 text-sm font-semibold hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
+                className="mt-5 inline-flex items-center rounded-full bg-primary text-primary-foreground px-7 py-3 text-sm font-semibold hover:-translate-y-px hover:shadow-primary-glow active:scale-[0.97] transition-[transform,box-shadow] duration-150"
               >
                 Book a task on VANO →
               </Link>

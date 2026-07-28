@@ -105,13 +105,17 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
       aria-label="Recent bookings"
       aria-live="off"
     >
+      {/* w-max is load-bearing: animate-scroll-left translates by -50% of the
+          element's OWN width. Without it the track is viewport-width, the loop
+          travels half a screen and visibly snaps back. */}
       <div
-        className="flex animate-scroll-left whitespace-nowrap py-2.5"
+        className="flex w-max animate-scroll-left whitespace-nowrap py-2.5"
         style={{ animationPlayState: paused ? 'paused' : 'running' }}
       >
         {doubled.map((item, i) => (
           <span
             key={i}
+            aria-hidden={i >= doubled.length / 2 || undefined}
             className={dark
               ? "inline-flex items-center gap-1.5 px-5 text-xs text-white/50 flex-shrink-0"
               : "inline-flex items-center gap-1.5 px-5 text-xs text-muted-foreground flex-shrink-0"}

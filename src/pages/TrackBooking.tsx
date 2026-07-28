@@ -1006,20 +1006,20 @@ const TrackBooking = () => {
     // the customer lands here at their most anxious, so no bare spinner.
     return (
       <div className="min-h-dvh bg-cream">
-        <main className="max-w-lg mx-auto px-4 pt-8 space-y-6" aria-busy="true" aria-label="Loading your booking">
+        <main className="shimmer max-w-lg mx-auto px-4 pt-8 space-y-6" aria-busy="true" aria-label="Loading your booking">
           <div className="space-y-2">
-            <div className="h-4 w-28 rounded bg-secondary animate-pulse" />
-            <div className="h-7 w-52 rounded bg-secondary animate-pulse" />
+            <div className="h-4 w-28 rounded bg-secondary" />
+            <div className="h-7 w-52 rounded bg-secondary" />
           </div>
           <div className="rounded-2xl border border-border/60 p-5 space-y-3">
-            <div className="h-5 w-40 rounded bg-secondary animate-pulse" />
-            <div className="h-4 w-full rounded bg-secondary animate-pulse" />
-            <div className="h-4 w-2/3 rounded bg-secondary animate-pulse" />
+            <div className="h-5 w-40 rounded bg-secondary" />
+            <div className="h-4 w-full rounded bg-secondary" />
+            <div className="h-4 w-2/3 rounded bg-secondary" />
           </div>
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-secondary animate-pulse flex-shrink-0" />
-              <div className="h-4 rounded bg-secondary animate-pulse" style={{ width: `${60 - i * 12}%` }} />
+              <div className="h-8 w-8 rounded-full bg-secondary flex-shrink-0" />
+              <div className="h-4 rounded bg-secondary" style={{ width: `${60 - i * 12}%` }} />
             </div>
           ))}
         </main>
@@ -1040,7 +1040,7 @@ const TrackBooking = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/bookings')}
-            className="h-10 px-5 rounded-full bg-primary text-primary-foreground text-sm font-semibold"
+            className="h-10 px-5 rounded-full bg-primary text-primary-foreground text-sm font-semibold hover:bg-sage-dark active:scale-[0.97] transition-[background-color,transform] duration-150"
           >
             Find my bookings
           </button>
@@ -1193,7 +1193,7 @@ const TrackBooking = () => {
                 )}
               </div>
             </div>
-            {booking.price_estimate_cents && (
+            {booking.price_estimate_cents != null && booking.price_estimate_cents > 0 && (
               <div className="flex flex-col items-end flex-shrink-0">
                 <span className="text-lg font-bold text-foreground tabular-nums">
                   €{(booking.price_estimate_cents / 100).toFixed(0)}
@@ -1313,7 +1313,7 @@ const TrackBooking = () => {
             </p>
             <a
               href={booking.stripe_checkout_url}
-              className="mt-3 w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-[opacity,transform] duration-150"
+              className="mt-3 w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:bg-sage-dark active:scale-[0.98] transition-[background-color,transform] duration-150"
             >
               Finish securing{(booking.booking_data?.fee_due_cents ?? 0) > 0 ? ` — €${((booking.booking_data?.fee_due_cents ?? 0) / 100).toFixed(2)}` : ''} →
             </a>
@@ -1365,7 +1365,7 @@ const TrackBooking = () => {
                   )}
                   <a
                     href={booking.stripe_checkout_url!}
-                    className="mt-3 w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-[opacity,transform] duration-150"
+                    className="mt-3 w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:bg-sage-dark active:scale-[0.98] transition-[background-color,transform] duration-150"
                   >
                     {direct ? `Confirm booking — €${(due / 100).toFixed(2)} fee →` : `Pay €${(due / 100).toFixed(2)} to confirm →`}
                   </a>
@@ -1454,7 +1454,7 @@ const TrackBooking = () => {
               >
                 <div className="flex items-start justify-between mb-2">
                   <p className="text-sm font-semibold text-foreground">Cancel this booking?</p>
-                  <button onClick={() => setCancelConfirm(false)} className="text-muted-foreground -mt-0.5 -mr-0.5">
+                  <button onClick={() => setCancelConfirm(false)} aria-label="Keep this booking" className="text-muted-foreground -mt-0.5 -mr-0.5 p-1.5 -m-1 rounded-lg transition-colors hover:text-foreground">
                     <X size={16} />
                   </button>
                 </div>
@@ -1646,12 +1646,22 @@ const TrackBooking = () => {
               <p className="font-bold text-foreground text-sm">
                 {helperName ? `How was ${helperName}?` : 'How did it go?'}
               </p>
+              {/* Direct-pay: the customer has only paid the VANO fee — they
+                  still settle the job price with the helper directly (the
+                  gold Revolut card below). The "you've already paid / we pay
+                  them" lines are ONLY true for legacy escrow bookings. */}
               <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
-                {booking.helper_finished_at
-                  ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm it's done — you've already paid, this just lets us pay ${helperName ?? 'them'}.`
-                  : booking.job_ends_at
-                    ? "Your booked time is up. Rate your helper and confirm it's done — you've already paid, there's nothing more to pay."
-                    : `Once the work is finished, rate your helper and confirm it's done. You've already paid — confirming just lets us pay ${helperName ?? 'them'}.`}
+                {booking.booking_data?.direct_pay === true
+                  ? booking.helper_finished_at
+                    ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm it's done — then settle up with ${helperName ?? 'them'} directly (Revolut or cash) in the card below.`
+                    : booking.job_ends_at
+                      ? 'Your booked time is up. Rate your helper and confirm it\'s done — the job price goes straight to them, Revolut or cash.'
+                      : `Once the work is finished, rate your helper and confirm it's done — then pay ${helperName ?? 'them'} directly (Revolut or cash).`
+                  : booking.helper_finished_at
+                    ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm it's done — you've already paid, this just lets us pay ${helperName ?? 'them'}.`
+                    : booking.job_ends_at
+                      ? "Your booked time is up. Rate your helper and confirm it's done — you've already paid, there's nothing more to pay."
+                      : `Once the work is finished, rate your helper and confirm it's done. You've already paid — confirming just lets us pay ${helperName ?? 'them'}.`}
               </p>
               <div className="flex gap-1 justify-center mb-4">
                 {[1, 2, 3, 4, 5].map((n) => {
@@ -1666,7 +1676,7 @@ const TrackBooking = () => {
                       aria-label={`${n} star${n === 1 ? '' : 's'}`}
                     >
                       <motion.span className="block" animate={{ scale: on ? 1.18 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
-                        <Star size={26} className={cn('transition-colors', on ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25')} />
+                        <Star size={26} className={cn('transition-colors', on ? 'fill-gold text-gold' : 'text-muted-foreground/25')} />
                       </motion.span>
                     </button>
                   );
@@ -1695,7 +1705,11 @@ const TrackBooking = () => {
               {/* Uber-style live search: a radar sweep over the job location
                   (or a generic pulse when we have no coordinates), a real count
                   of helpers notified, and a calm reassurance line. Transitions
-                  to the helper card automatically when status flips to accepted. */}
+                  to the helper card automatically when status flips to accepted.
+                  Only for status 'pending' — an awaiting_payment booking is NOT
+                  dispatched yet (the finish-securing card above owns that state),
+                  so "finding your helper" would be untrue. */}
+              {booking.status === 'pending' && (
               <div className="relative overflow-hidden rounded-2xl bg-sage-light border border-sage/20 p-5">
                 <div className="relative flex flex-col items-center text-center">
                   {/* Radar over a faint map of the job location when we have it */}
@@ -1758,7 +1772,7 @@ const TrackBooking = () => {
                     <a
                       href={`https://wa.me/353899817111?text=${encodeURIComponent("Hi VANO, I'm still waiting on a helper for my booking. Can you help?")}`}
                       target="_blank" rel="noopener noreferrer"
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold px-4 py-2 hover:bg-[#25D366]/8 transition-colors"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold px-4 py-2 hover:bg-[#25D366]/[0.08] transition-colors"
                     >
                       <span aria-hidden="true">💬</span> Message the team
                     </a>
@@ -1774,6 +1788,7 @@ const TrackBooking = () => {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Customer cancel — awaiting_payment cancels free too (the hold,
                   if one landed, is released server-side; usually nothing exists yet) */}
@@ -1794,7 +1809,7 @@ const TrackBooking = () => {
                     >
                       <div className="flex items-start justify-between mb-2">
                         <p className="text-sm font-semibold text-foreground">Cancel this booking?</p>
-                        <button onClick={() => setCancelConfirm(false)} className="text-muted-foreground -mt-0.5 -mr-0.5">
+                        <button onClick={() => setCancelConfirm(false)} aria-label="Keep this booking" className="text-muted-foreground -mt-0.5 -mr-0.5 p-1.5 -m-1 rounded-lg transition-colors hover:text-foreground">
                           <X size={16} />
                         </button>
                       </div>
@@ -1924,7 +1939,7 @@ const TrackBooking = () => {
           >
             <div className="text-center mb-4">
               <motion.div
-                initial={{ scale: 0, rotate: -20 }}
+                initial={{ scale: 0.6, opacity: 0, rotate: -20 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: 'spring', stiffness: 380, damping: 13, delay: 0.15 }}
                 className="mb-2"
@@ -1951,11 +1966,12 @@ const TrackBooking = () => {
                         onMouseLeave={() => setHoverRating(0)}
                         onClick={() => setSelectedRating(n)}
                         className="p-2 active:scale-90 transition-transform"
+                        aria-label={`${n} star${n === 1 ? '' : 's'}`}
                       >
                         <motion.span className="block" animate={{ scale: on ? 1.18 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
                           <Star
                             size={28}
-                            className={cn('transition-colors', on ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25')}
+                            className={cn('transition-colors', on ? 'fill-gold text-gold' : 'text-muted-foreground/25')}
                           />
                         </motion.span>
                       </button>
@@ -2040,9 +2056,16 @@ const TrackBooking = () => {
                 </button>
               ) : (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
+                  {/* Cover is a €2 opt-in — only claim it for bookings that
+                      actually bought it (legacy escrow bookings had it bundled). */}
                   <p className="text-xs leading-relaxed text-muted-foreground mb-2">
-                    Tell us what went wrong — you’re covered by our money-back guarantee, and accidental damage is covered up to €250 by{' '}
-                    <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+                    Tell us what went wrong — you’re covered by our money-back guarantee
+                    {(booking.booking_data?.direct_pay !== true || booking.booking_data?.cover_opted === true) ? (
+                      <>
+                        , and accidental damage is covered up to €250 by{' '}
+                        <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+                      </>
+                    ) : null}
                     {' '}(photos help).
                   </p>
                   <textarea
@@ -2134,7 +2157,7 @@ const TrackBooking = () => {
                   href={revolutHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 w-full h-[52px] rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-[opacity,transform] duration-150"
+                  className="mt-4 w-full h-[52px] rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:bg-sage-dark active:scale-[0.98] transition-[background-color,transform] duration-150"
                 >
                   Pay {name} €{amountStr} in Revolut →
                 </a>
@@ -2180,8 +2203,11 @@ const TrackBooking = () => {
             the parked Give €5 Get €5 card. */}
         {isCompleted && <PartnerProgramCard className="mt-4" />}
 
-        {/* Chat */}
-        {booking.student_id && (
+        {/* Chat — signed-in viewers only. Customers are anonymous BY DESIGN
+            (no accounts exist for them), so showing "Sign in to message your
+            helper" promised a door that doesn't exist; WhatsApp is their real
+            channel and it lives in the help row above. */}
+        {booking.student_id && userId && (
           <div className="mt-8">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Messages</p>
             <div className="flex flex-col gap-2 mb-3 min-h-[80px] max-h-[320px] overflow-y-auto overscroll-contain">
@@ -2213,11 +2239,6 @@ const TrackBooking = () => {
               </AnimatePresence>
               <div ref={chatBottomRef} />
             </div>
-            {!userId && (
-              <p className="text-xs text-muted-foreground text-center py-2">
-                <a href="/auth" className="underline underline-offset-2">Sign in</a> to message your helper.
-              </p>
-            )}
           </div>
         )}
 
@@ -2237,7 +2258,7 @@ const TrackBooking = () => {
       {showMapPanel && (
         <div className={cn(
           'fixed inset-x-0 z-30 flex justify-center px-4',
-          booking.student_id && !isCompleted && !isCancelled && userId ? 'bottom-[68px]' : 'bottom-0 pb-safe',
+          booking.student_id && !isCompleted && !isCancelled && userId ? 'bottom-[68px]' : 'bottom-0 safe-area-bottom',
         )}>
           <motion.div
             initial={{ y: 60, opacity: 0 }}

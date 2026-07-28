@@ -6,6 +6,12 @@
   100% { transform: translateX(100%); }
 }
 
+/* Indeterminate route-loading sweep (RouteSuspenseFallback). */
+@keyframes route-progress {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(400%); }
+}
+
 #lovable-badge {
   display: none !important;
 }

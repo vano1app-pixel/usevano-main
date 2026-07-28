@@ -117,7 +117,7 @@ const JobAccepted = () => {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className={`w-full max-w-sm rounded-2xl border p-6 text-center ${tone.ring}`}
+        className={`surface-float w-full max-w-sm rounded-2xl border bg-white p-6 text-center ${tone.ring}`}
       >
         <span className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${tone.badge}`}>
           <Icon size={24} strokeWidth={2} />
@@ -141,7 +141,7 @@ const JobAccepted = () => {
         <button
           type="button"
           onClick={() => navigate(view.cta.to(job))}
-          className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-colors ${tone.btn}`}
+          className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-[background-color,transform] duration-150 active:scale-[0.97] ${tone.btn}`}
         >
           {view.cta.label} →
         </button>

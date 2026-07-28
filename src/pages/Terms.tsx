@@ -14,7 +14,7 @@ import {
 const LAST_UPDATED = '14 July 2026';
 
 const Terms = () => (
-  <div className="min-h-screen bg-background pb-16 md:pb-0">
+  <div className="min-h-screen bg-cream pb-16 md:pb-0">
     <SEOHead
       title="Terms of Service"
       description="VANO's terms of service for booking same-day home help and working as a student helper in Galway, Ireland — bookings, payments, helper membership, cancellations and our satisfaction guarantee."

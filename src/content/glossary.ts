@@ -212,7 +212,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Cleaning",
     bodyHtml: `
 <p>A <strong>deep clean</strong> goes beyond the usual once-over: skirting boards, inside cupboards, behind furniture, limescale on taps and tiles, the grime a quick weekly wipe never reaches. Most homes want one every few months, before guests, or after a busy stretch when the house "got away" a bit.</p>
-<p>On Vano a deep clean is priced by time at <strong>€18/hr</strong> — most homes book 3–4 hours — and your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% of that. Not sure which you need? Read <a href="/blog/deep-clean-vs-standard-clean">deep clean vs standard clean</a> or see <a href="/services/cleaning-galway">cleaning in Galway</a>.</p>
+<p>On Vano a deep clean is priced by time at <strong>€18/hr</strong> — most homes book 3–4 hours — and your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% of that. Not sure which you need? Read <a href="/blog/deep-clean-vs-standard-clean">deep clean vs standard clean</a> or see <a href="/cleaning-galway">cleaning in Galway</a>.</p>
 `,
     related: ["spring-clean", "end-of-tenancy-clean", "student-cleaner"],
   },
@@ -224,7 +224,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Cleaning",
     bodyHtml: `
 <p>A <strong>spring clean</strong> is the big seasonal reset: windows opened, every room aired, surfaces scrubbed, clutter cleared and the whole house given a fresh start. Traditionally done in spring, but honestly — any time the house needs a reset counts.</p>
-<p>It's essentially a <a href="/glossary/deep-clean">deep clean</a> with some tidying and organising mixed in. On Vano it's booked by the hour (<strong>€18/hr</strong>, helper keeps 100%) so you decide how big to go — two hours for the kitchen and bathroom, or a half-day for the works. Book it on the <a href="/services/cleaning-galway">cleaning page</a>.</p>
+<p>It's essentially a <a href="/glossary/deep-clean">deep clean</a> with some tidying and organising mixed in. On Vano it's booked by the hour (<strong>€18/hr</strong>, helper keeps 100%) so you decide how big to go — two hours for the kitchen and bathroom, or a half-day for the works. Book it on the <a href="/cleaning-galway">cleaning page</a>.</p>
 `,
     related: ["deep-clean", "oven-clean", "same-day-home-help"],
   },
@@ -248,7 +248,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Cleaning",
     bodyHtml: `
 <p>An <strong>oven clean</strong> is exactly what it sounds like — racks out and soaked, burnt-on grease lifted, glass door brought back to see-through. It's the single most put-off job in most kitchens, and one of the first things a landlord looks at in an <a href="/glossary/end-of-tenancy-clean">end-of-tenancy clean</a>.</p>
-<p>On Vano, book "Oven &amp; kitchen clean" from the <a href="/services/cleaning-galway">cleaning menu</a> — priced by time at <strong>€18/hr</strong>, and an hour or two usually does it. Your helper keeps 100% of the job price.</p>
+<p>On Vano, book "Oven &amp; kitchen clean" from the <a href="/cleaning-galway">cleaning menu</a> — priced by time at <strong>€18/hr</strong>, and an hour or two usually does it. Your helper keeps 100% of the job price.</p>
 `,
     related: ["deep-clean", "end-of-tenancy-clean", "spring-clean"],
   },
@@ -259,7 +259,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Someone takes the ironing pile off your hands — by the basket or by the hour.",
     category: "Home services",
     bodyHtml: `
-<p>An <strong>ironing service</strong> means a helper works through your ironing pile — shirts, uniforms, bedding — so you don't spend your Sunday evening on it. It pairs naturally with Vano's <a href="/services/laundry-service-galway">laundry service</a> (€30, collected, washed and returned folded) or can be booked on its own as a custom job.</p>
+<p>An <strong>ironing service</strong> means a helper works through your ironing pile — shirts, uniforms, bedding — so you don't spend your Sunday evening on it. It pairs naturally with Vano's <a href="/laundry-service-galway">laundry service</a> (€30, collected, washed and returned folded) or can be booked on its own as a custom job.</p>
 <p>Like all time-based Vano jobs it's <strong>€18/hr</strong>, your helper keeps 100%, and you pay them directly when it's done — <a href="/glossary/pay-after-accept">nothing is charged until a helper says yes</a>.</p>
 `,
     related: ["same-day-home-help", "pay-after-accept", "vano-helper"],
@@ -272,7 +272,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Home services",
     bodyHtml: `
 <p><strong>Flat-pack assembly</strong> is building boxed furniture — bed frames, wardrobes, desks, bookshelves — from the instruction leaflet, properly and without the domestic argument that famously comes with it.</p>
-<p>On Vano it's a classic "<a href="/glossary/same-day-home-help">Anything else</a>" booking: describe the job (say, "assemble an IKEA wardrobe"), book the time, and a nearby student turns up with patience and an Allen key. Priced by time at <strong>€18/hr</strong> — short jobs can book 30 minutes from €12. It also pairs well with <a href="/services/moving-help-galway">moving help</a> when you're setting up a new place.</p>
+<p>On Vano it's a classic "<a href="/glossary/same-day-home-help">Anything else</a>" booking: describe the job (say, "assemble an IKEA wardrobe"), book the time, and a nearby student turns up with patience and an Allen key. Priced by time at <strong>€18/hr</strong> — short jobs can book 30 minutes from €12. It also pairs well with a hand carrying a few boxes when you're setting up a new place.</p>
 `,
     related: ["same-day-home-help", "vano-helper", "pay-after-accept"],
   },
@@ -284,7 +284,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Pets",
     bodyHtml: `
 <p><strong>On-lead dog walking</strong> means your dog stays on the lead for the entire walk, door to door. It's the standard for professional walks — and the only kind Vano helpers do — because it's the safe default when a dog is out with someone who isn't its owner: no recall gambles, no traffic risk, no run-ins with other dogs.</p>
-<p>A Vano walk is <strong>€15 for 30 minutes or €20 for a full hour</strong>, bookable <a href="/glossary/same-day-home-help">same-day</a>. You'll see who's coming (photo, name, rating) before they ring the bell — see <a href="/services/dog-walking-galway">dog walking in Galway</a> and our <a href="/blog/dog-walker-galway-cost">dog walker price guide</a>.</p>
+<p>A Vano walk is <strong>€15 for 30 minutes or €20 for a full hour</strong>, bookable <a href="/glossary/same-day-home-help">same-day</a>. You'll see who's coming (photo, name, rating) before they ring the bell — see <a href="/dog-walking-galway">dog walking in Galway</a> and our <a href="/blog/dog-walker-galway-cost">dog walker price guide</a>.</p>
 `,
     related: ["vano-helper", "id-verified-helper", "same-day-home-help"],
   },
@@ -320,7 +320,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "People",
     bodyHtml: `
 <p>A <strong>student cleaner</strong> is a local university student — in Galway, usually from <a href="/glossary/atu">ATU</a> or the University of Galway — earning around lectures by taking cleaning jobs. On Vano every one is <a href="/glossary/id-verified-helper">ID-verified</a> before their first job, rated after every job, and paid the full job price directly by the customer.</p>
-<p>Why book a student rather than an agency? Same-day availability, straightforward hourly pricing (<strong>€18/hr</strong>, no call-out fees or contracts), and your money goes to a local student rather than an agency margin. See <a href="/services/cleaning-galway">cleaning in Galway</a> or the full <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
+<p>Why book a student rather than an agency? Same-day availability, straightforward hourly pricing (<strong>€18/hr</strong>, no call-out fees or contracts), and your money goes to a local student rather than an agency margin. See <a href="/cleaning-galway">cleaning in Galway</a> or the full <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
 `,
     related: ["vano-helper", "id-verified-helper", "deep-clean"],
   },

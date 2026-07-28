@@ -8,9 +8,8 @@ export const ScrollProgress: React.FC = () => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) return;
-
+    // No reduced-motion bail-out: the bar is scroll-position INFORMATION, not
+    // decoration — reduced motion only drops the smoothing (see below).
     let raf: number;
     const onScroll = () => {
       cancelAnimationFrame(raf);
@@ -36,8 +35,8 @@ export const ScrollProgress: React.FC = () => {
   return (
     <div className="fixed top-0 left-0 right-0 h-[2px] z-[9999] pointer-events-none">
       <div
-        className="h-full bg-gold transition-[width] duration-100 ease-out"
-        style={{ width: `${progress}%` }}
+        className="h-full w-full origin-left bg-gold motion-safe:transition-transform motion-safe:duration-100 motion-safe:ease-out"
+        style={{ transform: `scaleX(${progress / 100})` }}
       />
     </div>
   );

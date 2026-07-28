@@ -33,6 +33,12 @@ import typography from "@tailwindcss/typography";
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  // Mobile Safari is the primary real-world device: without this, every
+  // `hover:` style fires as a STICKY hover on tap (lifted cards + shadows
+  // that stay stuck after the finger leaves). This compiles all hover:
+  // variants inside @media (hover:hover) — same pattern index.css already
+  // hand-writes for .tile-float.
+  future: { hoverOnlyWhenSupported: true },
   prefix: "",
   theme: {
     container: {
