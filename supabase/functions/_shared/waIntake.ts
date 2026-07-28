@@ -106,7 +106,7 @@ export interface WaQuote {
 /**
  * Quote a WhatsApp draft with the SAME numbers checkout charges: the shared
  * price table + the 7.5% service fee. Returns null when the combination isn't
- * priceable (the caller should re-ask the duration). Any loyalty/referral
+ * priceable (the caller should re-ask the duration). Any referral
  * discount is applied by checkout at booking time and can only make the real
  * charge LOWER than this quote — never higher.
  */

@@ -140,7 +140,7 @@ const Terms = () => (
               the job is done. Helpers keep 100% of it; VANO takes nothing from what you pay them.
             </li>
             <li>
-              From time to time we may offer discounts (for example loyalty or referral rewards).
+              From time to time we may offer discounts (for example referral rewards).
               Discounts reduce VANO&apos;s booking fee — never what your Helper receives — are
               optional, may change, and may be withdrawn at any time.
             </li>

@@ -184,7 +184,7 @@ serve(async (req) => {
     // Vano's card charge at accept is ONLY:
     //   vano_fee_cents  — 15% of the job price, min €4 (_shared/vanoFees.ts)
     //   cover_cents     — the optional €2 Vano Cover add-on
-    // All discounts (loyalty / referral) now apply to VANO'S FEE, never the
+    // The referral discount applies to VANO'S FEE, never the
     // student's money. The old book-ahead 10% price cut is gone for the same
     // reason — Vano can't discount money it doesn't collect.
     // (Airbnb monthly plans are parked with no UI door; they ride the same
@@ -193,20 +193,10 @@ serve(async (req) => {
     const coverCents = coverOpted ? VANO_COVER_CENTS : 0;
 
     const supabase = createClient(supabaseUrl, serviceKey);
-    let isLoyalty = false;
-    if (!isMonthlyPlan) {
-      // Every 3rd booking: the VANO FEE is on us (the student's money is
-      // untouched — it was never ours to discount). Only PAID bookings count,
-      // so spam bookings can't farm the freebie.
-      const { count: loyaltyCount } = await supabase
-        .from('household_bookings')
-        .select('id', { count: 'exact', head: true })
-        .eq('customer_phone', customer_phone.trim())
-        .not('paid_at', 'is', null)
-        .neq('status', 'cancelled');
-      const confirmedCount = loyaltyCount ?? 0;
-      isLoyalty = (confirmedCount + 1) % 3 === 0;
-    }
+    // Loyalty (every 3rd fee waived) RETIRED 2026-07-28 (owner call: it gave
+    // back a third of fee revenue before the habit was proven). In-flight
+    // loyalty bookings still complete fine — notify-household-accepted reads
+    // fee_waived_loyalty off the booking row, which new bookings never carry.
 
     // ── Referral programme (give €5, get €5) ──────────────────────────────
     // Two mutually exclusive discounts, at most one per booking:
@@ -216,8 +206,6 @@ serve(async (req) => {
     // free), never the student's money. Validated here, reserved on the
     // booking, applied by notify-household-accepted. Best-effort: any error
     // zeroes the discount and the booking proceeds at the normal fee.
-    // NOT stacked with the loyalty fee-waiver — on a loyalty booking the fee
-    // is already free, so the customer keeps their €5 credit for next time.
     const normalizedPhone = normalizeE164(customer_phone);
 
     // ── Unpaid-strike guard (two-way reviews) ─────────────────────────────
@@ -252,7 +240,7 @@ serve(async (req) => {
     let referralWelcome: { code: string; referrerPhone: string } | null = null;
     let redeemRow: { id: string; credit_cents: number } | null = null;
 
-    if (!isMonthlyPlan && !isLoyalty && normalizedPhone) {
+    if (!isMonthlyPlan && normalizedPhone) {
       try {
         const rawRef = typeof referral_code === 'string' ? referral_code.trim().toUpperCase() : '';
         if (rawRef && /^[A-Z0-9]{4,12}$/.test(rawRef)) {
@@ -297,19 +285,18 @@ serve(async (req) => {
     }
 
     // Referral credit comes off the FEE only (the cover €2 funds the damage
-    // pot — never discounted). Loyalty already waives the whole fee.
-    const feeAfterLoyalty = isLoyalty ? 0 : vanoFeeCents;
+    // pot — never discounted).
     let referralDiscountCents = referralWelcome ? 500 : redeemRow ? Math.min(redeemRow.credit_cents, 500) : 0;
-    referralDiscountCents = Math.min(referralDiscountCents, feeAfterLoyalty);
+    referralDiscountCents = Math.min(referralDiscountCents, vanoFeeCents);
     if (referralDiscountCents <= 0) {
       referralDiscountCents = 0;
       referralWelcome = null;
       redeemRow = null;
     }
     // What the customer's card is actually charged at accept. Can be €0
-    // (loyalty / referral covers the fee, no cover) — notify-household-
+    // (a referral credit covers the fee, no cover) — notify-household-
     // accepted then skips Stripe entirely and marks the booking confirmed.
-    const feeDueCents = Math.max(0, feeAfterLoyalty - referralDiscountCents) + coverCents;
+    const feeDueCents = Math.max(0, vanoFeeCents - referralDiscountCents) + coverCents;
 
     // ── AUTH-AT-BOOKING (behind VANO_AUTH_AT_BOOKING) ────────────────────
     // Fee-carrying, near-term bookings are born `awaiting_payment` behind a
@@ -336,7 +323,6 @@ serve(async (req) => {
       size_label:    sl || null,
       extra_label:   el || null,
       scheduled:     isScheduled,
-      loyalty:       isLoyalty,
       note:          typeof note === 'string' ? note.trim() : null,
       source:        'task_showcase',
       // ── Direct-pay money picture ──
@@ -346,7 +332,6 @@ serve(async (req) => {
       fee_due_cents:     feeDueCents,    // what the card is charged at accept
       cover_opted:       coverOpted,
       cover_cents:       coverCents,
-      ...(isLoyalty ? { fee_waived_loyalty: true } : {}),
       // Customer reputation snapshot for the helper's accept decision
       // ("pays promptly ✓ · 3 jobs" / "New customer") — no PII beyond what
       // the assigned helper sees anyway.
@@ -763,7 +748,7 @@ serve(async (req) => {
               `City: ${cityVal ?? '—'}`,
               `When: ${when_label || 'Flexible'}`,
               `Helper gets (paid directly): €${(priceCents / 100).toFixed(2)}`,
-              `Vano fee: €${(feeDueCents / 100).toFixed(2)}${coverOpted ? ' (incl. €2 Vano Cover)' : ''}${isLoyalty ? ' (loyalty: fee waived)' : ''}${authActive ? ' — RESERVED at booking (card hold), captured on accept' : ' — charged on accept'}`,
+              `Vano fee: €${(feeDueCents / 100).toFixed(2)}${coverOpted ? ' (incl. €2 Vano Cover)' : ''}${authActive ? ' — RESERVED at booking (card hold), captured on accept' : ' — charged on accept'}`,
               ...(unpaidStrikes > 0 ? [`⚠ Customer has ${unpaidStrikes} unpaid strike(s)`] : []),
               ...(referralDiscountCents > 0 ? [`Referral credit applied to fee: -€${(referralDiscountCents / 100).toFixed(2)}`] : []),
               `Ref: ${ref}`,
