@@ -120,7 +120,7 @@ serve(async (req) => {
         lines.map((l) => `<p style="margin:4px 0;font-size:14px;">${l}</p>`).join('') +
         `</div>` +
         `<p style="font-size:14px;margin:0 0 4px;">Total earned so far: <strong>${euros(total)}</strong></p>` +
-        `<p style="font-size:14px;margin:0 0 18px;">It landed automatically — your students keep working, you keep earning all through their first year.</p>` +
+        `<p style="font-size:14px;margin:0 0 18px;">Earnings add up automatically all through your students' first year — we settle your balance by Revolut or bank transfer.</p>` +
         `<a href="${siteUrl}/account" style="display:inline-block;background:#101828;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:999px;">See my live tracker</a>` +
         `<p style="font-size:12px;color:#98a2b3;margin-top:22px;">VANO · same-day student help in Galway · your partner code: ${codeRow?.code ?? ''}</p>` +
         `</div>`;
