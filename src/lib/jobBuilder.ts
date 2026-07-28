@@ -122,13 +122,18 @@ export const SIZING_QUESTIONS: Record<string, SizingQuestion> = {
       { key: 'large',   emoji: '🏡', label: '4+ bedrooms',  hint: 'More rooms, more ground to cover', factor: 1.35, carry: '4+ bed home' },
     ],
   },
+  // Square-metre bands (owner call 2026-07-28): m² is the metric people
+  // know from property listings, and the carry gives the helper a real
+  // number instead of one person's "average". The plain-words hints do the
+  // translating for anyone who doesn't know their m². Keys + factors are
+  // UNCHANGED — same calibration, same priceable half-hour labels.
   garden: {
     title: 'Roughly how big is the garden?',
     why: 'One tap — it sizes the job fairly for you and your helper',
     options: [
-      { key: 'small',   emoji: '🌱', label: 'Small',   hint: 'Patio or courtyard',        factor: 0.7, carry: 'Small garden' },
-      { key: 'typical', emoji: '🌿', label: 'Average', hint: 'A typical back garden',     factor: 1,   carry: 'Average garden' },
-      { key: 'large',   emoji: '🌳', label: 'Large',   hint: 'Big lawn, front and back',  factor: 1.5, carry: 'Large garden' },
+      { key: 'small',   emoji: '🌱', label: 'Under 50 m²', hint: 'Patio or courtyard',       factor: 0.7, carry: 'Garden under 50 m²' },
+      { key: 'typical', emoji: '🌿', label: '50–150 m²',   hint: 'A typical back garden',    factor: 1,   carry: '50–150 m² garden' },
+      { key: 'large',   emoji: '🌳', label: 'Over 150 m²', hint: 'Big lawn, front and back', factor: 1.5, carry: '150 m²+ garden' },
     ],
   },
   // Priced carries (owner call 2026-07-27): the answer rides extra_label and
