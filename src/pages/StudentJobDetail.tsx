@@ -13,6 +13,7 @@ import { extractFnError } from '@/lib/fnError';
 import { microCelebrate } from '@/lib/celebrate';
 import { isTimedCategory, formatCountdown, helperPlaybook } from '@/lib/householdJob';
 import { getCurrentPosition, watchPosition, clearWatch, isPermissionDenied, type WatchId } from '@/lib/native/geolocation';
+import { HelperSOS } from '@/components/household/HelperSOS';
 import logo from '@/assets/logo.png';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -815,7 +816,7 @@ const StudentJobDetail = () => {
     <div className="min-h-dvh bg-background">
       <SEOHead title="Active job — VANO" description="Manage your active VANO job." noindex />
 
-      <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
+      <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
         <button
           onClick={() => navigate('/student-dashboard')}
           className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full hover:bg-secondary transition-colors"
@@ -823,8 +824,21 @@ const StudentJobDetail = () => {
         >
           <ArrowLeft size={18} strokeWidth={2} />
         </button>
-        <img src={logo} alt="VANO" className="h-6 w-auto mx-auto" />
-        <div className="w-8" />
+        {/* Absolutely centered so the SOS pill on the right can't skew it */}
+        <img src={logo} alt="VANO" className="h-6 w-auto absolute left-1/2 -translate-x-1/2" />
+        {/* Safety: the SOS button rides the header for the whole life of the
+            job (incl. the post-finish get-paid moment) — one tap from
+            anywhere to 999 or a silent owner page. */}
+        {mine && !isCancelled ? (
+          <HelperSOS
+            bookingId={booking.id}
+            customerAddress={booking.customer_address}
+            getLastPos={() => lastPosRef.current}
+            onSosSent={() => { if (bookingId) void startLocationWatch(bookingId); }}
+          />
+        ) : (
+          <div className="w-8" />
+        )}
       </header>
 
       <main className="pt-14 pb-40 max-w-sm mx-auto px-4">
