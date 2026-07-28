@@ -57,13 +57,16 @@ const TRANSPORT_MODES = [
   { id: 'foot',   emoji: '🚶', label: 'On foot' },
 ];
 
+// Marketing grid only ("Jobs available right now") — list ONLY categories a
+// customer can actually book today. Moving + tutoring are parked; they remain
+// valid helper SKILLS (helperSkills.ts) but can't headline "available now".
 const JOBS = [
   { emoji: '🧺', label: 'Laundry' },
   { emoji: '🐕', label: 'Dog walks' },
   { emoji: '🌿', label: 'Garden work' },
-  { emoji: '📦', label: 'Moving help' },
+  { emoji: '🛒', label: 'Errands & odd jobs' },
   { emoji: '🧹', label: 'Cleaning' },
-  { emoji: '💻', label: 'Online tutoring' },
+  { emoji: '🐾', label: 'Pet care' },
 ];
 
 // Galway-first; ATU + University of Galway lead since dispatch is live there.
@@ -224,6 +227,9 @@ export const JoinAsHelper: React.FC = () => {
   // Wizard — resume at the saved step only when the photo survived too
   // (validateStep(0) needs it, and submit uploads it).
   const [step, setStep] = useState(() => (draft && draftPhoto ? draft.step : 0));
+  // +1 forward / -1 back — so tapping Back slides the previous step in from
+  // the LEFT (spatially correct) instead of replaying the forward animation.
+  const stepDir = useRef<1 | -1>(1);
 
   // Step 1 — you
   const [name, setName] = useState(draft?.name ?? '');
@@ -435,11 +441,13 @@ export const JoinAsHelper: React.FC = () => {
     if (msg) { setError(msg); return; }
     setError(null);
     haptic(8);
+    stepDir.current = 1;
     setStep(s => Math.min(s + 1, STEPS.length - 1));
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function goBack() {
     setError(null);
+    stepDir.current = -1;
     setStep(s => Math.max(s - 1, 0));
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -455,6 +463,7 @@ export const JoinAsHelper: React.FC = () => {
     // them back to re-pick.
     if (!(photo instanceof File)) {
       setError('Please add a clear photo of yourself — it looks like it didn\'t save.');
+      stepDir.current = -1;
       setStep(0);
       topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
@@ -554,7 +563,7 @@ export const JoinAsHelper: React.FC = () => {
     <>
       <SEOHead
         title="Earn money as a student helper in Ireland — VANO"
-        description="Pick up same-day home help jobs near you. Earn €15–€65 per job and keep 100% — laundry, dog walks, cleaning, gardening, tutoring & more. Flexible hours, paid directly after each job. Apply in minutes."
+        description="Pick up same-day home help jobs near you. Earn €15–€65 per job and keep 100% — laundry, dog walks, cleaning, gardening, odd jobs & more. Flexible hours, paid directly after each job. Apply in minutes."
         keywords="student jobs Ireland, earn money as a student Galway, part time student jobs Cork Dublin Limerick, flexible student work Ireland, student helper jobs, VANO helper, home help jobs Ireland"
         url="https://vanojobs.com/join"
       />
@@ -643,12 +652,18 @@ export const JoinAsHelper: React.FC = () => {
               )}
             </div>
 
-            <AnimatePresence mode="wait" initial={false}>
+            <AnimatePresence mode="wait" initial={false} custom={stepDir.current}>
               <motion.div
                 key={step}
-                initial={{ opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -24 }}
+                custom={stepDir.current}
+                variants={{
+                  enter: (dir: number) => ({ opacity: 0, x: 24 * dir }),
+                  center: { opacity: 1, x: 0 },
+                  exit: (dir: number) => ({ opacity: 0, x: -24 * dir }),
+                }}
+                initial="enter"
+                animate="center"
+                exit="exit"
                 transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] as const }}
                 className="space-y-5"
               >
@@ -662,7 +677,7 @@ export const JoinAsHelper: React.FC = () => {
                           type="button"
                           onClick={() => fileRef.current?.click()}
                           className={cn(
-                            'relative w-20 h-20 rounded-full border-2 border-dashed flex-shrink-0 flex items-center justify-center overflow-hidden transition-colors duration-150',
+                            'relative w-20 h-20 rounded-full border-2 border-dashed flex-shrink-0 flex items-center justify-center overflow-hidden transition-[border-color,transform] duration-150 active:scale-[0.97]',
                             preview ? 'border-transparent' : 'border-border hover:border-primary/50 bg-secondary/50',
                           )}
                           aria-label="Upload face photo"
@@ -900,7 +915,7 @@ export const JoinAsHelper: React.FC = () => {
 
                     <div>
                       <span className={labelClass}>How do you get around?</span>
-                      <p className="text-xs text-muted-foreground mb-3 -mt-1.5">A car means we can send you moving jobs and tip runs — pick all that apply.</p>
+                      <p className="text-xs text-muted-foreground mb-3 -mt-1.5">A car means we can send you tip runs and jobs a bit further out — pick all that apply.</p>
                       <div className="grid grid-cols-2 gap-2">
                         {TRANSPORT_MODES.map(({ id, emoji, label }) => {
                           const active = transport.includes(id);

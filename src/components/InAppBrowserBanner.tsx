@@ -27,19 +27,13 @@ import {
  */
 const DISMISS_KEY = 'vano_iab_dismissed';
 
-// Paths where the banner still matters. These are the surfaces that
-// depend on Google OAuth (directly or downstream) — signing in,
-// completing profile, publishing a listing, claiming a scouted profile.
-// Everything else (browsing the talent board, reading the landing
-// page, etc.) gets the banner suppressed so in-app viewers aren't
-// scared off.
+// Paths where the banner still matters — the surfaces that depend on
+// Google OAuth. Since the marketplace deletion that's just /auth (the
+// helper sign-in door); everything else gets the banner suppressed so
+// in-app viewers aren't scared off. If a legacy auth path is ever
+// remounted, re-add it here.
 const AUTH_CRITICAL_PREFIXES = [
   '/auth',
-  '/choose-account-type',
-  '/complete-profile',
-  '/list-on-community',
-  '/claim',
-  '/reset-password',
 ];
 
 function isAuthCriticalPath(pathname: string): boolean {

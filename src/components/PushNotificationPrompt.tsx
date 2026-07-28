@@ -59,7 +59,7 @@ export const PushNotificationPrompt: React.FC = () => {
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className="fixed top-20 sm:top-24 left-3 right-3 sm:left-auto sm:right-4 sm:w-80 z-[2500]"
         >
-          <div className="bg-card border border-border rounded-2xl p-4 shadow-xl shadow-black/10">
+          <div className="bg-card border border-border rounded-2xl p-4 shadow-tinted-xl">
             <button
               onClick={handleDismiss}
               aria-label="Dismiss push-notification prompt"
@@ -73,9 +73,9 @@ export const PushNotificationPrompt: React.FC = () => {
                 <Bell size={20} className="text-primary" />
               </div>
               <div className="flex-1 min-w-0 pr-4">
-                <p className="text-sm font-semibold text-foreground">Never miss a gig</p>
+                <p className="text-sm font-semibold text-foreground">Never miss a job</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Get notified instantly when new gigs matching your skills are posted.
+                  Get a ping the moment a job near you comes in — first to accept gets it.
                 </p>
               </div>
             </div>
@@ -83,16 +83,16 @@ export const PushNotificationPrompt: React.FC = () => {
             <div className="flex gap-2 mt-3">
               <button
                 onClick={handleDismiss}
-                className="flex-1 py-2 text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-xl transition-colors"
+                className="flex-1 py-2 text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-xl transition-[color,transform] duration-150 active:scale-[0.97]"
               >
                 Not now
               </button>
               <button
                 onClick={handleEnable}
                 disabled={loading}
-                className="flex-1 py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="flex-1 py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:opacity-50"
               >
-                {loading ? 'Enabling...' : 'Enable'}
+                {loading ? 'Enabling…' : 'Enable'}
               </button>
             </div>
           </div>

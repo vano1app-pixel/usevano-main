@@ -60,7 +60,7 @@ export default function GlossaryIndex() {
                   <Link
                     key={t.slug}
                     to={`/glossary/${t.slug}`}
-                    className="group flex flex-col rounded-2xl bg-white border border-navy/10 p-5 hover:shadow-lg hover:-translate-y-0.5 hover:border-sage/40 transition-all duration-300"
+                    className="group flex flex-col rounded-2xl bg-white border border-navy/10 p-5 hover:shadow-tinted-lg hover:-translate-y-0.5 hover:border-sage/40 transition-[box-shadow,transform,border-color] duration-300"
                   >
                     <h3 className="font-display text-lg font-bold leading-snug group-hover:text-sage-dark transition-colors">
                       {t.term}

@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { HouseholdFooter } from "@/components/household/HouseholdFooter";
 import logo from "@/assets/logo.png";
 
@@ -17,15 +17,30 @@ export const ContentLayout = ({ children }: { children: ReactNode }) => {
             <img src={logo} alt="VANO — same-day home help in Galway" className="h-7 w-auto" />
           </Link>
           <nav aria-label="Content navigation" className="flex items-center gap-5 text-sm font-medium">
-            <Link to="/blog" className="hidden sm:inline text-navy/70 hover:text-navy transition-colors">
+            {/* aria-current + weight marks the section you're in. */}
+            <NavLink
+              to="/blog"
+              className={({ isActive }) =>
+                isActive
+                  ? 'hidden sm:inline text-navy font-semibold'
+                  : 'hidden sm:inline text-navy/70 hover:text-navy transition-colors'
+              }
+            >
               Blog
-            </Link>
-            <Link to="/glossary" className="hidden sm:inline text-navy/70 hover:text-navy transition-colors">
+            </NavLink>
+            <NavLink
+              to="/glossary"
+              className={({ isActive }) =>
+                isActive
+                  ? 'hidden sm:inline text-navy font-semibold'
+                  : 'hidden sm:inline text-navy/70 hover:text-navy transition-colors'
+              }
+            >
               Glossary
-            </Link>
+            </NavLink>
             <Link
               to="/join"
-              className="inline-flex items-center rounded-full bg-sage px-4 py-2 text-white font-semibold hover:bg-sage-dark transition-colors"
+              className="inline-flex items-center rounded-full bg-sage px-4 py-2 text-white font-semibold hover:bg-sage-dark transition-[background-color,transform] duration-150 active:scale-[0.97]"
             >
               Join as helper
             </Link>

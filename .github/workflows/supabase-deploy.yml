@@ -106,6 +106,7 @@ jobs:
             create-signup-payment create-plan-checkout
             create-household-booking notify-household-arrived twilio-selftest
             admin-stripe-settings admin-cancel-helper-memberships update-stripe-webhook-events
+            check-loyalty
           "
           for slug in $RETIRED; do
             if [ -d "supabase/functions/$slug" ]; then

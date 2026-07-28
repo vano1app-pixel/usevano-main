@@ -12,7 +12,7 @@ function PostCard({ post }: { post: BlogPost }) {
   return (
     <Link
       to={`/blog/${post.slug}`}
-      className="group flex flex-col rounded-2xl bg-white border border-navy/10 overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
+      className="group flex flex-col rounded-2xl bg-white border border-navy/10 overflow-hidden hover:shadow-tinted-lg hover:-translate-y-0.5 transition-[box-shadow,transform,border-color] duration-300"
     >
       <div
         className={`relative aspect-[16/9] bg-gradient-to-br ${post.heroGradient}`}
@@ -95,7 +95,7 @@ export default function BlogIndex() {
         <div className="max-w-5xl mx-auto">
           <Link
             to={`/blog/${featured.slug}`}
-            className="group grid md:grid-cols-5 rounded-3xl bg-white border border-navy/10 overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+            className="group grid md:grid-cols-5 rounded-3xl bg-white border border-navy/10 overflow-hidden hover:shadow-tinted-xl hover:-translate-y-0.5 transition-[box-shadow,transform,border-color] duration-300"
           >
             <div
               className={`relative md:col-span-2 aspect-[16/10] md:aspect-auto md:min-h-[260px] bg-gradient-to-br ${featured.heroGradient}`}

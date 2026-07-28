@@ -1113,10 +1113,14 @@ const StudentAccount = () => {
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-foreground">Payouts active</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Earnings land in your account automatically after each job.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Earnings from older bookings land automatically. New jobs are paid to you directly by the customer.</p>
                 </div>
               </div>
-            ) : (
+            ) : helper.stripe_account_id ? (
+              /* Legacy escrow helper mid-Stripe-setup — let them finish so held
+                 earnings from OLD bookings can be released. Direct-pay helpers
+                 (no stripe_account_id) never see this: customers pay them at
+                 the door and VANO holds nothing. */
               <button
                 type="button"
                 onClick={() => void handleSetupPayouts()}
@@ -1127,15 +1131,23 @@ const StudentAccount = () => {
                   {payoutStarting ? <Loader2 size={18} className="animate-spin" /> : <span className="text-base leading-none" aria-hidden="true">💶</span>}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-foreground">
-                    {helper.stripe_account_id ? 'Finish payout setup' : 'Set up payouts'}
-                  </span>
+                  <span className="block text-sm font-semibold text-foreground">Finish payout setup</span>
                   <span className="block text-xs text-muted-foreground mt-0.5">
-                    Link your bank or Revolut (any IBAN) with Stripe — 2 minutes. Until then your earnings are held safely.
+                    Finish linking your bank so earnings from older bookings can be released.
                   </span>
                 </span>
                 <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
               </button>
+            ) : (
+              <div className="rounded-2xl border border-sage/30 bg-sage-light px-4 py-3.5 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-sage text-white">
+                  <span className="text-base leading-none" aria-hidden="true">💶</span>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Customers pay you directly</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Revolut or cash when the job's done — you keep 100%. No bank setup needed.</p>
+                </div>
+              </div>
             )}
             {helper.stripe_account_id && (
               <div className="mt-3 rounded-2xl border border-border/60 px-4 py-3.5">
@@ -1362,7 +1374,7 @@ const StudentAccount = () => {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/40"
+              className="fixed inset-0 z-50 bg-navy/45"
               onClick={() => setShowPhotoSheet(false)}
             />
             <motion.div
@@ -1404,7 +1416,7 @@ const StudentAccount = () => {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/40"
+              className="fixed inset-0 z-50 bg-navy/45"
               onClick={() => { if (!cancelling) setShowConfirm(false); }}
             />
             <motion.div
@@ -1454,7 +1466,7 @@ const StudentAccount = () => {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/40"
+              className="fixed inset-0 z-50 bg-navy/45"
               onClick={() => { if (!deleting) setShowDelete(false); }}
             />
             <motion.div

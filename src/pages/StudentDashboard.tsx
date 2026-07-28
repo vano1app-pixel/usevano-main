@@ -12,6 +12,7 @@ import { useCountUp } from '@/hooks/useCountUp';
 import { haptic } from '@/lib/haptics';
 import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
 import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { prepareJoinPhoto } from '@/lib/safeImage';
 import logo from '@/assets/logo.png';
 
 // ── Profile sheet data ─────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   moving: 'Moving help',
   cleaning: 'Cleaning',
   tutoring: 'Tutoring',
+  custom: 'Custom job',
 };
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -423,12 +425,17 @@ const StudentDashboard = () => {
     };
   }, []);
 
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    setCropSrc(URL.createObjectURL(file));
     setShowPhotoSheet(false);
+    // Shrink huge shots OFF-DOM first, fail-soft (same rule as /join and
+    // /student-account): iPhones shoot 48MP, and an unbounded original inside
+    // this transformed crop layer is the exact pattern that black-screens
+    // iOS Safari. null ⇒ couldn't decode ⇒ original goes through unchanged.
+    const prepared = await prepareJoinPhoto(file).catch(() => null);
+    setCropSrc(prepared?.previewUrl ?? URL.createObjectURL(file));
   };
 
   const onCropImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -808,8 +815,23 @@ const StudentDashboard = () => {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+          // Structural skeleton in the shape of the incoming job list — the
+          // layout holds steady instead of a lone spinner popping into cards.
+          // One .shimmer sweep on the container, grey blocks stay static.
+          <div className="shimmer space-y-3 py-2" aria-busy="true" aria-label="Loading your jobs">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="rounded-2xl border border-border/60 bg-white p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 w-28 rounded bg-secondary" />
+                  <div className="h-5 w-16 rounded-full bg-secondary" />
+                </div>
+                <div className="h-4 w-3/4 rounded bg-secondary" />
+                <div className="flex items-center gap-2">
+                  <div className="h-3.5 w-24 rounded bg-secondary" />
+                  <div className="h-3.5 w-16 rounded bg-secondary" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <AnimatePresence mode="wait">
@@ -836,7 +858,7 @@ const StudentDashboard = () => {
                         key={job.id}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ delay: Math.min(i, 8) * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="flex flex-col h-full rounded-2xl border border-border/60 bg-background p-4"
                       >
                         <div className="flex items-start justify-between gap-3 mb-3">
@@ -909,7 +931,7 @@ const StudentDashboard = () => {
                         key={job.id}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ delay: Math.min(i, 8) * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                       >
                         <button
                           onClick={() => navigate(`/student-job/${job.id}`)}
@@ -955,8 +977,8 @@ const StudentDashboard = () => {
                 {payouts.length === 0 ? (
                   <EmptyState
                     icon={<Wallet size={24} strokeWidth={1.5} />}
-                    title="No earnings yet"
-                    message="Finish your first job and your payouts will appear here."
+                    title="Paid directly by customers"
+                    message="Customers pay you at the door — Revolut or cash, you keep 100%. Each job's amount is on its job screen. Older Stripe payouts would appear here."
                   />
                 ) : (
                   <div className="rounded-2xl border border-border/60 overflow-hidden">
@@ -999,7 +1021,7 @@ const StudentDashboard = () => {
                         size={16}
                         className={cn(
                           helperAvgRating !== null && n <= Math.round(helperAvgRating)
-                            ? 'fill-amber-400 text-amber-400'
+                            ? 'fill-gold text-gold'
                             : 'text-muted-foreground/25',
                         )}
                       />
@@ -1037,7 +1059,7 @@ const StudentDashboard = () => {
             <a
               href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi VANO, I'm a helper${helperName ? ` (${helperName})` : ''} and need a hand.`)}`}
               target="_blank" rel="noopener noreferrer"
-              className="flex-1 h-10 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#25D366]/8 transition-colors"
+              className="flex-1 h-10 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#25D366]/[0.08] transition-colors"
             >
               <MessageCircle className="w-4 h-4" /> WhatsApp us
             </a>
@@ -1053,7 +1075,8 @@ const StudentDashboard = () => {
 
       {/* Hidden file inputs for photo selection */}
       <input ref={fileRef}   type="file" accept="image/*"                     className="sr-only" onChange={handleFileSelected} />
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={handleFileSelected} />
+      {/* capture="user" = FRONT camera — this is their own face photo. */}
+      <input ref={cameraRef} type="file" accept="image/*" capture="user" className="sr-only" onChange={handleFileSelected} />
 
       {/* ── Profile sheet ──────────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -1061,7 +1084,7 @@ const StudentDashboard = () => {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/40"
+              className="fixed inset-0 z-50 bg-navy/45"
               onClick={() => setShowProfile(false)}
             />
             <motion.div
@@ -1291,7 +1314,7 @@ const StudentDashboard = () => {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] bg-black/40"
+              className="fixed inset-0 z-[60] bg-navy/45"
               onClick={() => setShowPhotoSheet(false)}
             />
             <motion.div
@@ -1372,7 +1395,7 @@ const StudentDashboard = () => {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] bg-black/40"
+              className="fixed inset-0 z-[60] bg-navy/45"
               onClick={() => { if (!leaving) setShowLeave(false); }}
             />
             <motion.div

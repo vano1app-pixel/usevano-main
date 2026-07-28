@@ -14,7 +14,7 @@ import {
 const LAST_UPDATED = '14 July 2026';
 
 const Terms = () => (
-  <div className="min-h-screen bg-background pb-16 md:pb-0">
+  <div className="min-h-screen bg-cream pb-16 md:pb-0">
     <SEOHead
       title="Terms of Service"
       description="VANO's terms of service for booking same-day home help and working as a student helper in Galway, Ireland — bookings, payments, helper membership, cancellations and our satisfaction guarantee."
@@ -30,7 +30,7 @@ const Terms = () => (
         Back to home
       </Link>
 
-      <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-2">
+      <h1 className="display-lg text-foreground mb-2">
         Terms of Service
       </h1>
       <p className="text-sm text-muted-foreground mb-10">Last updated: {LAST_UPDATED}</p>
@@ -140,7 +140,7 @@ const Terms = () => (
               the job is done. Helpers keep 100% of it; VANO takes nothing from what you pay them.
             </li>
             <li>
-              From time to time we may offer discounts (for example loyalty or referral rewards).
+              From time to time we may offer discounts (for example referral rewards).
               Discounts reduce VANO&apos;s booking fee — never what your Helper receives — are
               optional, may change, and may be withdrawn at any time.
             </li>

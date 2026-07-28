@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
 import { signOutCleanly } from '@/lib/signOut';
 import logo from '@/assets/logo.png';
-import { Briefcase, GraduationCap, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { isEmailVerified, resolvePostAuthDestination } from '@/lib/authSession';
 import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { cn } from '@/lib/utils';
@@ -22,12 +22,11 @@ import { Mail, Loader2, Check as CheckIcon } from 'lucide-react';
 const Auth = () => {
   const queryClient = useQueryClient();
   const [isLogin, setIsLogin] = useState(true);
-  // Default to business because the site's primary growth lever is
-  // hirer signups: most cold visitors land here from hirer-facing
-  // campaigns, and every hire funds the Vano Match + Vano Pay revenue
-  // paths. Freelancers can still tap the toggle — one extra click for
-  // the minority audience, heading matches the majority on first paint.
-  const [userType, setUserType] = useState<'student' | 'business'>('business');
+  // Helpers are the ONLY audience with accounts (customers stay anonymous by
+  // design), so signups always carry the student intent. The old freelancer/
+  // business marketplace this page once sold is deleted — its business branch
+  // routed to 404s.
+  const [userType] = useState<'student' | 'business'>('student');
   const [loading, setLoading] = useState(false);
   const [existingEmail, setExistingEmail] = useState<string | null>(null);
   const [existingUserId, setExistingUserId] = useState<string | null>(null);
@@ -195,7 +194,7 @@ const Auth = () => {
     <div className="relative min-h-[100dvh] overflow-hidden bg-background flex items-center justify-center px-4 py-12">
       <SEOHead
         title={`${isLogin ? 'Log in' : 'Create account'} – VANO`}
-        description="Log in or sign up for VANO — gigs and trusted freelancers."
+        description="Log in to your VANO helper account — magic link or Google, no password."
         noindex
       />
       {/* Ambient primary-tinted blob — matches the premium gradient
@@ -215,18 +214,12 @@ const Auth = () => {
               `userType` that drives the Google/magic-link intent. Login
               mode is role-agnostic. */}
           <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight text-foreground text-balance sm:text-[32px]">
-            {isLogin
-              ? 'Welcome back'
-              : userType === 'business'
-              ? 'A perfect freelancer for €1'
-              : 'Get hired by local businesses'}
+            {isLogin ? 'Welcome back' : 'Your helper account'}
           </h1>
           <p className="mx-auto mt-2 max-w-[34ch] text-[14px] leading-relaxed text-muted-foreground">
             {isLogin
               ? 'Sign in to pick up where you left off.'
-              : userType === 'business'
-              ? 'AI match in 20 seconds, or free hand-picked in 24h. Chat, agree a rate, pay them directly.'
-              : "30 seconds to get in front of businesses hiring right now."}
+              : 'One link to your email signs you in — jobs, earnings and profile in one place.'}
           </p>
           {/* Social-proof chip — auto-hides when the public match count is
               too small to be reassuring (< 3). Signup-only; login-return
@@ -241,7 +234,7 @@ const Auth = () => {
               setIsLogin(true);
               navigate('/auth?mode=login', { replace: true });
             }}
-            className={`flex-1 rounded-full py-2 text-[13px] font-semibold transition-all duration-200 disabled:opacity-50 ${
+            className={`flex-1 rounded-full py-2 text-[13px] font-semibold transition-[background-color,color,box-shadow] duration-200 disabled:opacity-50 ${
               isLogin ? 'bg-card text-foreground shadow-tinted-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -254,7 +247,7 @@ const Auth = () => {
               setIsLogin(false);
               navigate('/auth?mode=signup', { replace: true });
             }}
-            className={`flex-1 rounded-full py-2 text-[13px] font-semibold transition-all duration-200 disabled:opacity-50 ${
+            className={`flex-1 rounded-full py-2 text-[13px] font-semibold transition-[background-color,color,box-shadow] duration-200 disabled:opacity-50 ${
               !isLogin ? 'bg-card text-foreground shadow-tinted-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -263,7 +256,7 @@ const Auth = () => {
         </div>
 
         {existingEmail && (
-          <div className="mb-4 rounded-[20px] border border-border/70 bg-card/80 p-5 backdrop-blur-sm shadow-[0_18px_44px_-24px_rgba(0,0,0,0.18)] space-y-3">
+          <div className="mb-4 rounded-[20px] border border-border/70 bg-card/80 p-5 backdrop-blur-sm shadow-tinted-xl space-y-3">
             <p className="text-sm text-foreground">
               You're signed in as <span className="font-semibold">{existingEmail}</span>
             </p>
@@ -273,7 +266,7 @@ const Auth = () => {
                 onClick={() => {
                   void resolvePostAuthDestination(existingUserId!).then((path) => navigate(path, { replace: true }));
                 }}
-                className="flex-1 rounded-2xl bg-primary px-4 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+                className="flex-1 rounded-2xl bg-primary px-4 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.5)] transition-[transform,box-shadow,filter] duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
               >
                 Continue as {existingEmail?.split('@')?.[0] ?? 'user'}
               </button>
@@ -284,7 +277,7 @@ const Auth = () => {
                   setExistingEmail(null);
                   setExistingUserId(null);
                 }}
-                className="flex items-center justify-center gap-1.5 rounded-2xl border border-border/70 px-4 py-3 text-[13px] font-medium text-muted-foreground transition-all duration-150 hover:text-foreground hover:border-foreground/25"
+                className="flex items-center justify-center gap-1.5 rounded-2xl border border-border/70 px-4 py-3 text-[13px] font-medium text-muted-foreground transition-[color,border-color] duration-150 hover:text-foreground hover:border-foreground/25"
               >
                 <LogOut size={14} />
                 Use a different account
@@ -293,69 +286,9 @@ const Auth = () => {
           </div>
         )}
 
-        <div className="rounded-[20px] border border-border/70 bg-card/80 p-6 backdrop-blur-sm shadow-[0_18px_44px_-24px_rgba(0,0,0,0.2)] space-y-5 md:p-7">
-          {!isLogin && (
-            <div>
-              <p id="role-toggle-label" className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">I am a</p>
-              <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-labelledby="role-toggle-label">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={userType === 'student'}
-                  aria-label="Sign up as a freelancer"
-                  disabled={loading}
-                  onClick={() => setUserType('student')}
-                  className={cn(
-                    'group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 active:scale-[0.98]',
-                    userType === 'student'
-                      ? 'border-emerald-500/55 bg-emerald-500/[0.08] shadow-[inset_0_0_0_1px_rgba(16,185,129,0.15)]'
-                      : 'border-border/60 hover:border-emerald-500/35 hover:bg-emerald-500/[0.03]',
-                  )}
-                >
-                  <span className={cn(
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-200',
-                    userType === 'student' ? 'bg-emerald-500/15' : 'bg-muted/70',
-                  )}>
-                    <GraduationCap className="text-emerald-600 dark:text-emerald-400" size={18} strokeWidth={1.8} />
-                  </span>
-                  <div className="min-w-0">
-                    <span className="block text-[13.5px] font-semibold text-foreground">Freelancer</span>
-                    <span className="mt-0.5 block truncate text-[11.5px] leading-snug text-muted-foreground">
-                      Get hired
-                    </span>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={userType === 'business'}
-                  aria-label="Sign up as a business"
-                  disabled={loading}
-                  onClick={() => setUserType('business')}
-                  className={cn(
-                    'group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 active:scale-[0.98]',
-                    userType === 'business'
-                      ? 'border-primary/55 bg-primary/[0.07] shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15)]'
-                      : 'border-border/60 hover:border-primary/35 hover:bg-primary/[0.03]',
-                  )}
-                >
-                  <span className={cn(
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-200',
-                    userType === 'business' ? 'bg-primary/15' : 'bg-muted/70',
-                  )}>
-                    <Briefcase className="text-primary" size={18} strokeWidth={1.8} />
-                  </span>
-                  <div className="min-w-0">
-                    <span className="block text-[13.5px] font-semibold text-foreground">Business</span>
-                    <span className="mt-0.5 block truncate text-[11.5px] leading-snug text-muted-foreground">
-                      Hire talent
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </div>
-          )}
-
+        <div className="rounded-[20px] border border-border/70 bg-card/80 p-6 backdrop-blur-sm shadow-tinted-xl space-y-5 md:p-7">
+          {/* The freelancer/business role toggle is GONE — the marketplace it
+              signed people up for was deleted; helpers are the one audience. */}
           {/* Sign in with Apple (App Store Guideline 4.8): instead of adding a
               second social provider, the iOS app hides Google and offers only
               first-party email magic-link — so no third-party login service is
@@ -408,13 +341,15 @@ const Auth = () => {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  or with email
-                </span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
+              {getPlatform() !== 'ios' && (
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    or with email
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              )}
               <form onSubmit={handleMagicLink} className="space-y-2.5">
                 <div className="flex items-center gap-2.5 rounded-2xl border border-input bg-background px-3.5 py-3 transition-colors focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10">
                   <Mail size={16} className="shrink-0 text-muted-foreground" />
@@ -434,7 +369,7 @@ const Auth = () => {
                 <button
                   type="submit"
                   disabled={magicLinkSending || !emailLooksValid}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border/70 bg-background py-3 text-[14px] font-semibold text-foreground transition-all duration-150 hover:bg-muted/50 hover:border-border active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border/70 bg-background py-3 text-[14px] font-semibold text-foreground transition-[background-color,border-color,transform] duration-150 hover:bg-muted/50 hover:border-border active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {magicLinkSending ? (
                     <><Loader2 size={14} className="animate-spin" /> Sending link…</>

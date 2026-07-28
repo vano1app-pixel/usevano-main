@@ -61,7 +61,7 @@ const NotFound = () => {
             href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi VANO! I hit a 404 — can you help me find what I'm after?")}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-[#25D366]/40 px-6 py-3 text-sm font-medium text-[#25D366] transition-[background-color,transform] duration-150 hover:bg-[#25D366]/8 active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-[#25D366]/40 px-6 py-3 text-sm font-medium text-[#128a45] transition-[background-color,transform] duration-150 hover:bg-[#25D366]/[0.08] active:scale-[0.98]"
           >
             <MessageCircle size={16} />
             Message us on WhatsApp

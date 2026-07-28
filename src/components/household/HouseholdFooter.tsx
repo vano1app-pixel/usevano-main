@@ -11,7 +11,9 @@ const SERVICE_LINKS = [
   { label: 'Dog walking',       href: '/dog-walking-galway' },
   { label: 'Garden help',       href: '/garden-help-galway' },
   { label: 'Laundry',           href: '/laundry-service-galway' },
-  { label: 'Moving help',       href: '/moving-help-galway' },
+  // Moving help was PARKED 2026-07-24 (its landing redirects home) — the slug
+  // stays in serviceSlugs.ts so old inbound links keep redirecting, but the
+  // footer must not advertise a service that can't be booked.
 ];
 
 const NAV_LINKS = [

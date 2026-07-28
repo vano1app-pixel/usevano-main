@@ -103,6 +103,10 @@ const VerifyHelper: React.FC = () => {
     cachedProgress.email ? 'verified' : restoredOtp ? 'sent' : 'idle',
   );
   const [emailError, setEmailError] = useState<string | null>(null);
+  // UI-only: keeps the code-entry layout up while a Resend is in flight —
+  // without it, resending flipped the card back to the "Send me a code"
+  // layout and threw away the visible code box mid-flow.
+  const [resending, setResending] = useState(false);
   // Which channel the live code was sent by, so Resend re-uses it and the
   // helper text matches ('sms' also covers WhatsApp).
   const [otpChannel, setOtpChannel] = useState<'email' | 'sms'>(restoredOtp?.channel ?? 'email');
@@ -331,8 +335,10 @@ const VerifyHelper: React.FC = () => {
               <Lock className="w-4 h-4" />
               <span className="text-xs font-semibold uppercase tracking-widest">Secure verification</span>
             </div>
+            {/* "You're in" is only true when we actually found their account —
+                the no-account state pairs with the "Join first" card below. */}
             <h1 className="display-lg text-foreground mb-2">
-              {name ? `You're in, ${name.split(' ')[0]} 🎉` : "You're in 🎉"}
+              {!helperId ? 'Get verified' : name ? `You're in, ${name.split(' ')[0]} 🎉` : "You're in 🎉"}
             </h1>
             <p className="text-muted-foreground leading-relaxed mb-8">
               {idState === 'verified' ? (
@@ -360,7 +366,7 @@ const VerifyHelper: React.FC = () => {
             <div className="rounded-2xl border border-border/60 bg-secondary/30 p-6 text-center">
               <p className="text-sm text-foreground font-semibold mb-1">We couldn't find your account</p>
               <p className="text-sm text-muted-foreground mb-4">Join first, then come back to get verified.</p>
-              <a href="/join" className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold">Join as a helper <ArrowRight className="w-4 h-4" /></a>
+              <a href="/join" className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold transition-[background-color,transform] duration-150 hover:bg-sage-dark active:scale-[0.98]">Join as a helper <ArrowRight className="w-4 h-4" /></a>
             </div>
           ) : (
             <div className="space-y-4">
@@ -390,7 +396,7 @@ const VerifyHelper: React.FC = () => {
                           : 'Confirm your email below (step 1) to switch your account live, then the free 2-minute ID check starts the job offers.'}
                   </p>
                   {(hasTick || idState === 'verified') && (
-                    <a href={homeHref} className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">{homeLabel} <ArrowRight className="w-4 h-4" /></a>
+                    <a href={homeHref} className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold transition-[background-color,transform] duration-150 hover:bg-sage-dark active:scale-[0.98]">{homeLabel} <ArrowRight className="w-4 h-4" /></a>
                   )}
                 </motion.div>
               )}
@@ -439,7 +445,7 @@ const VerifyHelper: React.FC = () => {
                       </p>
                     )}
                     {emailError && <p className="text-xs text-destructive">{emailError}</p>}
-                    {emailState === 'idle' || emailState === 'sending' ? (
+                    {(emailState === 'idle' || emailState === 'sending') && !resending ? (
                       <div className="space-y-2">
                         <Button onClick={() => void sendCode()} disabled={emailState === 'sending'} className="w-full rounded-full font-semibold gap-2">
                           {emailState === 'sending' && otpChannel === 'email' ? <><Loader2 className="w-4 h-4 animate-spin" />Sending…</> : 'Send me a code'}
@@ -460,7 +466,16 @@ const VerifyHelper: React.FC = () => {
                         <Button onClick={() => void verifyCode()} disabled={emailState === 'verifying' || code.length !== 6} className="flex-1 rounded-full font-semibold gap-2">
                           {emailState === 'verifying' ? <><Loader2 className="w-4 h-4 animate-spin" />Checking…</> : 'Verify'}
                         </Button>
-                        <button onClick={() => void (otpChannel === 'sms' ? sendSmsCode() : sendCode())} className="text-xs text-muted-foreground underline underline-offset-2 px-2">Resend</button>
+                        <button
+                          onClick={() => {
+                            setResending(true);
+                            void (otpChannel === 'sms' ? sendSmsCode() : sendCode()).finally(() => setResending(false));
+                          }}
+                          disabled={resending}
+                          className="text-xs text-muted-foreground underline underline-offset-2 px-2 disabled:opacity-60"
+                        >
+                          {resending ? 'Sending…' : 'Resend'}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -548,13 +563,13 @@ const VerifyHelper: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setSkipWarn(false)}
-                          className="flex-1 h-10 rounded-full bg-sage text-white text-sm font-semibold"
+                          className="flex-1 h-10 rounded-full bg-sage text-white text-sm font-semibold transition-[background-color,transform] duration-150 hover:bg-sage-dark active:scale-[0.98]"
                         >
                           Verify now
                         </button>
                         <a
                           href={homeHref}
-                          className="flex-1 h-10 rounded-full border border-border text-foreground/70 text-sm font-semibold flex items-center justify-center"
+                          className="flex-1 h-10 rounded-full border border-border text-foreground/70 text-sm font-semibold flex items-center justify-center transition-[background-color,transform] duration-150 hover:bg-secondary active:scale-[0.98]"
                         >
                           Skip anyway
                         </a>
@@ -581,7 +596,7 @@ const VerifyHelper: React.FC = () => {
                   <p className="text-xs text-muted-foreground leading-relaxed mb-3">
                     Customers pay you directly when the job's done — you keep 100%. Add your Revolut tag so they can send it in one tap (cash works too).
                   </p>
-                  <a href="/student-account" className="inline-flex h-10 items-center justify-center rounded-full bg-sage text-white text-xs font-semibold px-5">Add my Revolut tag</a>
+                  <a href="/student-account" className="inline-flex h-10 items-center justify-center rounded-full bg-sage text-white text-xs font-semibold px-5 transition-[background-color,transform] duration-150 hover:bg-sage-dark active:scale-[0.98]">Add my Revolut tag</a>
                 </div>
               )}
 
@@ -593,7 +608,7 @@ const VerifyHelper: React.FC = () => {
                   <a
                     href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi VANO, I'm a helper${name ? ` (${name})` : ''} and need a hand with verification.`)}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="flex-1 h-10 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#25D366]/8 transition-colors"
+                    className="flex-1 h-10 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#25D366]/[0.08] transition-colors"
                   >
                     <MessageCircle className="w-4 h-4" /> WhatsApp us
                   </a>
@@ -616,7 +631,7 @@ const VerifyHelper: React.FC = () => {
 const VerifyCard: React.FC<{ icon: React.ReactNode; step: string; title: string; done: boolean; children: React.ReactNode }> = ({ icon, step, title, done, children }) => (
   <div className={cn('rounded-2xl border p-5 transition-colors duration-200', done ? 'border-sage/40 bg-sage-light' : 'border-border/60 bg-background')}>
     <div className="flex items-center gap-3 mb-3">
-      <span className={cn('flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0', done ? 'bg-sage text-white' : 'bg-sage/12 text-sage')}>
+      <span className={cn('flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0', done ? 'bg-sage text-white' : 'bg-sage/[0.12] text-sage')}>
         {done ? <CheckCircle2 className="w-5 h-5" /> : icon}
       </span>
       <div className="min-w-0">

@@ -64,7 +64,7 @@ export const IosInstallTip = () => {
           <button
             onClick={dismiss}
             aria-label="Dismiss"
-            className="flex-shrink-0 text-muted-foreground -mr-1"
+            className="flex-shrink-0 p-2 -m-1.5 rounded-lg text-muted-foreground transition-colors hover:text-foreground active:scale-95"
           >
             <X size={15} />
           </button>

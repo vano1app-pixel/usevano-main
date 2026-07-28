@@ -20,7 +20,7 @@ const LAST_UPDATED = '14 July 2026';
 // helpers can read).
 
 const HelperTerms = () => (
-  <div className="min-h-screen bg-background pb-16 md:pb-0">
+  <div className="min-h-screen bg-cream pb-16 md:pb-0">
     <SEOHead
       title="Helper Agreement & Code of Conduct"
       description="The agreement for VANO helpers: independent-contractor status, how you're paid, tax and Revenue reporting, how job offers are ranked, and the code of conduct on every job."
@@ -36,7 +36,7 @@ const HelperTerms = () => (
         Back to home
       </Link>
 
-      <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-2">
+      <h1 className="display-lg text-foreground mb-2">
         Helper Agreement &amp; Code of Conduct
       </h1>
       <p className="text-sm text-muted-foreground mb-10">Last updated: {LAST_UPDATED}</p>

@@ -1115,7 +1115,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.22 }}
-        className="fixed inset-0 z-[69] bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-[69] bg-navy/50 backdrop-blur-sm"
         onClick={() => { if (backdropArmed.current) onClose(); }}
         aria-hidden="true"
       />
@@ -1190,7 +1190,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     exit={{ width: 0, marginLeft: 0, opacity: 0, scale: 0.6 }}
                     transition={{ duration: 0.28, ease: SHEET_EASE }}
                     whileTap={{ scale: 0.85 }}
-                    className="h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden hover:bg-foreground/8 transition-[background-color] duration-150"
+                    className="h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden hover:bg-foreground/[0.08] transition-[background-color] duration-150"
                   >
                     <ArrowLeft className="w-5 h-5 text-foreground/60 flex-shrink-0" />
                   </motion.button>
@@ -1248,7 +1248,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               className="w-11 h-11 -mt-1.5 -mr-1.5 rounded-full flex items-center justify-center flex-shrink-0 group/close active:scale-90 transition-transform duration-150"
               aria-label="Close"
             >
-              <span className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center group-hover/close:bg-foreground/12 transition-colors">
+              <span className="w-8 h-8 rounded-full bg-foreground/[0.08] flex items-center justify-center group-hover/close:bg-foreground/[0.12] transition-colors">
                 <X className="w-4 h-4 text-foreground/60" />
               </span>
             </button>
@@ -1324,7 +1324,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   autoComplete="off"
                   enterKeyHint="go"
                   aria-label="Describe what you need done"
-                  className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-base sm:text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               )}
               {question && pickPhase === 'ask' && !isDescribe ? (
@@ -1332,7 +1332,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     the same grammar as the sub-picker: emoji + label + honest
                     hint, price only where the answer IS a price (laundry
                     bags). One tap → applySizing moves the wizard on. */
-                <div className="space-y-2" role="list" aria-label={question.title}>
+                <div className="space-y-2" role="group" aria-label={question.title}>
                   {question.options.map((opt, i) =>
                     renderSubRow(
                       opt.key,
@@ -1449,7 +1449,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 </>
               ) : (
               <>
-              <div className="space-y-2" role="list" aria-label={pickTitle}>
+              <div className="space-y-2" role="group" aria-label={pickTitle}>
                 {isDescribe
                   ? describeRows.map((row, i) =>
                       renderSubRow(
@@ -1500,6 +1500,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             key="form-page"
             custom={navDir.current}
             id="quick-book-form"
+            // noValidate: handleBook owns validation (scroll-to-field, red
+            // border, friendly message). The browser's native `required`
+            // bubble blocked submit BEFORE that path could run — an easy-to-
+            // miss tooltip instead of the designed recovery.
+            noValidate
             onSubmit={handleBook}
             className="space-y-5"
             variants={formPage}
@@ -1525,7 +1530,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   exit={{ height: 0, opacity: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
                   className="rounded-xl border border-sage/25 bg-white overflow-hidden"
                 >
-                  <div className="flex items-center justify-between gap-3 bg-sage/8 border-b border-sage/15 px-4 py-2">
+                  <div className="flex items-center justify-between gap-3 bg-sage/[0.08] border-b border-sage/15 px-4 py-2">
                     <p className="text-[13px] text-foreground/70 truncate">
                       <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
                     </p>
@@ -1746,7 +1751,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     autoFocus
                     placeholder="e.g. Gate code 1234 · park on the street · Luna is friendly"
                     aria-label="Anything your helper should know?"
-                    className="w-full resize-none rounded-lg border border-border bg-white px-3 py-2 text-[15px] placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                    className="w-full resize-none rounded-lg border border-border bg-white px-3 py-2 text-base sm:text-[15px] placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20"
                   />
                 </div>
               )}
@@ -1882,7 +1887,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     type="button"
                     variant="outline"
                     onClick={sendWhatsApp}
-                    className="w-full rounded-full gap-2 h-10 font-medium text-sm border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                    className="w-full rounded-full gap-2 h-10 font-medium text-sm border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/[0.06]"
                   >
                     <MessageCircle className="w-4 h-4" />
                     Or book via WhatsApp
@@ -1928,7 +1933,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           initial={{ y: 18, opacity: 0 }}
           animate={{ y: 0, opacity: 1, transition: { duration: 0.32, ease: SHEET_EASE, delay: 0.12 } }}
           exit={{ y: 14, opacity: 0, transition: { duration: 0.15, ease: 'easeOut' } }}
-          className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
+          className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_hsl(var(--shadow-color)/0.28)]">
           {/* Risk-reversal at the decision point — the single most reassuring
               fact (you don't pay until a helper accepts) rides with the CTA.
               Swaps to the success line during the booked beat. */}
@@ -1971,7 +1976,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             <Button
               type="submit"
               form="quick-book-form"
-              disabled={loading || bookedOk || securing || !phone.trim()}
+              // No `!phone.trim()` here: a disabled-but-fully-lit button
+              // silently swallowed the tap. Enabled, the tap runs handleBook's
+              // validation, which scrolls to + highlights the missing field.
+              disabled={loading || bookedOk || securing}
               className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary disabled:opacity-100"
             >
               {/* Keyed on the state so ready → booking → booked crossfades
@@ -2023,7 +2031,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </Button>
             {/* Occasional light sweep so the primary action feels alive —
                 only once the form is actually ready to submit */}
-            {!loading && phoneValid && addressValid && (
+            {!loading && !securing && !bookedOk && phoneValid && addressValid && (
               <motion.span
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"

@@ -209,6 +209,20 @@ export const ReviewCarousel: React.FC = () => {
     }, INTERVAL);
   }
 
+  // WCAG 2.2.2: auto-advancing content needs a pause. Reading a longer
+  // review takes more than 4s — holding a finger (or the cursor) on the
+  // card stops the clock; letting go restarts it.
+  function pause() {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+  }
+  function resume() {
+    if (timer.current || reviews.length === 0) return;
+    timer.current = setInterval(() => {
+      setIndex(j => (j + 1) % reviews.length);
+    }, INTERVAL);
+  }
+
   // Nothing genuine to show yet — show nothing. Never pad with fiction.
   if (reviews.length === 0) return null;
 
@@ -226,17 +240,27 @@ export const ReviewCarousel: React.FC = () => {
         <ReviewTicker reviews={reviews} />
       </div>
 
-      {/* Mobile: auto-rotating single card */}
+      {/* Mobile: auto-rotating single card. The cards stack in ONE grid cell
+          (mode="sync") so different review lengths crossfade heights smoothly
+          instead of jumping the pager dots + FAQ below on every rotation. */}
       <div className="lg:hidden px-4">
-        <div className="relative overflow-hidden" style={{ minHeight: 190 }}>
-          <AnimatePresence mode="wait">
+        <div
+          className="relative grid overflow-hidden"
+          style={{ minHeight: 190 }}
+          onPointerEnter={pause}
+          onPointerDown={pause}
+          onPointerLeave={resume}
+          onPointerUp={resume}
+          onPointerCancel={resume}
+        >
+          <AnimatePresence mode="sync" initial={false}>
             <motion.article
               key={index}
               initial={{ opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -24 }}
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-4 border border-border/40"
+              className="[grid-area:1/1] self-start bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-4 border border-border/40"
             >
               <Stars count={review.stars} />
               <p className="text-foreground/80 text-sm leading-relaxed">"{review.text}"</p>

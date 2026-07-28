@@ -21,7 +21,7 @@ import { allowRequest } from "../_shared/rateLimit.ts";
 // number like they'd text a mate. This is NOT a second booking flow — it is a
 // second DOOR into the one flow: every confirmed request is POSTed to
 // create-household-payment-checkout exactly as the web sheet does, so pricing,
-// the free-text safety screen, loyalty/referral discounts, double-submit
+// the free-text safety screen, referral discounts, double-submit
 // dedupe and dispatch are all inherited. After booking, the EXISTING pipeline
 // carries the thread on WhatsApp (notify-household-accepted sends the pay
 // link, progress messages follow) — one conversation, cradle to grave.

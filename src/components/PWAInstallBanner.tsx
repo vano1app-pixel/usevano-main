@@ -86,14 +86,18 @@ export const PWAInstallBanner: React.FC = () => {
   return (
     <AnimatePresence>
       {showBanner && (
+        /* Positioning lives on this PLAIN wrapper: framer-motion writes an
+           inline transform for the y-entrance, which silently overwrote the
+           md:-translate-x-1/2 centering — the card sat half off-centre on
+           desktop. Outer div positions, inner motion.div animates. */
+        <div className="pointer-events-auto fixed left-3 right-3 z-[2500] max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 md:left-1/2 md:right-auto md:w-full md:max-w-md md:-translate-x-1/2">
         <motion.div
           initial={{ y: 24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 24, opacity: 0 }}
           transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-          className="pointer-events-auto fixed left-3 right-3 z-[2500] max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 md:left-1/2 md:right-auto md:w-full md:max-w-md md:-translate-x-1/2"
         >
-          <div className="relative rounded-2xl border border-border bg-card/95 p-4 shadow-lg shadow-black/10 backdrop-blur-md">
+          <div className="relative rounded-2xl border border-border bg-card/95 p-4 shadow-tinted-lg backdrop-blur-md">
               <button
                 type="button"
                 onClick={handleDismiss}
@@ -108,7 +112,7 @@ export const PWAInstallBanner: React.FC = () => {
                   {isIOS ? <Share size={20} className="text-primary" /> : <Download size={20} className="text-primary" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">Install VANO App</p>
+                  <p className="text-sm font-semibold text-foreground">Install the VANO app</p>
                   {isIOS ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       Tap{' '}
@@ -127,13 +131,14 @@ export const PWAInstallBanner: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleInstall}
-                  className="mt-3 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="mt-3 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-150 hover:bg-primary/90 active:scale-[0.98]"
                 >
-                  Install VANO App
+                  Install
                 </button>
               )}
           </div>
         </motion.div>
+        </div>
       )}
     </AnimatePresence>
   );
