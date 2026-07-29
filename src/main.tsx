@@ -100,26 +100,4 @@ deferToIdle(() => {
       });
     });
   }
-
-  // Google Analytics 4 — loaded here (deferred) rather than as a blocking
-  // <script> in index.html, so it stays off the critical render path like
-  // PostHog/Sentry. The VANO web stream is G-0LXN42G60M, hardcoded as the
-  // production default (Measurement IDs are public, not secret) so GA works on
-  // deploy with no Vercel config; VITE_GA_ID overrides it if ever needed. Gated
-  // on PROD so `npm run dev` never sends hits to the live property. GA4's
-  // Enhanced Measurement (on by default) captures SPA route changes, so no
-  // manual page_view wiring is needed for basic analytics.
-  const gaId = (import.meta.env.VITE_GA_ID as string | undefined)
-    ?? (import.meta.env.PROD ? 'G-0LXN42G60M' : undefined);
-  if (gaId) {
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
-    document.head.appendChild(s);
-    const w = window as unknown as { dataLayer: unknown[]; gtag: (...args: unknown[]) => void };
-    w.dataLayer = w.dataLayer || [];
-    w.gtag = function gtag() { w.dataLayer.push(arguments); };
-    w.gtag('js', new Date());
-    w.gtag('config', gaId);
-  }
 });
