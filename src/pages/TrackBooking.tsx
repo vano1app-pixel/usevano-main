@@ -20,7 +20,8 @@ import { track } from '@/lib/track';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, useMap } from 'react-leaflet';
+import VanoMapTiles from '@/components/household/VanoMapTiles';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
@@ -217,11 +218,6 @@ function helperPuckIcon(photoUrl?: string | null): L.DivIcon {
   });
 }
 
-// Uber-clean basemap — CARTO Positron (same CDN the old Voyager tiles came
-// from, so reliability is identical): near-monochrome, tiny labels, no POI
-// clutter, lets the sage/navy journey layer carry the story.
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
 // Invalidate the map size once layout settles (the map can mount mid-
 // animation, otherwise tiles come up gray). Used by the static search map.
 function MapAutoResize() {
@@ -349,10 +345,10 @@ function LiveJourneyLayer({
     const d = L.latLng(destLat, destLng);
     const draw = (pts: L.LatLngExpression[], dashed: boolean) => {
       if (!casing.current) {
-        casing.current = L.polyline(pts, { color: '#ffffff', weight: 8, opacity: 0.92, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map);
+        casing.current = L.polyline(pts, { color: '#ffffff', weight: 10, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map);
       } else casing.current.setLatLngs(pts);
       if (!line.current) {
-        line.current = L.polyline(pts, { color: '#151b28', weight: 4, opacity: 0.9, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map);
+        line.current = L.polyline(pts, { color: '#151b28', weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map);
       } else line.current.setLatLngs(pts);
       line.current.setStyle({ dashArray: dashed ? '1 9' : undefined });
     };
@@ -1332,7 +1328,7 @@ const TrackBooking = () => {
                 scrollWheelZoom={false}
                 dragging={false}
               >
-                <TileLayer url={TILE_URL} subdomains="abcd" detectRetina />
+                <VanoMapTiles />
                 <LiveJourneyLayer
                   helperLat={booking.worker_lat ?? null}
                   helperLng={booking.worker_lng ?? null}
@@ -1858,7 +1854,7 @@ const TrackBooking = () => {
                         dragging={false}
                         doubleClickZoom={false}
                       >
-                        <TileLayer url={TILE_URL} subdomains="abcd" detectRetina />
+                        <VanoMapTiles />
                         <MapAutoResize />
                       </MapContainer>
                     ) : (
@@ -2437,7 +2433,7 @@ const TrackBooking = () => {
                 scrollWheelZoom={false}
                 dragging={false}
               >
-                <TileLayer url={TILE_URL} subdomains="abcd" detectRetina />
+                <VanoMapTiles />
                 <LiveJourneyLayer
                   helperLat={booking.worker_lat ?? null}
                   helperLng={booking.worker_lng ?? null}

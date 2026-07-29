@@ -15,7 +15,8 @@ import { isTimedCategory, formatCountdown, helperPlaybook } from '@/lib/househol
 import { getCurrentPosition, watchPosition, clearWatch, isPermissionDenied, type WatchId } from '@/lib/native/geolocation';
 import { HelperSOS } from '@/components/household/HelperSOS';
 import logo from '@/assets/logo.png';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { MapContainer, Marker, useMap } from 'react-leaflet';
+import VanoMapTiles from '@/components/household/VanoMapTiles';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -931,7 +932,7 @@ const StudentJobDetail = () => {
                 scrollWheelZoom={false}
                 doubleClickZoom={false}
               >
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
+                <VanoMapTiles />
                 <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerIcon} />
                 <MapAutoResize />
               </MapContainer>
