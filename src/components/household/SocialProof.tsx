@@ -88,7 +88,10 @@ function ExternalCard({ r }: { r: ExternalReview }) {
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: '-40px' }}
-      className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-border/40 text-left w-[82vw] max-w-[320px] flex-shrink-0"
+      // Thin ink outline (owner call 2026-07-30: reviews are a main part of
+      // the site — make them more seeable): the site's near-black foreground
+      // at 1px, not pure #000, so the line sits in the palette.
+      className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-foreground/80 text-left w-[82vw] max-w-[320px] flex-shrink-0"
     >
       <div className="flex items-center gap-2.5">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${avatarColor(r.name)}`}>
