@@ -15,6 +15,7 @@ import { haptic } from '@/lib/haptics';
 import { prepareJoinPhoto } from '@/lib/safeImage';
 import { assessPhotoQuality } from '@/lib/photoQuality';
 import { getVisitorId } from '@/lib/visitorId';
+import { COLLEGES } from '@/lib/colleges';
 
 // The jobs customers actually book, shared with the account page via
 // helperSkills (groups gate dispatch matching; sub-skills are profile
@@ -69,23 +70,8 @@ const JOBS = [
   { emoji: '🐾', label: 'Pet care' },
 ];
 
-// Galway-first; ATU + University of Galway lead since dispatch is live there.
-const COLLEGES = [
-  'University of Galway',
-  'Atlantic Technological University (ATU)',
-  'University College Dublin (UCD)',
-  'Trinity College Dublin (TCD)',
-  'University College Cork (UCC)',
-  'University of Limerick (UL)',
-  'Dublin City University (DCU)',
-  'Maynooth University',
-  'TU Dublin',
-  'Munster Technological University (MTU)',
-  'South East Technological University (SETU)',
-  'TUS (Technological University of the Shannon)',
-  'RCSI',
-  'Other / not listed',
-];
+// COLLEGES now lives in src/lib/colleges.ts — shared with both profile
+// editors and the customer-facing study line.
 
 // Three short steps — the bare minimum to start. Everything optional (bio,
 // availability, areas, transport) is collected later in the dashboard profile,

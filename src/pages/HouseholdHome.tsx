@@ -6,7 +6,7 @@ import { ActivityTicker } from '@/components/household/ActivityTicker';
 import { HelperCards } from '@/components/household/HelperCards';
 import { FAQSection } from '@/components/household/FAQSection';
 import { FAQS } from '@/components/household/faqData';
-import { PopularCategories } from '@/components/household/PopularCategories';
+import { SocialProof } from '@/components/household/SocialProof';
 import { ClosingCta } from '@/components/household/ClosingCta';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
@@ -60,11 +60,13 @@ const HouseholdHome: React.FC = () => {
             full-screen snap sections (data-snap); each carries its own scroll
             cue. `relative` anchors the cue. */}
         <div data-snap id="helpers" className="relative"><Reveal><HelperCards /></Reveal><ScrollCue tone="dark" /></div>
-        {/* Most-booked services as one-tap tiles — lands after trust; the navy
-            band anchors the middle of the page between the cream sections. Tiles
-            dispatch vano:select-category, which the hero's CategoryGrid catches
-            to open the shared booking sheet. */}
-        <PopularCategories />
+        {/* The navy band anchors the middle of the page between the cream
+            sections. It's now the SOCIAL-PROOF band — Trustpilot + Google
+            doors and real external reviews from src/content/externalReviews.ts
+            (owner call 2026-07-29: the old most-booked podium repeated the
+            hero tiles; PopularCategories is parked in the repo, unmounted —
+            don't remount without the owner). */}
+        <SocialProof />
         {/* The "Just 3 easy steps" section (HowItWorks) is UNMOUNTED — owner
             call 2026-07-24: not needed. The flow now explains itself where it
             happens (phone instruction line on the hero, promise chips + the

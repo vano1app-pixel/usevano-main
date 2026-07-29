@@ -2,9 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { hasAccountAccess } from "../_shared/accountToken.ts";
 
-// Helper self-service edits: bio, availability, categories, photo, and
-// changing the phone number itself (new_phone). Uses the service-role key so
-// RLS is bypassed server-side.
+// Helper self-service edits: bio, availability, categories, photo, the
+// study fields (college / course / study_year — customer-visible trust
+// info), and changing the phone number itself (new_phone). Uses the
+// service-role key so RLS is bypassed server-side.
 //
 // AUTH (phone-gate hardening, July 2026): the phone field LOCATES the row but
 // no longer authorises the edit by itself. The caller must also present ONE of
@@ -70,6 +71,9 @@ serve(async (req) => {
     const newPhoneRaw  = (formData.get('new_phone')    as string | null)?.trim();
     const newEmailRaw  = (formData.get('new_email')    as string | null)?.trim().toLowerCase();
     const handleRaw    = (formData.get('payment_handle') as string | null);
+    const collegeRaw   = (formData.get('college')      as string | null);
+    const courseRaw    = (formData.get('course')       as string | null);
+    const studyYearRaw = (formData.get('study_year')   as string | null);
     const photo        = formData.get('photo') as File | null;
 
     if (!phone) return bad('phone is required');
@@ -133,6 +137,14 @@ serve(async (req) => {
     if (catsRaw !== null) {
       updates.categories = parseSlugArray(catsRaw) ?? [];
     }
+
+    // Study fields — customer-visible display text ("2nd year Nursing at
+    // ATU" on the profile / cards / track chip). Free text, length-capped;
+    // rendered through React (escaped) and escapeHtml in the accept email.
+    // Empty string clears, like bio.
+    if (collegeRaw   !== null) updates.college    = collegeRaw.trim().slice(0, 80)  || null;
+    if (courseRaw    !== null) updates.course     = courseRaw.trim().slice(0, 60)   || null;
+    if (studyYearRaw !== null) updates.study_year = studyYearRaw.trim().slice(0, 30) || null;
 
     // Phone change
     if (newPhoneRaw) {

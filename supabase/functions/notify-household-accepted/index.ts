@@ -98,6 +98,35 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// The customer-facing study line — "2nd year Nursing at ATU". MIRRORS
+// src/lib/colleges.ts (collegeShortName + studyLine); keep the two in step.
+// All pieces optional and fail-soft: nothing set → null → no line rendered.
+function collegeShortName(college: string | null): string | null {
+  const raw = (college ?? '').trim();
+  if (!raw || raw === 'Other / not listed') return null;
+  const m = raw.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (m) {
+    const inParens = m[2].trim();
+    return (inParens.length <= 12 ? inParens : m[1].trim()) || null;
+  }
+  return raw;
+}
+function buildStudyLine(collegeRaw: string | null, courseRaw: string | null, yearRaw: string | null): string | null {
+  const college = collegeShortName(collegeRaw);
+  const course = (courseRaw ?? '').trim() || null;
+  const year = (yearRaw ?? '').trim() || null;
+  if (college) {
+    if (year && course) return `${year} ${course} at ${college}`;
+    if (course) return `${course} student at ${college}`;
+    if (year) return `${year} student at ${college}`;
+    return `Student at ${college}`;
+  }
+  if (year && course) return `${year} ${course} student`;
+  if (course) return `${course} student`;
+  if (year) return `${year} student`;
+  return null;
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -200,11 +229,12 @@ serve(async (req) => {
     let helperRating: number | null = null;
     let helperJobs = 0;
     let helperPaymentHandle: string | null = null;
+    let helperStudyLine: string | null = null;
     const { data: helper } = await supabase
       .from('household_helpers')
-      .select('id, name, photo_url, average_rating, accepted_count, payment_handle')
+      .select('id, name, photo_url, average_rating, accepted_count, payment_handle, college, course, study_year')
       .eq('user_id', studentUserId)
-      .maybeSingle() as { data: { id?: string; name?: string; photo_url?: string | null; average_rating?: number | null; accepted_count?: number; payment_handle?: string | null } | null };
+      .maybeSingle() as { data: { id?: string; name?: string; photo_url?: string | null; average_rating?: number | null; accepted_count?: number; payment_handle?: string | null; college?: string | null; course?: string | null; study_year?: string | null } | null };
     if (helper?.name) {
       helperFirstName = helper.name.split(' ')[0];
       helperId     = helper.id ?? null;
@@ -212,6 +242,7 @@ serve(async (req) => {
       helperRating = helper.average_rating ?? null;
       helperJobs   = helper.accepted_count ?? 0;
       helperPaymentHandle = (helper.payment_handle ?? '').trim() || null;
+      helperStudyLine = buildStudyLine(helper.college ?? null, helper.course ?? null, helper.study_year ?? null);
     } else {
       const { data: profile } = await supabase
         .from('profiles')
@@ -663,6 +694,7 @@ serve(async (req) => {
         ${helperPhoto ? `<td style="padding:14px 0 14px 16px;width:64px;vertical-align:middle;"><img src="${escapeHtml(helperPhoto)}" alt="${eHelperFirst}" width="52" height="52" style="border-radius:50%;object-fit:cover;display:block;" /></td>` : ''}
         <td style="padding:14px 16px;vertical-align:middle;">
           <p style="margin:0;color:#111827;font-size:15px;font-weight:700;">${eHelperFirst}</p>
+          ${helperStudyLine ? `<p style="margin:2px 0 0;color:#4b5563;font-size:13px;">🎓 ${escapeHtml(helperStudyLine)}</p>` : ''}
           ${ratingBits ? `<p style="margin:2px 0 0;color:#4b5563;font-size:13px;">${ratingBits}</p>` : ''}
           <p style="margin:4px 0 0;font-size:13px;"><a href="${profileUrl}" style="color:#4a7c59;font-weight:600;text-decoration:none;">View ${eHelperFirst}'s profile &rarr;</a></p>
         </td>
@@ -711,7 +743,8 @@ serve(async (req) => {
       You'll get another message when they're on their way — including a <strong>live map</strong> so you can track exactly where they are.
     </p>
     <a href="${trackUrl}" style="display:inline-block;background:${payUrl && !booking.paid_at ? '#f3f4f6' : '#4a7c59'};color:${payUrl && !booking.paid_at ? '#374151' : '#fff'};font-size:14px;font-weight:600;padding:13px 28px;border-radius:100px;text-decoration:none;${payUrl && !booking.paid_at ? 'border:1px solid #e5e7eb;' : ''}">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#9ca3af;">+353 89 981 7111</a></p>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">${eHelperFirst} was ID-checked — photo ID and live selfie — before their first job. <a href="${siteUrl}/safety" style="color:#9ca3af;">How we check every student &rarr;</a></p>
+    <p style="margin:8px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#9ca3af;">+353 89 981 7111</a></p>
   </div>
 </div>
 </body></html>`;

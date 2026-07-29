@@ -38,6 +38,7 @@ const Auth = lazyWithRetry(() => import("./pages/Auth"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
 const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const Cover = lazyWithRetry(() => import("./pages/Cover"));
+const Safety = lazyWithRetry(() => import("./pages/Safety"));
 const HelperTerms = lazyWithRetry(() => import("./pages/HelperTerms"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const ServiceLanding = lazyWithRetry(() => import("./pages/ServiceLanding"));
@@ -145,6 +146,9 @@ const App = () => {
             {/* Vano Cover (damage guarantee) + the Helper Agreement & Code of
                 Conduct the join consent references — legal surface, like /terms. */}
             <Route path="/cover" element={<P><Cover /></P>} />
+            {/* The trust page — "How we check every student". Linked from the
+                FAQ, the sheet's trust row, helper profiles + accept emails. */}
+            <Route path="/safety" element={<P><Safety /></P>} />
             <Route path="/helper-terms" element={<P><HelperTerms /></P>} />
             {/* Per-service SEO landing pages (/cleaning-galway…). Slugs only —
                 the copy stays in the lazy ServiceLanding chunk. */}

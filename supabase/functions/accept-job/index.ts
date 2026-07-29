@@ -29,26 +29,39 @@ const CATEGORY_LABELS: Record<string, string> = {
 // and display the markup as raw source (the bug this replaces). The page reads
 // `status` (+ optional job/cat/city) from the query string — see
 // src/pages/JobAccepted.tsx.
-type AcceptStatus = 'claimed' | 'mine' | 'taken' | 'expired' | 'notfound' | 'login';
+//
+// 'confirm' is the BOT GATE (2026-07-29, real repro: the owner's own accept
+// tap said "someone else got it"): email scanners and WhatsApp/SMS link
+// previewers GET every link the moment a message lands, and this endpoint
+// used to CLAIM on any GET — so the bot claimed first (as the same helper!)
+// and the human's real tap fell into the taken branch. A bare GET is now
+// read-only: it bounces to /accepted?status=confirm, where the SPA
+// immediately re-navigates here with &go=1 (JS — which preview bots don't
+// run) and THAT request claims. POST also claims, for a future in-app path.
+type AcceptStatus = 'claimed' | 'mine' | 'taken' | 'expired' | 'notfound' | 'login' | 'confirm';
 
 // The /accepted success URL. Shared so the silent-sign-in redirect_to and the
 // plain fallback always point at the same place.
 function acceptedUrl(
   siteUrl: string,
   status: AcceptStatus,
-  opts: { job?: string; cat?: string; city?: string | null } = {},
+  opts: { job?: string; cat?: string; city?: string | null; t?: string } = {},
 ): string {
   const params = new URLSearchParams({ status });
   if (opts.job) params.set('job', opts.job);
   if (opts.cat) params.set('cat', opts.cat);
   if (opts.city) params.set('city', opts.city);
+  // 'confirm' only: the token rides along so the SPA can bounce straight
+  // back here with &go=1. Single-purpose, expiring, already in the URL the
+  // helper tapped — this adds no new exposure.
+  if (opts.t) params.set('t', opts.t);
   return `${siteUrl}/accepted?${params.toString()}`;
 }
 
 function redirect(
   siteUrl: string,
   status: AcceptStatus,
-  opts: { job?: string; cat?: string; city?: string | null } = {},
+  opts: { job?: string; cat?: string; city?: string | null; t?: string } = {},
 ): Response {
   return new Response(null, {
     status: 303,
@@ -110,7 +123,13 @@ serve(async (req) => {
   const siteUrl     = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  const token = new URL(req.url).searchParams.get('t') ?? '';
+  // Scanners often probe with HEAD before (or instead of) GET — never a claim.
+  if (req.method === 'HEAD') return new Response(null, { status: 200 });
+
+  const reqUrl = new URL(req.url);
+  const token = reqUrl.searchParams.get('t') ?? '';
+  // A claim only happens on a CONFIRMED hit (see the bot-gate note above).
+  const confirmed = req.method === 'POST' || reqUrl.searchParams.get('go') === '1';
   const payload = await verifyAcceptToken(token);
   if (!payload) {
     return redirect(siteUrl, 'expired');
@@ -139,6 +158,13 @@ serve(async (req) => {
     .from('household_helpers').select('status, id_verified').eq('id', helperId).maybeSingle() as { data: { status: string; id_verified: boolean | null } | null };
   if (!helperRow || helperRow.status !== 'approved' || !helperRow.id_verified) {
     return redirect(siteUrl, 'expired');
+  }
+
+  // BOT GATE: everything up to here was read-only, so a link-preview fetch
+  // costs nothing. The first human-tap GET bounces through the SPA, which
+  // instantly re-navigates here with &go=1 — only that (or a POST) claims.
+  if (!confirmed) {
+    return redirect(siteUrl, 'confirm', { cat: catLabel, city: booking.city, t: token });
   }
 
   if (booking.status !== 'pending' || booking.student_id) {
@@ -205,7 +231,11 @@ serve(async (req) => {
             userId = await findUserIdByEmail(supabase, trustedEmail);
           }
           if (userId) {
-            await supabase.from('household_helpers').update({ user_id: userId }).eq('id', helper.id);
+            // `.is('user_id', null)`: two near-simultaneous hits could both
+            // provision — the loser must never overwrite the winner's link
+            // (a mismatched user_id vs the booking's student_id left the
+            // dashboard's "my jobs" empty for the claimed job).
+            await supabase.from('household_helpers').update({ user_id: userId }).eq('id', helper.id).is('user_id', null);
           }
         }
       } catch (e) {
@@ -233,6 +263,31 @@ serve(async (req) => {
     .maybeSingle();
 
   if (!claimed) {
+    // The atomic claim lost — but to WHOM? Two of this helper's own requests
+    // can race (double-tap, a retry, links in two channels), and this branch
+    // used to say "someone else got it" even when the winner WAS this helper
+    // — while the customer's page showed them assigned. Re-read and treat
+    // own-claim as success, not defeat.
+    const { data: after } = await supabase
+      .from('household_bookings')
+      .select('student_id')
+      .eq('id', bookingId)
+      .maybeSingle() as { data: { student_id: string | null } | null };
+    let mineNow = !!after?.student_id && after.student_id === userId;
+    if (!mineNow && after?.student_id) {
+      const { data: ownOffer } = await supabase
+        .from('household_job_offers')
+        .select('status')
+        .eq('booking_id', bookingId)
+        .eq('helper_id', helperId)
+        .maybeSingle() as { data: { status: string } | null };
+      mineNow = ownOffer?.status === 'accepted';
+    }
+    if (mineNow && after?.student_id) {
+      const dest = acceptedUrl(siteUrl, 'mine', { job: bookingId, cat: catLabel, city: booking.city });
+      const signed = await signedInRedirect(supabase, after.student_id, dest);
+      return signed ?? redirect(siteUrl, 'mine', { job: bookingId, cat: catLabel, city: booking.city });
+    }
     return redirect(siteUrl, 'taken', { cat: catLabel });
   }
 

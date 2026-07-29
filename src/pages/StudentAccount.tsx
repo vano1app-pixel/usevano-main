@@ -13,6 +13,7 @@ import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayC
 import { ReferralEntryCard } from '@/components/household/ReferralEntryCard';
 import { useToast } from '@/hooks/use-toast';
 import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { COLLEGES, STUDY_YEARS } from '@/lib/colleges';
 import { prepareJoinPhoto } from '@/lib/safeImage';
 import { assessPhotoQuality } from '@/lib/photoQuality';
 import { extractFnError } from '@/lib/fnError';
@@ -43,6 +44,9 @@ interface HelperRow {
   photo_url: string | null;
   city: string;
   bio: string | null;
+  college: string | null;
+  course: string | null;
+  study_year: string | null;
   categories: string[] | null;
   availability: string[] | null;
   status: string;
@@ -163,6 +167,10 @@ const StudentAccount = () => {
 
   const [bio,          setBio]          = useState('');
   const [payHandle,    setPayHandle]    = useState('');
+  // Study fields — customer-visible ("2nd year Nursing at ATU").
+  const [college,      setCollege]      = useState('');
+  const [course,       setCourse]       = useState('');
+  const [studyYear,    setStudyYear]    = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [avail,        setAvail]        = useState<string[]>([]);
   const [photoFile,    setPhotoFile]    = useState<File | null>(null);
@@ -368,6 +376,9 @@ const StudentAccount = () => {
     setHelper(data);
     setBio(data.bio ?? '');
     setPayHandle(data.payment_handle ?? '');
+    setCollege(data.college ?? '');
+    setCourse(data.course ?? '');
+    setStudyYear(data.study_year ?? '');
     const cats = data.categories ?? [];
     // Apply the ?add= deep link — pre-tick only, the helper still taps Save
     // (nothing is ever written silently from a URL param).
@@ -510,6 +521,9 @@ const StudentAccount = () => {
       fd.append('phone',          helper.phone);
       fd.append('bio',            bio.trim());
       fd.append('payment_handle', payHandle.trim());
+      fd.append('college',        college.trim());
+      fd.append('course',         course.trim());
+      fd.append('study_year',     studyYear.trim());
       fd.append('availability',   JSON.stringify(avail));
       fd.append('categories',     JSON.stringify(selectedCats));
       fd.append('account_token',  accountTokenRef.current);
@@ -1249,6 +1263,48 @@ const StudentAccount = () => {
               className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
             <p className="text-right text-xs text-muted-foreground mt-1">{bio.length}/120</p>
+          </section>
+
+          {/* Studies — the customer-facing proof of "student": "2nd year
+              Nursing at ATU" on the public profile, the homepage cards and
+              the customer's tracking page. */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">My studies</p>
+            <p className="text-xs text-muted-foreground mb-3">Customers see this — a real course and college is the fastest way to look bookable.</p>
+            <select
+              value={college}
+              onChange={e => setCollege(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Choose your college…</option>
+              {/* A stored value outside the list must stay selectable —
+                  otherwise this controlled select silently clears it. */}
+              {college && !COLLEGES.includes(college) && (
+                <option value={college}>{college}</option>
+              )}
+              {COLLEGES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <input
+                type="text"
+                value={course}
+                onChange={e => setCourse(e.target.value)}
+                placeholder="Course, e.g. Nursing"
+                maxLength={60}
+                className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <select
+                value={studyYear}
+                onChange={e => setStudyYear(e.target.value)}
+                className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Year</option>
+                {studyYear && !STUDY_YEARS.includes(studyYear) && (
+                  <option value={studyYear}>{studyYear}</option>
+                )}
+                {STUDY_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
           </section>
 
           {/* How customers pay you — direct-pay model: customers pay the helper

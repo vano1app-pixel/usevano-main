@@ -243,6 +243,14 @@ serve(async (req) => {
       ...(attachReferralCode ? { referred_by_code: referredByCode } : {}),
       ...(age !== null && !isNaN(age) ? { age } : {}),
       ...(bioRaw ? { bio: bioRaw } : {}),
+      // Customer-visible study fields (migration 20260729100000). The
+      // application_data copies below stay as the raw application snapshot;
+      // these columns are what the profile page / helper cards / track chip
+      // read. Spread-if-present so a resubmission never clobbers a value the
+      // helper has since set in their profile editor.
+      ...(college ? { college } : {}),
+      ...(course ? { course } : {}),
+      ...(year ? { study_year: year } : {}),
       ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
         ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
         : {}),

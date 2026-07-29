@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Star, ShieldCheck, BadgeCheck } from 'lucide
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS as CATEGORY_LABELS } from '@/lib/helperCategories';
 import { skillLabel } from '@/lib/helperSkills';
+import { studyLine } from '@/lib/colleges';
 
 interface HelperRow {
   id:             string;
@@ -13,6 +14,9 @@ interface HelperRow {
   city:           string;
   age:            number | null;
   bio:            string | null;
+  college:        string | null;
+  course:         string | null;
+  study_year:     string | null;
   categories:     string[] | null;
   average_rating: number | null;
   accepted_count: number;
@@ -26,6 +30,8 @@ function Card({ h }: { h: HelperRow }) {
   // homepage as a service Vano doesn't offer (same rule as the profile page).
   const cats = (h.categories ?? []).filter(s => CATEGORY_LABELS[s] || skillLabel(s)).slice(0, 3);
   const firstName = h.name.split(' ')[0];
+  // "2nd year Nursing at ATU" — the proof behind "real students" (null-safe).
+  const study = studyLine(h);
   // Fade the photo in once it loads (no pop). Covers cached images too — they
   // may be `complete` before onLoad ever fires.
   const imgRef = useRef<HTMLImageElement>(null);
@@ -82,6 +88,9 @@ function Card({ h }: { h: HelperRow }) {
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sage mt-1">
                 <ShieldCheck className="w-3 h-3" aria-hidden="true" /> ID-verified
               </span>
+            )}
+            {study && (
+              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">🎓 {study}</p>
             )}
             {h.bio ? (
               <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{h.bio}</p>
@@ -140,7 +149,7 @@ export const HelperCards: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('household_helpers')
-      .select('id, name, photo_url, city, age, bio, categories, average_rating, accepted_count, id_verified, vano_verified')
+      .select('id, name, photo_url, city, age, bio, college, course, study_year, categories, average_rating, accepted_count, id_verified, vano_verified')
       .eq('status', 'approved')
       .eq('show_on_homepage', true)
       .not('photo_url', 'is', null)
