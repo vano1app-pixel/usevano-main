@@ -31,6 +31,14 @@ function buildCorsHeaders(req: Request) {
 }
 function isOriginAllowed(req: Request) { return !req.headers.get('Origin') || matchOrigin(req) !== null; }
 
+// Escape user-controlled free text (customer name, helper name, Revolut
+// handle) before it goes into the HTML email body — a crafted value must not
+// inject markup into a VANO-branded transactional email. The plain-text body
+// keeps the raw values.
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
@@ -272,24 +280,29 @@ serve(async (req) => {
       const revTagMatch = rawHandle.match(/^(?:https?:\/\/)?(?:www\.)?revolut\.me\/@?([a-z0-9_]{3,16})\/?(?:[?#].*)?$/i) ?? rawHandle.match(/^@?([a-z0-9_]{3,16})$/i);
       const revAmount = (priceCents / 100).toFixed(2).replace(/\.00$/, '');
       const revolutUrl = directPay && revTagMatch ? `https://revolut.me/${revTagMatch[1]}/${revAmount}` : null;
+      // HTML-escaped forms for the email body (raw values feed the plain-text
+      // body + subject below).
+      const eCust = escapeHtml(custName);
+      const eHelperFirst = escapeHtml(helperFirst);
+      const eHandleCap = escapeHtml(rawHandle);
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#4a7c59;padding:32px 32px 24px;">
     <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">All done! &#10003;</p>
   </div>
   <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${eCust},</p>
     <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperFirst}</strong> has completed your <strong>${catLabel}</strong>. ${directPay
-        ? `If you haven't already, settle up with ${helperFirst} directly — <strong>€${(priceCents / 100).toFixed(2)}</strong>${revolutUrl ? '' : (booking.booking_data as Record<string, unknown> | null)?.helper_payment_handle ? ` (Revolut <strong>${(booking.booking_data as Record<string, unknown>).helper_payment_handle}</strong> or cash)` : ' (Revolut or cash)'} — they keep 100%.`
+      <strong>${eHelperFirst}</strong> has completed your <strong>${catLabel}</strong>. ${directPay
+        ? `If you haven't already, settle up with ${eHelperFirst} directly — <strong>€${(priceCents / 100).toFixed(2)}</strong>${revolutUrl ? '' : (booking.booking_data as Record<string, unknown> | null)?.helper_payment_handle ? ` (Revolut <strong>${eHandleCap}</strong> or cash)` : ' (Revolut or cash)'} — they keep 100%.`
         : 'Payment was handled upfront — nothing more to do.'}
     </p>
-    ${revolutUrl ? `<a href="${revolutUrl}" style="display:block;background:#4a7c59;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 24px;border-radius:100px;text-align:center;margin:0 0 10px;">Pay ${helperFirst} &euro;${revAmount} in Revolut &rarr;</a>
+    ${revolutUrl ? `<a href="${revolutUrl}" style="display:block;background:#4a7c59;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 24px;border-radius:100px;text-align:center;margin:0 0 10px;">Pay ${eHelperFirst} &euro;${revAmount} in Revolut &rarr;</a>
     <p style="margin:0 0 24px;color:#6b7280;font-size:12px;text-align:center;">Opens Revolut with the amount ready &middot; or cash in hand is grand too</p>` : ''}
     <div style="background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;padding:20px;text-align:center;margin:0 0 24px;">
-      <p style="margin:0 0 10px;color:#111827;font-size:15px;font-weight:700;">How was ${helperFirst}?</p>
+      <p style="margin:0 0 10px;color:#111827;font-size:15px;font-weight:700;">How was ${eHelperFirst}?</p>
       <p style="margin:0 0 4px;">${stars}</p>
-      <p style="margin:8px 0 0;color:#6b7280;font-size:12px;">Tap a star — takes 10 seconds and helps ${helperFirst} get more work.</p>
+      <p style="margin:8px 0 0;color:#6b7280;font-size:12px;">Tap a star — takes 10 seconds and helps ${eHelperFirst} get more work.</p>
     </div>
     <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.6;">
       Questions or need anything else? WhatsApp us:

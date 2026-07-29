@@ -169,26 +169,40 @@ serve(async (req) => {
   if (!userId) {
     const { data: helper } = await supabase
       .from('household_helpers')
-      .select('id, user_id, email, phone, name')
+      .select('id, user_id, email, phone, name, student_email_verified')
       .eq('id', helperId)
-      .maybeSingle() as { data: { id: string; user_id: string | null; email: string | null; phone: string | null; name: string | null } | null };
+      .maybeSingle() as { data: { id: string; user_id: string | null; email: string | null; phone: string | null; name: string | null; student_email_verified: boolean | null } | null };
 
     userId = helper?.user_id ?? null;
 
     if (!userId && helper) {
+      // SECURITY: the helper-row email is NOT proof of identity — a helper can
+      // set it to any address via update-helper-profile (which only drops the
+      // verified flag, it doesn't stop the row being dispatchable). If we then
+      // provisioned / linked an auth user from that raw email and minted a
+      // magic-link session for it, a helper could point their row at a victim's
+      // email (e.g. the owner's) and take over that account on one tap. So we
+      // only ever provision or link BY EMAIL when the helper has PROVEN they own
+      // it (student_email_verified). Unverified email ⇒ skip email entirely and
+      // fall back to the helper's own phone (or the plain login page); the
+      // silent sign-in can never land on an unproven identity.
+      const emailVerified = helper.student_email_verified === true;
+      const trustedEmail = emailVerified && helper.email ? helper.email.trim().toLowerCase() : null;
       try {
         const createArgs: Record<string, unknown> = { email_confirm: true, user_metadata: { household_helper_id: helper.id, name: helper.name } };
-        if (helper.email) createArgs.email = helper.email.trim().toLowerCase();
+        if (trustedEmail) createArgs.email = trustedEmail;
         else if (helper.phone) { createArgs.phone = helper.phone; createArgs.phone_confirm = true; }
         if (createArgs.email || createArgs.phone) {
           const { data: created, error: createErr } = await supabase.auth.admin.createUser(createArgs as never);
           if (!createErr && created?.user?.id) {
             userId = created.user.id;
-          } else if (createErr && helper.email) {
+          } else if (createErr && trustedEmail) {
             // createUser failed — almost always because the email is already
             // registered. Recover by linking that existing account so the
-            // one-tap claim still works for returning users.
-            userId = await findUserIdByEmail(supabase, helper.email);
+            // one-tap claim still works for returning users. Gated on
+            // student_email_verified above, so this can only resolve to an
+            // account whose email the helper has proven they control.
+            userId = await findUserIdByEmail(supabase, trustedEmail);
           }
           if (userId) {
             await supabase.from('household_helpers').update({ user_id: userId }).eq('id', helper.id);

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 
 // Emails a 6-digit code to a helper's college address to verify they're a
 // student. Paired with verify-student-email-otp. Codes are stored hashed in
@@ -41,6 +42,15 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // IP rate limit — helper_id is public (every /helpers/:id URL) and this
+    // sends a real email, so the per-helper 30s gap below can't stop one IP
+    // from cycling through helper ids to spam inboxes / burn Resend quota.
+    // Cap per-IP (matches student-account-otp). Fail-open on limiter error.
+    if (!await allowRequest(supabase, 'send-student-email-otp', clientIp(req), 20, 600)) {
+      return json(429, { error: 'Too many code requests — please wait a minute and try again.' });
+    }
+
     const { helper_id, email } = await req.json() as { helper_id?: string; email?: string };
 
     const cleanEmail = email?.trim().toLowerCase();

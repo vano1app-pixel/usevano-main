@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 
 // Texts a 6-digit verification code to a helper's phone (WhatsApp preferred,
 // SMS fallback) — the reliable alternative to email, which can land in spam.
@@ -126,6 +127,17 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // IP rate limit — this endpoint spends real Twilio money and texts a real
+    // phone, and helper_id is NOT a secret (it's in every public /helpers/:id
+    // URL), so the per-helper 30s gap below can't stop one IP from blasting a
+    // paid SMS to every helper in turn. Cap per-IP hard (matches
+    // student-account-otp). Fail-open on limiter error — never block a real
+    // applicant mid-verification.
+    if (!await allowRequest(supabase, 'send-student-sms-otp', clientIp(req), 20, 600)) {
+      return json(429, { error: 'Too many code requests — please wait a minute and try again.' });
+    }
+
     const { helper_id } = await req.json() as { helper_id?: string };
     if (!helper_id) return json(400, { error: 'Missing application id.' });
 
