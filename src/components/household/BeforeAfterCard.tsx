@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Camera, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { loadBookingMemory } from '@/lib/bookingMemory';
+import { useBoundedPhoto } from '@/lib/boundedPhoto';
 
 // The before/after reveal on the customer's tracking page — the shareable
 // payoff of the helper's job photos. Sharing attaches the customer's €5
@@ -20,6 +21,12 @@ interface Props {
 
 export const BeforeAfterCard: React.FC<Props> = ({ arrivalUrl, finishUrl, helperName, completed, className }) => {
   const [referralLink, setReferralLink] = useState<string | null>(null);
+  // Job photos are raw phone-camera shots (12–48MP) rendered on the
+  // customer's phone inside an animated card — bound the decode first (the
+  // iOS black-box class, see lib/boundedPhoto.ts); a shimmer holds each
+  // frame until its safe URL is ready.
+  const safeArrival = useBoundedPhoto(arrivalUrl, 1024);
+  const safeFinish = useBoundedPhoto(finishUrl, 1024);
 
   // Best-effort referral link for the share text — the card works without it.
   useEffect(() => {
@@ -67,13 +74,17 @@ export const BeforeAfterCard: React.FC<Props> = ({ arrivalUrl, finishUrl, helper
       <div className={both ? 'grid grid-cols-2 gap-2.5' : ''}>
         {arrivalUrl && (
           <figure className="relative m-0">
-            <img src={arrivalUrl} alt="Before the job" loading="lazy" className="w-full aspect-[4/3] object-cover rounded-xl border border-border/50" />
+            {safeArrival
+              ? <img src={safeArrival} alt="Before the job" loading="lazy" className="w-full aspect-[4/3] object-cover rounded-xl border border-border/50" />
+              : <div className="w-full aspect-[4/3] rounded-xl border border-border/50 bg-secondary shimmer" aria-hidden="true" />}
             <figcaption className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-black/55 text-white text-[10px] font-semibold">Before</figcaption>
           </figure>
         )}
         {finishUrl && (
           <figure className="relative m-0">
-            <img src={finishUrl} alt="After the job" loading="lazy" className="w-full aspect-[4/3] object-cover rounded-xl border border-border/50" />
+            {safeFinish
+              ? <img src={safeFinish} alt="After the job" loading="lazy" className="w-full aspect-[4/3] object-cover rounded-xl border border-border/50" />
+              : <div className="w-full aspect-[4/3] rounded-xl border border-border/50 bg-secondary shimmer" aria-hidden="true" />}
             <figcaption className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-black/55 text-white text-[10px] font-semibold">After</figcaption>
           </figure>
         )}

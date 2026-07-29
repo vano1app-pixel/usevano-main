@@ -28,13 +28,13 @@ export interface PreparedJoinPhoto {
   stashDataUrl: string | null;
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
+export function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
   return new Promise(res => {
     try { canvas.toBlob(b => res(b), 'image/jpeg', quality); } catch { res(null); }
   });
 }
 
-function drawScaled(source: CanvasImageSource, sw: number, sh: number, maxEdge: number): HTMLCanvasElement | null {
+export function drawScaled(source: CanvasImageSource, sw: number, sh: number, maxEdge: number): HTMLCanvasElement | null {
   try {
     const ratio = Math.min(1, maxEdge / Math.max(sw, sh));
     const canvas = document.createElement('canvas');

@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS as CATEGORY_LABELS } from '@/lib/helperCategories';
 import { skillLabel } from '@/lib/helperSkills';
 import { studyLine } from '@/lib/colleges';
+import { boundedPhotoUrl } from '@/lib/boundedPhoto';
 
 interface HelperRow {
   id:             string;
@@ -155,10 +156,15 @@ export const HelperCards: React.FC = () => {
       .not('photo_url', 'is', null)
       .neq('photo_url', '')
       .limit(20)
-      .then(({ data }: { data: HelperRow[] | null }) => {
+      .then(async ({ data }: { data: HelperRow[] | null }) => {
         if (data && data.length > 0) {
           const shuffled = [...data].sort(() => Math.random() - 0.5);
-          setHelpers(shuffled);
+          // Bound the decode before any <img> mounts — full-res uploads in
+          // these cards are the iOS black-box class (lib/boundedPhoto.ts).
+          setHelpers(await Promise.all(shuffled.map(async h => ({
+            ...h,
+            photo_url: (await boundedPhotoUrl(h.photo_url, 640)) ?? h.photo_url,
+          }))));
         }
         setLoaded(true);
       });

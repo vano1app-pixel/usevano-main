@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS, AVAILABILITY_SLOTS } from '@/lib/helperCategories';
 import { skillLabel } from '@/lib/helperSkills';
 import { studyLine } from '@/lib/colleges';
+import { boundedPhotoUrl } from '@/lib/boundedPhoto';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
@@ -130,7 +131,12 @@ export const HelperPublicProfile: React.FC = () => {
 
       if (cancelled) return;
       if (!data) { setNotFound(true); setLoading(false); return; }
-      setHelper(data as HelperRow);
+      // Bound the photo decode before it mounts — full-res uploads behind a
+      // profile avatar are the iOS black-box class (lib/boundedPhoto.ts).
+      const row = data as HelperRow;
+      row.photo_url = (await boundedPhotoUrl(row.photo_url, 640)) ?? row.photo_url;
+      if (cancelled) return;
+      setHelper(row);
       setLoading(false);
 
       const { data: ratings } = await hdb
