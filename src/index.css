@@ -296,6 +296,39 @@
     animation: shimmer 1.5s infinite;
   }
 
+  /* Reviews marquee (SocialProof) — the list is rendered twice and the
+     track drifts RIGHT by exactly one list-width, looping seamlessly, so
+     every review comes past on its own. Hover/press/focus pauses it so a
+     card can be read; reduced-motion turns the belt into a plain swipe
+     row. Duration comes from the component (--marquee-dur) so more
+     reviews = a longer loop, never a faster one. */
+  .vano-marquee {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+  }
+  .vano-marquee-track {
+    animation: vano-marquee-right var(--marquee-dur, 42s) linear infinite;
+    will-change: transform;
+  }
+  .vano-marquee:hover .vano-marquee-track,
+  .vano-marquee:active .vano-marquee-track,
+  .vano-marquee:focus-within .vano-marquee-track {
+    animation-play-state: paused;
+  }
+  @keyframes vano-marquee-right {
+    from { transform: translateX(-50%); }
+    to   { transform: translateX(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .vano-marquee-track { animation: none; }
+    .vano-marquee {
+      overflow-x: auto;
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+  }
+
   /* Double-bezel card treatment from soft-skill */
   .card-bezel {
     background: hsl(var(--foreground) / 0.03);
