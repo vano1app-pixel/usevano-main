@@ -1634,11 +1634,18 @@ const TrackBooking = () => {
                       </p>
                     )}
                     {/* A real customer's words beat any badge — one line, most
-                        recent 4★+ review with text. */}
+                        recent 4★+ review with text. It fades in a beat after
+                        the card so the payoff lands last (opacity only —
+                        calm, and reduced-motion safe by nature). */}
                     {helperQuote && (
-                      <p className="text-[11px] italic text-muted-foreground/90 mt-1 line-clamp-2">
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, delay: 0.25, ease: 'easeOut' }}
+                        className="text-[11px] italic text-muted-foreground/90 mt-1 line-clamp-2"
+                      >
                         "{helperQuote}"
-                      </p>
+                      </motion.p>
                     )}
                   </div>
                   {helperCard && (
@@ -1688,9 +1695,33 @@ const TrackBooking = () => {
                 ? 'Check the face, then read them your code:'
                 : 'Read this code to your helper so they can start the job:'}
             </p>
-            <p className="text-[2.5rem] leading-none font-extrabold tracking-[0.3em] tabular-nums text-sage">
-              {booking.arrival_code}
-            </p>
+            {/* The digits land one at a time — the code being "issued" for
+                her to read out. Spans are aria-hidden with a spaced aria-label
+                on the row, so screen readers announce the digits cleanly
+                instead of one big number. Mount-once: the 5s poll updates
+                booking state but never remounts this card, so the pop never
+                replays. */}
+            <motion.p
+              className="text-[2.5rem] leading-none font-extrabold tracking-[0.3em] tabular-nums text-sage"
+              aria-label={booking.arrival_code.split('').join(' ')}
+              initial="hidden"
+              animate="show"
+              variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07, delayChildren: 0.15 } } }}
+            >
+              {booking.arrival_code.split('').map((digit, i) => (
+                <motion.span
+                  key={i}
+                  aria-hidden="true"
+                  className="inline-block"
+                  variants={{
+                    hidden: { opacity: 0, scale: 0.7, y: 6 },
+                    show:   { opacity: 1, scale: 1, y: 0, transition: { type: 'spring', duration: 0.4, bounce: 0.25 } },
+                  }}
+                >
+                  {digit}
+                </motion.span>
+              ))}
+            </motion.p>
           </motion.div>
         )}
 

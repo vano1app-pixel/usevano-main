@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { Star, ArrowUpRight } from 'lucide-react';
 import { GOOGLE_BUSINESS_URL, GOOGLE_REVIEW_URL } from '@/lib/contact';
 import { EXTERNAL_REVIEWS, PLATFORM_STATS, type ExternalReview } from '@/content/externalReviews';
@@ -30,17 +30,30 @@ const PLATFORMS = [
   },
 ];
 
+// The stars fill one by one as the card scrolls into view — the eye counts
+// the rating instead of reading it. 50ms stagger, strong ease-out, scale
+// from 0.6 (never 0 — nothing real appears from nothing).
+const starsRow: Variants = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.05, delayChildren: 0.12 } },
+};
+const starPop: Variants = {
+  hidden: { opacity: 0, scale: 0.6 },
+  show:   { opacity: 1, scale: 1, transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] as const } },
+};
+
 function Stars({ count }: { count: number }) {
   return (
-    <div className="flex gap-0.5" aria-label={`${count} out of 5 stars`}>
+    <motion.div className="flex gap-0.5" aria-label={`${count} out of 5 stars`} variants={starsRow}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          className={`w-4 h-4 ${i < count ? 'fill-gold text-gold' : 'fill-foreground/10 text-foreground/10'}`}
-          aria-hidden="true"
-        />
+        <motion.span key={i} variants={starPop} className="inline-flex">
+          <Star
+            className={`w-4 h-4 ${i < count ? 'fill-gold text-gold' : 'fill-foreground/10 text-foreground/10'}`}
+            aria-hidden="true"
+          />
+        </motion.span>
       ))}
-    </div>
+    </motion.div>
   );
 }
 
@@ -60,11 +73,23 @@ const avatarColor = (name: string) =>
 
 // Laid out in Google's review anatomy — avatar + name (+ real platform meta
 // like "Local Guide"), stars + date, then the text — so the cards read like
-// the reviews people already know, not marketing quotes.
+// the reviews people already know, not marketing quotes. Each card rises in
+// when scrolled to; its star row inherits "show" and fills sequentially.
+const cardRise: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.23, 1, 0.32, 1] as const } },
+};
+
 function ExternalCard({ r }: { r: ExternalReview }) {
   const platform = PLATFORMS.find(p => p.key === r.source);
   return (
-    <article className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-black/5 text-left w-[82vw] max-w-[320px] flex-shrink-0 snap-start sm:w-auto sm:max-w-none">
+    <motion.article
+      variants={cardRise}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: '-40px' }}
+      className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-black/5 text-left w-[82vw] max-w-[320px] flex-shrink-0 snap-start sm:w-auto sm:max-w-none"
+    >
       <div className="flex items-center gap-2.5">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${avatarColor(r.name)}`}>
           {r.name.charAt(0).toUpperCase()}
@@ -83,7 +108,7 @@ function ExternalCard({ r }: { r: ExternalReview }) {
         <Star className="w-3 h-3 fill-current flex-shrink-0" aria-hidden="true" />
         Left on {platform?.name}
       </p>
-    </article>
+    </motion.article>
   );
 }
 
@@ -152,16 +177,12 @@ export const SocialProof: React.FC = () => {
             HelperCards pattern; owner call 2026-07-29, the stacked cards made
             the band ~1.7 phone screens). Edge-bleed via -mx-4 so cards scroll
             to the screen edge. sm+: back to the three-across grid. */}
+        {/* Plain div — each card animates itself in (ExternalCard), so a
+            container fade on top would just double the opacity ramp. */}
         {reviews.length > 0 && (
-          <motion.div
-            className="mt-8 flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible"
-            initial={{ opacity: 0, y: 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}
-          >
+          <div className="mt-8 flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
             {reviews.map((r, i) => <ExternalCard key={`${r.source}-${i}`} r={r} />)}
-          </motion.div>
+          </div>
         )}
 
         {/* The other half of the loop — collecting the next review. Ghost
@@ -174,15 +195,23 @@ export const SocialProof: React.FC = () => {
           viewport={{ once: true, margin: '-40px' }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         >
-          <a
+          <motion.a
             href={GOOGLE_REVIEW_URL}
             target="_blank"
             rel="noopener noreferrer"
+            whileHover="hover"
             className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-[background-color,border-color,transform] duration-200 hover:bg-white/10 hover:border-white/35 active:scale-[0.97]"
           >
-            <Star className="w-4 h-4 fill-gold text-gold" aria-hidden="true" />
+            {/* The star wiggles on hover (variant propagates from the <a>) —
+                hover-only, so touch taps stay plain and fast. */}
+            <motion.span
+              className="inline-flex"
+              variants={{ hover: { rotate: [0, -14, 10, -6, 0], scale: 1.15, transition: { duration: 0.45, ease: 'easeInOut' } } }}
+            >
+              <Star className="w-4 h-4 fill-gold text-gold" aria-hidden="true" />
+            </motion.span>
             Booked with us? Leave a review
-          </a>
+          </motion.a>
           <p className="mt-2.5 text-xs text-white/45">
             Takes 30 seconds on Google — or{' '}
             <a

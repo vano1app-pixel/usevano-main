@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, type Variants } from 'framer-motion';
 import {
   ArrowLeft, ShieldCheck, Mail, Star, UserCheck, Navigation, KeyRound,
   RotateCcw, MessageCircle,
@@ -23,11 +24,30 @@ interface CheckItem {
   body: ReactNode;
 }
 
+// Cards cascade in as each group scrolls into view (the profile page's
+// pattern) — short 60ms stagger, spring settle; decorative only, never
+// blocking. Reduced-motion users get the opacity fade without the movement
+// (MotionConfig reducedMotion="user" strips transforms globally).
+const listStagger: Variants = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.06 } },
+};
+const listItem: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 440, damping: 32 } },
+};
+
 function CheckList({ items }: { items: CheckItem[] }) {
   return (
-    <ul className="space-y-3">
+    <motion.ul
+      className="space-y-3"
+      variants={listStagger}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: '-60px' }}
+    >
       {items.map(({ icon: Icon, title, body }) => (
-        <li key={title} className="bg-card rounded-2xl border border-border/40 shadow-tinted p-5 flex gap-4">
+        <motion.li key={title} variants={listItem} className="bg-card rounded-2xl border border-border/40 shadow-tinted p-5 flex gap-4">
           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sage-light text-sage">
             <Icon className="w-5 h-5" aria-hidden="true" />
           </span>
@@ -35,9 +55,9 @@ function CheckList({ items }: { items: CheckItem[] }) {
             <p className="text-sm font-semibold text-foreground">{title}</p>
             <p className="text-sm text-muted-foreground leading-relaxed mt-1">{body}</p>
           </div>
-        </li>
+        </motion.li>
       ))}
-    </ul>
+    </motion.ul>
   );
 }
 
