@@ -64,7 +64,7 @@ const avatarColor = (name: string) =>
 function ExternalCard({ r }: { r: ExternalReview }) {
   const platform = PLATFORMS.find(p => p.key === r.source);
   return (
-    <article className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-black/5 text-left">
+    <article className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-black/5 text-left w-[82vw] max-w-[320px] flex-shrink-0 snap-start sm:w-auto sm:max-w-none">
       <div className="flex items-center gap-2.5">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${avatarColor(r.name)}`}>
           {r.name.charAt(0).toUpperCase()}
@@ -148,9 +148,13 @@ export const SocialProof: React.FC = () => {
           })}
         </motion.div>
 
+        {/* Phone: a side-swipe snap row (one card + the next peeking — the
+            HelperCards pattern; owner call 2026-07-29, the stacked cards made
+            the band ~1.7 phone screens). Edge-bleed via -mx-4 so cards scroll
+            to the screen edge. sm+: back to the three-across grid. */}
         {reviews.length > 0 && (
           <motion.div
-            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-8"
+            className="mt-8 flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible"
             initial={{ opacity: 0, y: 14 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-60px' }}
