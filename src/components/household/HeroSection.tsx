@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { MapPin } from 'lucide-react';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ReviewBadges } from './ReviewBadges';
@@ -57,6 +58,34 @@ export const HeroSection: React.FC = () => {
       </div>
 
       <div className="relative mx-auto w-full max-w-5xl lg:max-w-6xl text-center">
+
+        {/* Galway + Irish trust signal — the very first thing you see, so it's
+            obvious we operate in Galway right now and are an Irish company.
+            Calm editorial pill (not an app-y live counter) on its own row, so
+            it never crowds the review chips below. Real CSS tricolour, not the
+            🇮🇪 emoji (Windows renders that as the letters "IE"). */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-3 sm:mb-4 flex justify-center"
+        >
+          <span className="inline-flex items-center gap-2 rounded-full border border-navy/10 bg-white/80 px-3.5 py-1.5 text-[12px] sm:text-[13px] font-semibold text-navy shadow-[0_2px_12px_rgba(28,42,64,0.06)] backdrop-blur">
+            <MapPin className="h-3.5 w-3.5 text-sage" aria-hidden="true" />
+            <span>Same-day in <span className="text-sage">Galway</span></span>
+            <span className="h-3.5 w-px bg-navy/15" aria-hidden="true" />
+            <span
+              className="inline-flex h-3 w-[18px] overflow-hidden rounded-[2px] ring-1 ring-black/10"
+              role="img"
+              aria-label="Irish flag"
+            >
+              <span className="flex-1 bg-[#169b62]" />
+              <span className="flex-1 bg-white" />
+              <span className="flex-1 bg-[#ff883e]" />
+            </span>
+            <span className="text-navy/75">Irish&#8209;owned</span>
+          </span>
+        </motion.div>
 
         <div className="flex justify-center">
           <ReferralWelcomeBanner />
