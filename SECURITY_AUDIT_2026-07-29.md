@@ -224,6 +224,24 @@ NOTICE counting any that already transferred and need manual Stripe review.
   made new payout rows rare. Fixed by `20260729000003_payout_status_add_transferring.sql`
   (adds `transferring` to the allowed set).
 
+## Second bug sweep (this session) — 6 more fixed
+
+A third adversarial pass over cancel/refund, the helper funnel, cron
+idempotency, and the native/PWA shell surfaced these (all fixed):
+
+| Severity | Bug | Fix |
+|----------|-----|-----|
+| **High** | `no-helper-fallback` released the Stripe hold/refund **before** its compare-and-swap cancel, so a booking a helper accepts (and whose fee is captured) mid-run gets its fee refunded while the row stays `accepted` — Vano loses the only money it collects. | CAS the cancel first; release money only after winning it (mirrors `remind-unpaid-bookings`). |
+| Low | `cancel-household-booking` customer_cancel wrote `cancelled` unconditionally after a Stripe round-trip, so a helper who starts the job mid-refund gets cancelled out from under them (in_progress gate bypassed). | Same CAS-first ordering, guarded on the cancellable status set. |
+| Low | `create-verified-plan` had no in-flight dedup → two completed checkouts = two €2/mo subscriptions, one orphaned and un-cancellable in-app. | Search Stripe for an existing active sub before minting; `confirm-verified-plan` cancels a duplicate instead of orphaning it. |
+| Low | `household-winback` measured cadence from booking `created_at`, not completion, so book-ahead customers got a "need a hand again?" nudge right after their job. | Measure age from the completion timestamp (`household_job_updates`), fallback to `created_at`. |
+| Low | Gap-recruit nudge stamped `gap_nudged_at` non-atomically (SELECT then UPDATE), so concurrent same-city dispatches double-texted helpers. | Atomic claim: conditional UPDATE ... RETURNING; text only the rows won. |
+| Low | Returning customers got **no tracking push** on new bookings — the per-origin subscription flipped the UI to "subscribed" without registering a row for the new `booking_id`. | On mount, idempotently register the existing subscription for the current booking before marking subscribed. |
+
+(Two candidates were adversarially **refuted** and left alone: a
+`verify-student-email-otp` email write-back and a `remind-confirm-completion`
+Stage-3 double-SMS — both contrived/guard-covered.)
+
 ## Verification
 - `npm run typecheck` — clean.
 - `npm test` — 234/234 pass (incl. the updated WhatsApp/voice fee lock-step tests).

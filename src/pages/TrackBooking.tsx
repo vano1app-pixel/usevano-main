@@ -798,20 +798,38 @@ const TrackBooking = () => {
   }, [bookingId, isSearching]);
 
   // Reflect any existing push subscription so we don't re-prompt a customer
-  // who already opted in on this device.
+  // who already opted in on this device — but a browser PushSubscription is
+  // ONE per origin while push delivery is per-booking (send-household-push
+  // filters household_push_subscriptions by booking_id). A returning customer
+  // already holds the origin subscription, so on every NEW booking this used to
+  // flip straight to 'subscribed', hide the opt-in card, and never register a
+  // row for the new booking_id → silently no push. So when a subscription
+  // exists, idempotently register it for THIS booking before marking subscribed.
   useEffect(() => {
-    if (!pushSupported) return;
+    if (!pushSupported || !bookingId) return;
     if (Notification.permission === 'denied') { setPushState('denied'); return; }
     let cancelled = false;
     (async () => {
       try {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
-        if (!cancelled && sub) setPushState('subscribed');
+        if (cancelled || !sub) return;
+        const json = sub.toJSON();
+        if (json.endpoint && json.keys?.p256dh && json.keys?.auth) {
+          // ON CONFLICT DO NOTHING via the UNIQUE(booking_id,endpoint) index —
+          // safe to run on every mount/reload, no UPDATE policy needed.
+          await hdb.from('household_push_subscriptions').upsert({
+            booking_id: bookingId,
+            endpoint: json.endpoint,
+            p256dh: json.keys.p256dh,
+            auth: json.keys.auth,
+          }, { onConflict: 'booking_id,endpoint', ignoreDuplicates: true });
+        }
+        if (!cancelled) setPushState('subscribed');
       } catch { /* SW not ready — leave idle */ }
     })();
     return () => { cancelled = true; };
-  }, [pushSupported]);
+  }, [pushSupported, bookingId]);
 
   // The customer confirms the work is finished — completes the booking and
   // auto-releases the helper's payout. Any rating chosen on the same card is

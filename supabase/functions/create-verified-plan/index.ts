@@ -50,6 +50,32 @@ serve(async (req) => {
       return json(409, { error: 'Finish your student email and ID checks first — then the €2/month switches your tick on.' });
     }
 
+    // Dedup before minting a new session: if this helper already has an ACTIVE
+    // verified_plan subscription in Stripe (e.g. they completed checkout in
+    // another tab / an earlier attempt whose confirm redirect never ran, so
+    // verified_plan_active is still false), reuse it instead of creating a
+    // second — a duplicate would orphan a subscription billing €2/mo that
+    // cancel-verified-plan can't reach. Best-effort (Stripe's search index can
+    // lag ~a minute; confirm-verified-plan's overwrite guard is the backstop).
+    try {
+      const q = `metadata['helper_id']:'${helper_id}' AND status:'active'`;
+      const searchRes = await fetch(
+        `https://api.stripe.com/v1/subscriptions/search?query=${encodeURIComponent(q)}&limit=1`,
+        { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } },
+      );
+      if (searchRes.ok) {
+        const found = await searchRes.json() as { data?: Array<{ id: string }> };
+        if (found.data && found.data.length > 0) {
+          await supabase.from('household_helpers')
+            .update({ verified_plan_active: true, verified_plan_sub_id: found.data[0].id })
+            .eq('id', helper_id);
+          return json(200, { success: true, already_active: true });
+        }
+      }
+    } catch (e) {
+      console.warn('[create-verified-plan] dedup search failed (non-fatal)', e);
+    }
+
     const origin = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
     const params: Record<string, string> = {
       mode: 'subscription',

@@ -144,6 +144,27 @@ serve(async (_req) => {
     return new Response('DB error', { status: 500 });
   }
 
+  // Completion timestamps. The cadence is "how long AFTER a completed booking",
+  // so age must be measured from when the job was COMPLETED, not when it was
+  // booked — a book-ahead booking (scheduled_at days/weeks out) is created long
+  // before it runs, which would otherwise fire the winback the day the job
+  // finished. Same source as remind-household-rating; falls back to created_at
+  // when there's no completion row.
+  const rowIds = ((rows ?? []) as BookingRow[]).map((r) => r.id);
+  const completedAt = new Map<string, number>();
+  if (rowIds.length) {
+    const { data: completions } = await supabase
+      .from('household_job_updates')
+      .select('booking_id, created_at')
+      .eq('status', 'completed')
+      .in('booking_id', rowIds);
+    for (const c of (completions ?? []) as { booking_id: string; created_at: string }[]) {
+      const ms = new Date(c.created_at).getTime();
+      const prev = completedAt.get(c.booking_id);
+      if (prev === undefined || ms > prev) completedAt.set(c.booking_id, ms);
+    }
+  }
+
   // Group by customer (normalized phone, falling back to the raw string so a
   // weird format still groups with itself).
   const byCustomer = new Map<string, BookingRow[]>();
@@ -171,7 +192,9 @@ serve(async (_req) => {
     if (!candidate) continue;
     if (candidate.winback_sent_at) continue; // this lapse was already handled
 
-    const ageDays = (now - new Date(candidate.created_at).getTime()) / DAY_MS;
+    // Measure the lapse from completion (fallback: booking creation).
+    const completedMs = completedAt.get(candidate.id) ?? new Date(candidate.created_at).getTime();
+    const ageDays = (now - completedMs) / DAY_MS;
     const cadence = CADENCE_DAYS[candidate.category ?? ''] ?? DEFAULT_CADENCE_DAYS;
     if (ageDays < cadence) continue;              // not due yet — later run
     if (ageDays > STALE_DAYS) { closeOut.push(candidate.id); continue; }
