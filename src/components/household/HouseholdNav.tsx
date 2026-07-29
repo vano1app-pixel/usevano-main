@@ -76,13 +76,31 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
           <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
             <img src={logo} alt="" className="w-full h-full object-cover" />
           </div>
-          <span
-            className={cn(
-              'font-display text-[1.35rem] font-extrabold tracking-[-0.02em] leading-none transition-colors duration-300',
-              dark ? 'text-white' : 'text-navy',
-            )}
-          >
-            VANO
+          <span className="flex flex-col leading-none">
+            <span
+              className={cn(
+                'font-display text-[1.35rem] font-extrabold tracking-[-0.02em] leading-none transition-colors duration-300',
+                dark ? 'text-white' : 'text-navy',
+              )}
+            >
+              VANO
+            </span>
+            {/* Low-key brand-lockup subtitle: "Irish-owned" reads as part of the
+                mark (small, tracked), a quiet trust cue rather than a badge.
+                Tiny CSS tricolour, not the 🇮🇪 emoji (Windows shows "IE"). */}
+            <span
+              className={cn(
+                'mt-1 flex items-center gap-1 text-[8.5px] font-semibold uppercase tracking-[0.16em] transition-colors duration-300',
+                dark ? 'text-white/55' : 'text-navy/45',
+              )}
+            >
+              <span className="inline-flex h-2 w-3 overflow-hidden rounded-[1px] ring-1 ring-black/10" aria-hidden="true">
+                <span className="flex-1 bg-[#169b62]" />
+                <span className="flex-1 bg-white" />
+                <span className="flex-1 bg-[#ff883e]" />
+              </span>
+              Irish-owned
+            </span>
           </span>
         </Link>
 
