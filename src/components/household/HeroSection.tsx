@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { MapPin } from 'lucide-react';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ReviewBadges } from './ReviewBadges';
@@ -57,6 +58,32 @@ export const HeroSection: React.FC = () => {
       </div>
 
       <div className="relative mx-auto w-full max-w-5xl lg:max-w-6xl text-center">
+
+        {/* Galway + Irish signal as a QUIET one-line tagline, not another chip —
+            the trust row below already carries Trustpilot/Google, so a third
+            pill over-tagged the top. Plain muted text keeps "we operate in
+            Galway now + Irish company" obvious without adding a badge. Real CSS
+            tricolour, not the 🇮🇪 emoji (Windows renders that as the letters "IE"). */}
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-3 sm:mb-4 flex items-center justify-center gap-2 text-[12.5px] sm:text-[13px] font-semibold tracking-wide text-navy/60"
+        >
+          <MapPin className="h-3.5 w-3.5 text-sage" aria-hidden="true" />
+          <span>Same-day in <span className="text-sage">Galway</span></span>
+          <span className="text-navy/25" aria-hidden="true">·</span>
+          <span
+            className="inline-flex h-3 w-[18px] overflow-hidden rounded-[2px] ring-1 ring-black/10"
+            role="img"
+            aria-label="Irish flag"
+          >
+            <span className="flex-1 bg-[#169b62]" />
+            <span className="flex-1 bg-white" />
+            <span className="flex-1 bg-[#ff883e]" />
+          </span>
+          <span>Irish&#8209;owned</span>
+        </motion.p>
 
         <div className="flex justify-center">
           <ReferralWelcomeBanner />
