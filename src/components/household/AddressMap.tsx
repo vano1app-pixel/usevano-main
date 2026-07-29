@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import VanoMapTiles from '@/components/household/VanoMapTiles';
 
 /**
  * Draggable address pin — the Deliveroo "is this the right spot?" moment.
@@ -62,10 +63,7 @@ const AddressMap: React.FC<Props> = ({ lat, lng, onMove, height = 190 }) => {
       // Touch-drag the map to pan; scroll-wheel off so the page still scrolls.
       className="z-0"
     >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; OpenStreetMap'
-      />
+      <VanoMapTiles />
       <Marker
         position={[lat, lng]}
         icon={PIN}
