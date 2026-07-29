@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Star, ArrowUpRight } from 'lucide-react';
-import { GOOGLE_BUSINESS_URL } from '@/lib/contact';
+import { GOOGLE_BUSINESS_URL, GOOGLE_REVIEW_URL } from '@/lib/contact';
 import { EXTERNAL_REVIEWS, PLATFORM_STATS, type ExternalReview } from '@/content/externalReviews';
 
 /**
@@ -137,7 +137,40 @@ export const SocialProof: React.FC = () => {
           </motion.div>
         )}
 
-        <p className="text-center text-white/60 text-sm mt-10">
+        {/* The other half of the loop — collecting the next review. Ghost
+            button on navy (the page's one primary action stays "book");
+            GOOGLE_REVIEW_URL opens Google's write-a-review dialog directly. */}
+        <motion.div
+          className="text-center mt-10"
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <a
+            href={GOOGLE_REVIEW_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-[background-color,border-color,transform] duration-200 hover:bg-white/10 hover:border-white/35 active:scale-[0.97]"
+          >
+            <Star className="w-4 h-4 fill-gold text-gold" aria-hidden="true" />
+            Booked with us? Leave a review
+          </a>
+          <p className="mt-2.5 text-xs text-white/45">
+            Takes 30 seconds on Google — or{' '}
+            <a
+              href="https://www.trustpilot.com/evaluate/vanojobs.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-white/70 transition-colors"
+            >
+              review us on Trustpilot
+            </a>
+            .
+          </p>
+        </motion.div>
+
+        <p className="text-center text-white/60 text-sm mt-8">
           You only pay once a helper says yes · money-back guarantee
         </p>
       </div>
