@@ -14,6 +14,7 @@ import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
 import { categoryLabel, categoryEmoji } from '@/lib/bookingLabels';
 import { studyLine } from '@/lib/colleges';
+import { format } from 'date-fns';
 import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
 import { track } from '@/lib/track';
 import logo from '@/assets/logo.png';
@@ -497,6 +498,8 @@ const TrackBooking = () => {
     college: string | null;
     course: string | null;
     study_year: string | null;
+    /** "On VANO since May 2026" — a date can't be faked warm, only earned. */
+    created_at: string | null;
   } | null>(null);
   // One real review line for the chip — the strongest comfort signal at the
   // "a stranger was just assigned to my home" moment. Absent → renders nothing.
@@ -719,7 +722,7 @@ const TrackBooking = () => {
     const fetch_ = async () => {
       const { data: helper } = await hdb
         .from('household_helpers')
-        .select('id, name, photo_url, average_rating, rating_avg, accepted_count, id_verified, vano_verified, age, college, course, study_year')
+        .select('id, name, photo_url, average_rating, rating_avg, accepted_count, id_verified, vano_verified, age, college, course, study_year, created_at')
         .eq('user_id', studentId)
         .maybeSingle();
       if (cancelled) return;
@@ -736,6 +739,7 @@ const TrackBooking = () => {
           college: helper.college ?? null,
           course: helper.course ?? null,
           study_year: helper.study_year ?? null,
+          created_at: helper.created_at ?? null,
         });
         // Best recent review line for the chip — fail-soft, purely additive.
         const { data: ratings } = await hdb
@@ -1609,8 +1613,8 @@ const TrackBooking = () => {
                         <ShieldCheck className="w-3 h-3" aria-hidden="true" /> ID-verified
                       </span>
                     )}
-                    {helperCard && (helperCard.average_rating || helperCard.accepted_count > 0) && (
-                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                    {helperCard && (helperCard.average_rating || helperCard.accepted_count > 0 || helperCard.created_at) && (
+                      <p className="flex flex-wrap items-center gap-x-1 text-[11px] text-muted-foreground mt-0.5">
                         {helperCard.average_rating ? (
                           <>
                             <Star className="w-3 h-3 fill-gold text-gold flex-shrink-0" />
@@ -1620,6 +1624,12 @@ const TrackBooking = () => {
                         {helperCard.average_rating && helperCard.accepted_count > 0 ? ' · ' : null}
                         {helperCard.accepted_count > 0
                           ? `${helperCard.accepted_count} task${helperCard.accepted_count === 1 ? '' : 's'} done`
+                          : null}
+                        {/* Un-fakeable warmth: the joined date is earned, not
+                            written. Shows alone for brand-new helpers too. */}
+                        {(helperCard.average_rating || helperCard.accepted_count > 0) && helperCard.created_at ? ' · ' : null}
+                        {helperCard.created_at
+                          ? `On VANO since ${format(new Date(helperCard.created_at), 'MMM yyyy')}`
                           : null}
                       </p>
                     )}
@@ -1675,7 +1685,7 @@ const TrackBooking = () => {
             </p>
             <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
               {helperCard?.photo_url
-                ? 'Same face as the photo? Read them this code to start the job:'
+                ? 'Check the face, then read them your code:'
                 : 'Read this code to your helper so they can start the job:'}
             </p>
             <p className="text-[2.5rem] leading-none font-extrabold tracking-[0.3em] tabular-nums text-sage">

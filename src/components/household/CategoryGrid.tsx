@@ -1288,9 +1288,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     </motion.span>
                   </span>
                 ))}
-                {/* The proof behind the chips — new tab so the half-filled
-                    sheet is never lost to a curiosity tap (same pattern as
-                    the /cover links below). */}
+                {/* The proof behind the chips — phrased as HER question. New
+                    tab so the half-filled sheet is never lost to a curiosity
+                    tap (same pattern as the /cover links below). */}
                 <a
                   href="/safety"
                   target="_blank"
@@ -1298,7 +1298,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   onClick={(e) => e.stopPropagation()}
                   className="text-xs sm:text-[13px] font-semibold text-sage-dark/80 underline underline-offset-2 whitespace-nowrap hover:text-sage-dark transition-colors"
                 >
-                  How we check →
+                  Who's coming? →
                 </a>
               </motion.div>
             )}

@@ -743,7 +743,7 @@ serve(async (req) => {
       You'll get another message when they're on their way — including a <strong>live map</strong> so you can track exactly where they are.
     </p>
     <a href="${trackUrl}" style="display:inline-block;background:${payUrl && !booking.paid_at ? '#f3f4f6' : '#4a7c59'};color:${payUrl && !booking.paid_at ? '#374151' : '#fff'};font-size:14px;font-weight:600;padding:13px 28px;border-radius:100px;text-decoration:none;${payUrl && !booking.paid_at ? 'border:1px solid #e5e7eb;' : ''}">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">${eHelperFirst} passed a photo-ID + live selfie check before their first job — <a href="${siteUrl}/safety" style="color:#9ca3af;">how we check every student</a>.</p>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">${eHelperFirst} was ID-checked — photo ID and live selfie — before their first job. <a href="${siteUrl}/safety" style="color:#9ca3af;">How we check every student &rarr;</a></p>
     <p style="margin:8px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#9ca3af;">+353 89 981 7111</a></p>
   </div>
 </div>

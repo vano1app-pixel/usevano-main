@@ -169,11 +169,12 @@ const Safety = () => (
       </Link>
 
       <p className="eyebrow mb-3">Safety at VANO</p>
-      <h1 className="display-lg text-foreground mb-4">How we check every student</h1>
+      <h1 className="display-lg text-foreground mb-4">Who&apos;s actually coming to your home?</h1>
       <p className="text-[15px] text-muted-foreground leading-relaxed mb-10">
-        Letting someone into your home is the whole question. So here&apos;s the whole
-        answer — every check a helper passes before they can work, what you see on the
-        day, and what stands behind the booking if anything&apos;s not right.
+        You&apos;re not booking an app — you&apos;re opening your door to a person. So
+        here&apos;s the whole answer: every check that person passes before they can
+        work, what you see on the day, and what stands behind the booking if
+        anything&apos;s not right.
       </p>
 
       <section className="mb-10">

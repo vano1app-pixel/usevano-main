@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle2, AlertTriangle, Clock, LogIn } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Clock, LogIn, Loader2 } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
 import { microCelebrate } from '@/lib/celebrate';
+import { getSupabaseUrl } from '@/lib/supabaseEnv';
 import logo from '@/assets/logo.png';
 
 // Public landing page for the one-tap accept link (see supabase/functions/accept-job).
@@ -12,8 +13,16 @@ import logo from '@/assets/logo.png';
 // raw source. accept-job now 302-redirects here instead — a redirect into the SPA
 // renders reliably everywhere, and this route is public so a helper who tapped
 // from WhatsApp/SMS still gets a proper confirmation without logging in first.
+//
+// 'confirm' is the bot-gate hop (see accept-job's header): a bare GET on the
+// accept link no longer claims — it lands here, and THIS page immediately
+// re-navigates to the function with &go=1, which does the real claim. Link
+// previewers and mail scanners don't execute JS, so they stop at this page
+// and can never claim a job out from under the helper. Full navigation (not
+// fetch) on purpose: the function answers with redirects + a magic-link
+// sign-in chain the browser must follow.
 
-type Status = 'claimed' | 'mine' | 'taken' | 'expired' | 'notfound' | 'login';
+type Status = 'claimed' | 'mine' | 'taken' | 'expired' | 'notfound' | 'login' | 'confirm';
 
 interface View {
   title: string;
@@ -26,7 +35,9 @@ interface View {
   steps?: string[];
 }
 
-const VIEWS: Record<Status, View> = {
+// 'confirm' renders its own dedicated block (spinner + manual fallback), not
+// a VIEWS entry — it's a hop, not a result.
+const VIEWS: Record<Exclude<Status, 'confirm'>, View> = {
   claimed: {
     title: "You've got the job! 🎉",
     body: (cat, city) => `The ${cat}${city ? ` in ${city}` : ''} is yours — we've told the customer.`,
@@ -90,19 +101,63 @@ const JobAccepted = () => {
   // that truncates the query string (or a future status the SPA doesn't know)
   // would otherwise show "You've got the job! 🎉" + confetti for a job the
   // helper never claimed, and route to /student-job/ (empty → 404). Default to
-  // the neutral 'expired' view, which points at the dashboard.
+  // the neutral 'expired' view, which points at the dashboard. 'confirm'
+  // without its token is equally dead — same fallback.
   const rawStatus = params.get('status');
-  const status: Status = rawStatus && rawStatus in VIEWS ? (rawStatus as Status) : 'expired';
-  const view = VIEWS[status];
+  const token = params.get('t') ?? '';
+  let status: Status = rawStatus && (rawStatus in VIEWS || rawStatus === 'confirm') ? (rawStatus as Status) : 'expired';
+  if (status === 'confirm' && !token) status = 'expired';
   const job = params.get('job') ?? '';
   const cat = params.get('cat') || 'job';
   const city = params.get('city') || '';
-  const tone = TONE[view.tone];
-  const Icon = view.icon;
+  const claimUrl = status === 'confirm'
+    ? `${getSupabaseUrl()}/functions/v1/accept-job?t=${encodeURIComponent(token)}&go=1`
+    : null;
 
   useEffect(() => {
     if (status === 'claimed') microCelebrate();
   }, [status]);
+
+  // The bot-gate hop: continue to the real claim the instant we're mounted.
+  // replace() keeps this interstitial out of history, so Back never re-lands
+  // on a page whose only job is to navigate away.
+  useEffect(() => {
+    if (claimUrl) window.location.replace(claimUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (status === 'confirm' && claimUrl) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-4">
+        <SEOHead title="Claiming job · VANO" description="Claiming your VANO job." noindex />
+        <div className="flex items-center gap-2">
+          <img src={logo} alt="VANO" className="h-9 w-9 rounded-xl" />
+          <span className="text-2xl font-bold tracking-tight text-primary">VANO</span>
+        </div>
+        <div className="surface-float w-full max-w-sm rounded-2xl border border-sage/30 bg-sage-light p-6 text-center">
+          <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-sage text-white">
+            <Loader2 size={24} strokeWidth={2} className="animate-spin" />
+          </span>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">Claiming this {cat} for you…</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            One second — first tap wins the job.
+          </p>
+          {/* Belt-and-braces: if the auto-continue is ever blocked, the same
+              claim is one manual tap away. */}
+          <a
+            href={claimUrl}
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-sage px-6 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-sage-dark active:scale-[0.97]"
+          >
+            Accept this job →
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const view = VIEWS[status as Exclude<Status, 'confirm'>];
+  const tone = TONE[view.tone];
+  const Icon = view.icon;
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-4">
