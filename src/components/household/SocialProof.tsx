@@ -88,7 +88,7 @@ function ExternalCard({ r }: { r: ExternalReview }) {
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: '-40px' }}
-      className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-black/5 text-left w-[82vw] max-w-[320px] flex-shrink-0 snap-start sm:w-auto sm:max-w-none"
+      className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-border/40 text-left w-[82vw] max-w-[320px] flex-shrink-0 snap-start sm:w-auto sm:max-w-none"
     >
       <div className="flex items-center gap-2.5">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${avatarColor(r.name)}`}>
@@ -116,9 +116,9 @@ export const SocialProof: React.FC = () => {
   const reviews = EXTERNAL_REVIEWS.slice(0, 6);
 
   return (
-    // Phone gets tighter vertical rhythm (py-16, smaller gaps) — the band was
-    // brushing 1.2 screens; target is ~one. Desktop keeps the roomier slab.
-    <section id="reviews" className="relative bg-navy rounded-[2rem] sm:rounded-[3rem] px-4 py-16 sm:py-28 lg:py-32 scroll-mt-20">
+    // Cream variant (owner preview): same section on the page background —
+    // no navy slab. Phone keeps the tight py-16 rhythm.
+    <section id="reviews" className="relative px-4 py-16 sm:py-28 lg:py-32 scroll-mt-20">
       <div className="relative max-w-4xl mx-auto">
         <motion.div
           className="text-center mb-8 lg:mb-14"
@@ -127,11 +127,11 @@ export const SocialProof: React.FC = () => {
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <p className="eyebrow text-white/40 before:bg-white/25 mb-3">Reviews</p>
-          <h2 className="display-lg text-white text-balance">
+          <p className="eyebrow mb-3">Reviews</p>
+          <h2 className="display-lg text-foreground text-balance">
             Don't take our word for it
           </h2>
-          <p className="text-white/70 text-sm sm:text-base mt-3 max-w-md mx-auto text-pretty">
+          <p className="text-muted-foreground text-sm sm:text-base mt-3 max-w-md mx-auto text-pretty">
             Our reviews live on Trustpilot and Google — platforms we can't edit. Read them all, then decide.
           </p>
         </motion.div>
@@ -160,7 +160,7 @@ export const SocialProof: React.FC = () => {
                     ? `${name}: rated ${stats.rating} out of 5 from ${stats.count} reviews — opens in a new tab`
                     : `Read our reviews on ${name} — opens in a new tab`
                 }
-                className="tile-float group flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white border border-black/5 px-3.5 py-3.5 sm:px-5 sm:py-4 transition-transform duration-200 hover:-translate-y-1 active:scale-[0.98]"
+                className="tile-float group flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white border border-border/40 px-3.5 py-3.5 sm:px-5 sm:py-4 transition-transform duration-200 hover:-translate-y-1 active:scale-[0.98]"
               >
                 <Star className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" style={{ color: brand, fill: brand }} aria-hidden="true" />
                 <span className="min-w-0 flex-1 text-left">
@@ -204,7 +204,7 @@ export const SocialProof: React.FC = () => {
             target="_blank"
             rel="noopener noreferrer"
             whileHover="hover"
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-[background-color,border-color,transform] duration-200 hover:bg-white/10 hover:border-white/35 active:scale-[0.97]"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-6 py-3 text-sm font-semibold text-foreground shadow-sm transition-[background-color,border-color,transform] duration-200 hover:bg-secondary hover:border-foreground/25 active:scale-[0.97]"
           >
             {/* The star wiggles on hover (variant propagates from the <a>) —
                 hover-only, so touch taps stay plain and fast. */}
@@ -216,13 +216,13 @@ export const SocialProof: React.FC = () => {
             </motion.span>
             Booked with us? Leave a review
           </motion.a>
-          <p className="mt-2.5 text-xs text-white/45">
+          <p className="mt-2.5 text-xs text-muted-foreground">
             Takes 30 seconds on Google — or{' '}
             <a
               href="https://www.trustpilot.com/evaluate/vanojobs.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-white/70 transition-colors"
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
             >
               review us on Trustpilot
             </a>
@@ -230,7 +230,7 @@ export const SocialProof: React.FC = () => {
           </p>
         </motion.div>
 
-        <p className="text-center text-white/60 text-sm mt-6 sm:mt-8">
+        <p className="text-center text-muted-foreground text-sm mt-6 sm:mt-8">
           You only pay once a helper says yes · money-back guarantee
         </p>
       </div>
