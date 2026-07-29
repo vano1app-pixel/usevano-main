@@ -48,7 +48,7 @@ function Stars({ count }: { count: number }) {
       {Array.from({ length: 5 }).map((_, i) => (
         <motion.span key={i} variants={starPop} className="inline-flex">
           <Star
-            className={`w-4 h-4 ${i < count ? 'fill-gold text-gold' : 'fill-foreground/10 text-foreground/10'}`}
+            className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${i < count ? 'fill-gold text-gold' : 'fill-foreground/10 text-foreground/10'}`}
             aria-hidden="true"
           />
         </motion.span>
@@ -90,24 +90,26 @@ function ExternalCard({ r }: { r: ExternalReview }) {
       viewport={{ once: true, margin: '-40px' }}
       // Thin ink outline (owner call 2026-07-30: reviews are a main part of
       // the site — make them more seeable): the site's near-black foreground
-      // at 1px, not pure #000, so the line sits in the palette.
-      className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-foreground/80 text-left w-[82vw] max-w-[320px] flex-shrink-0"
+      // at 1px, not pure #000, so the line sits in the palette. Sized up the
+      // same day — a small bump on phone, a real one on desktop, where
+      // 320px cards were too hard to read.
+      className="bg-white rounded-2xl shadow-tinted p-5 sm:p-6 flex flex-col gap-2.5 sm:gap-3 border border-foreground/80 text-left w-[86vw] max-w-[340px] sm:w-[400px] sm:max-w-[400px] flex-shrink-0"
     >
       <div className="flex items-center gap-2.5">
-        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${avatarColor(r.name)}`}>
+        <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0 ${avatarColor(r.name)}`}>
           {r.name.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground leading-tight">{r.name}</p>
-          {r.meta && <p className="text-[11px] text-muted-foreground mt-0.5">{r.meta}</p>}
+          <p className="text-[15px] sm:text-base font-semibold text-foreground leading-tight">{r.name}</p>
+          {r.meta && <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">{r.meta}</p>}
         </div>
       </div>
       <div className="flex items-center gap-2">
         <Stars count={r.rating} />
-        {r.when && <span className="text-[11px] text-muted-foreground">{r.when}</span>}
+        {r.when && <span className="text-[11px] sm:text-xs text-muted-foreground">{r.when}</span>}
       </div>
-      <p className="text-foreground/80 text-sm leading-relaxed flex-1">{r.text}</p>
-      <p className="flex items-center gap-1 text-[10px] font-semibold self-end" style={{ color: platform?.brand }}>
+      <p className="text-foreground/85 text-[15px] sm:text-base leading-relaxed flex-1">{r.text}</p>
+      <p className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold self-end" style={{ color: platform?.brand }}>
         <Star className="w-3 h-3 fill-current flex-shrink-0" aria-hidden="true" />
         Left on {platform?.name}
       </p>
