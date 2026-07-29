@@ -68,12 +68,33 @@ serve(async (_req) => {
     const custEmail = b.customer_email as string | null;
     const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job';
 
-    // Release whatever Stripe artifact this unpaid booking carries (shared
-    // rule — the query filters paid_at IS NULL, so this can only be an
-    // AUTH-AT-BOOKING hold to cancel, an open session to expire, or nothing).
-    // The messaging below must say exactly what happened: an auth customer
-    // had a HOLD released (never charged); a classic customer was simply
-    // never charged at all.
+    // Compare-and-swap FIRST: only cancel if STILL unclaimed + unpaid. A helper
+    // can accept (status→accepted) and notify-household-accepted can capture the
+    // fee in the seconds between the SELECT above and here. The Stripe release
+    // MUST come after we've durably won this cancel — otherwise a booking that
+    // was just accepted+captured would have its live fee cancelled/refunded
+    // while the row stays 'accepted' (the exact money-loss the CAS exists to
+    // prevent). Mirrors remind-unpaid-bookings' cancel sweep ordering.
+    const { data: cancelledRow } = await supabase
+      .from('household_bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', b.id)
+      .eq('status', 'pending')
+      .is('student_id', null)
+      .is('paid_at', null)
+      .select('id')
+      .maybeSingle();
+    if (!cancelledRow) {
+      console.log(`[no-helper-fallback] ${b.id} was claimed/paid mid-run — skipping cancel`);
+      continue;
+    }
+
+    // Now safe to release whatever Stripe artifact this unpaid booking carries
+    // (shared rule — the query filters paid_at IS NULL and we just confirmed the
+    // cancel, so no accept/capture can be in flight: this is an AUTH-AT-BOOKING
+    // hold to cancel, an open session to expire, or nothing). The messaging
+    // below says exactly what happened: an auth customer had a HOLD released
+    // (never charged); a classic customer was simply never charged at all.
     let refundOk = false;
     let holdReleased = false;
     const piId = b.stripe_payment_intent_id as string | null;
@@ -100,24 +121,6 @@ serve(async (_req) => {
       } else if (!released.ok) {
         console.error(`[no-helper-fallback] money release failed for ${b.id}`, released.action, released.error);
       }
-    }
-
-    // Compare-and-swap: only cancel if STILL unclaimed + unpaid. A helper can
-    // accept (status→accepted) in the seconds between the SELECT above and
-    // here; an unguarded cancel would strand them. Skip the notifications too
-    // if the swap lost the race.
-    const { data: cancelledRow } = await supabase
-      .from('household_bookings')
-      .update({ status: 'cancelled' })
-      .eq('id', b.id)
-      .eq('status', 'pending')
-      .is('student_id', null)
-      .is('paid_at', null)
-      .select('id')
-      .maybeSingle();
-    if (!cancelledRow) {
-      console.log(`[no-helper-fallback] ${b.id} was claimed/paid mid-run — skipping cancel`);
-      continue;
     }
     await supabase.from('household_job_updates').insert({
       booking_id: b.id,

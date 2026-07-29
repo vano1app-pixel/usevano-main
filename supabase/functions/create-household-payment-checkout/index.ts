@@ -296,7 +296,11 @@ serve(async (req) => {
     // What the customer's card is actually charged at accept. Can be €0
     // (a referral credit covers the fee, no cover) — notify-household-
     // accepted then skips Stripe entirely and marks the booking confirmed.
-    const feeDueCents = Math.max(0, vanoFeeCents - referralDiscountCents) + coverCents;
+    // `let`, not const: if a referral discount is invalidated after the booking
+    // is inserted (welcome-row insert failed, or the redeem CAS was lost), the
+    // strip branches below restore this to the undiscounted fee so the auth hold
+    // (line ~601), the return payload and every display string bill the full fee.
+    let feeDueCents = Math.max(0, vanoFeeCents - referralDiscountCents) + coverCents;
 
     // ── AUTH-AT-BOOKING (behind VANO_AUTH_AT_BOOKING) ────────────────────
     // Fee-carrying, near-term bookings are born `awaiting_payment` behind a
@@ -531,6 +535,12 @@ serve(async (req) => {
           referralDiscountCents = 0;
           delete bookingData.referral_discount_cents;
           delete bookingData.referral_kind;
+          // Restore the charged fee: fee_due_cents was stamped with the
+          // discount applied, and notify-household-accepted charges exactly
+          // that. Without this, a dropped welcome discount would still bill the
+          // customer the discounted fee with no referral row backing it.
+          feeDueCents = vanoFeeCents + coverCents;
+          bookingData.fee_due_cents = feeDueCents;
         }
         await supabase
           .from('household_bookings')
@@ -570,6 +580,11 @@ serve(async (req) => {
         delete bookingData.referral_discount_cents;
         delete bookingData.referral_kind;
         delete bookingData.redeem_referral_id;
+        // Restore the charged fee to the undiscounted amount — we lost the CAS
+        // for this credit, so this booking must pay the full fee. fee_due_cents
+        // was stamped discounted and is what notify-household-accepted charges.
+        feeDueCents = vanoFeeCents + coverCents;
+        bookingData.fee_due_cents = feeDueCents;
         try {
           await supabase.from('household_bookings').update({ booking_data: bookingData }).eq('id', bookingId);
         } catch (e) {

@@ -124,16 +124,33 @@ serve(async (req) => {
         return bad(409, 'Your helper has already started — message us to sort out a cancellation.');
       }
 
-      // Shared money rule: refund captured money (blocks on failure), cancel
-      // an auth hold (proceeds on failure — holds self-expire), expire an
-      // open session. See releaseMoney above.
+      // Compare-and-swap the cancel FIRST. The CANCELLABLE gate above was
+      // checked against the status read at fetch time, but releaseMoney() does a
+      // Stripe round-trip (~hundreds of ms) during which the helper can flip the
+      // job to in_progress (arrival code). Guarding the write on the status
+      // still being cancellable means a started job is never cancelled out from
+      // under the helper — and, because we only release money after winning the
+      // swap, its fee is never refunded either. Matches the sweep-path ordering.
+      const { data: cancelledRow } = await supabase
+        .from('household_bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', booking_id)
+        .in('status', CANCELLABLE)
+        .select('id')
+        .maybeSingle();
+      if (!cancelledRow) {
+        return bad(409, 'Your helper has already started — message us to sort out a cancellation.');
+      }
+
+      // Booking is durably cancelled — now release its Stripe artifact. Shared
+      // money rule: refund captured money (blocks on failure), cancel an auth
+      // hold (proceeds on failure — holds self-expire), expire an open session.
       const money = await releaseMoney();
       if (money.failedRefund) {
         return bad(502, "We couldn't process your refund automatically. Please contact us on WhatsApp: +353 89 981 7111");
       }
       const refundOk = money.refunded;
 
-      await supabase.from('household_bookings').update({ status: 'cancelled' }).eq('id', booking_id);
       await supabase.from('household_job_updates').insert({ booking_id, status: 'cancelled', note: 'Customer cancelled.' });
 
       // If a helper was assigned, notify them so their live-subscribed screen

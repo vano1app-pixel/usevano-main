@@ -62,7 +62,12 @@ serve(async (req) => {
     // a helper can't rate their own job. Legacy bookings completed before this
     // rolled out have no token — allow those unchanged (backward-compat) so
     // in-flight ratings never break.
-    const storedToken = (booking as Record<string, unknown>).rating_token as string | null;
+    // The rating token lives in the service-role-only household_booking_secrets
+    // table (off the booking row so the assigned helper can't read it via
+    // PostgREST/realtime and post a fake self-rating).
+    const { data: sec } = await supabase
+      .from('household_booking_secrets').select('rating_token').eq('booking_id', booking_id).maybeSingle() as { data: { rating_token: string | null } | null };
+    const storedToken = sec?.rating_token ?? null;
     if (storedToken) {
       const provided = typeof rating_token === 'string' ? rating_token : '';
       if (provided !== storedToken) {

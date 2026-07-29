@@ -172,7 +172,13 @@ serve(async (req) => {
     // model: helpers keep 100%, Vano only charges its booking fee). Usually
     // a Revolut tag like "@seanog1". Empty string clears it.
     if (handleRaw !== null) {
-      const cleaned = handleRaw.trim().replace(/\s+/g, ' ').slice(0, 60);
+      // Constrain to the Revolut-tag / URL shape a payment handle can actually
+      // be: letters, digits and @ . _ / : + - and spaces. This strips HTML
+      // metacharacters (< > " & ') at the source, so the handle can never
+      // inject markup into the customer/owner transactional emails or the
+      // TrackBooking pay card that render it (the email builders also escape,
+      // belt-and-suspenders).
+      const cleaned = handleRaw.trim().replace(/[^A-Za-z0-9@._/:+ -]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
       updates.payment_handle = cleaned || null;
     }
 

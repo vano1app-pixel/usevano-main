@@ -59,6 +59,27 @@ serve(async (req) => {
       : session.subscription?.id ?? null;
     if (!subId) console.error('[confirm-verified-plan] paid session with no subscription id', session_id);
 
+    // Duplicate-subscription guard: if this helper ALREADY has a recorded sub id
+    // and it differs from this session's, they completed checkout twice. Don't
+    // overwrite (that orphans the first sub — cancel-verified-plan only knows
+    // the recorded one, so the orphan would bill €2/mo forever). Cancel THIS
+    // extra subscription and keep the recorded one.
+    const { data: existing } = await supabase
+      .from('household_helpers')
+      .select('verified_plan_sub_id')
+      .eq('id', helper_id)
+      .maybeSingle() as { data: { verified_plan_sub_id: string | null } | null };
+    const recorded = existing?.verified_plan_sub_id ?? null;
+    if (recorded && subId && recorded !== subId) {
+      await fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+      }).catch((e) => console.error('[confirm-verified-plan] duplicate sub cancel failed', subId, e));
+      // Plan is already active on the recorded sub — nothing else to record.
+      await supabase.from('household_helpers').update({ verified_plan_active: true }).eq('id', helper_id);
+      return json(200, { active: true, deduped: true });
+    }
+
     const { error } = await supabase
       .from('household_helpers')
       .update({ verified_plan_active: true, ...(subId ? { verified_plan_sub_id: subId } : {}) })

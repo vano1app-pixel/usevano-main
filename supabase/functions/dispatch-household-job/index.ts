@@ -346,19 +346,28 @@ async function sendGapRecruitNudges(opts: {
     if (!candidates || candidates.length === 0) return;
 
     const ids = (candidates as Array<{ id: string }>).map((c) => c.id);
-    await supabase
+    // Atomic claim: stamp gap_nudged_at only on rows STILL un-nudged (or past
+    // cooldown) and text ONLY the rows this call actually won. Without the
+    // precondition, two same-city/thin-category dispatches racing the
+    // SELECT→UPDATE window would both see gap_nudged_at null and both text the
+    // same helpers — the double-text the cooldown is meant to prevent.
+    const { data: claimed } = await supabase
       .from('household_helpers')
       .update({ gap_nudged_at: new Date().toISOString() })
-      .in('id', ids);
+      .in('id', ids)
+      .or(`gap_nudged_at.is.null,gap_nudged_at.lt.${cooldownCutoff}`)
+      .select('id, phone');
+    const winners = (claimed as Array<{ id: string; phone?: string }> | null) ?? [];
+    if (winners.length === 0) return;
 
     const earn = earnCents ? ` (€${(earnCents / 100).toFixed(2)} to you)` : '';
     const addUrl = `${siteUrl}/student-account?add=${encodeURIComponent(category)}`;
     const body = `VANO: A ${catLabel} job${earn} just went out in ${city} — it skipped you because ${catLabel} isn't in your "Jobs I do" list. Add it in 10 seconds and you'll get the next one: ${addUrl}`;
     const results = await Promise.allSettled(
-      (candidates as Array<{ phone?: string }>).map((c) => notifyHelperPhone(c.phone, body)),
+      winners.map((c) => notifyHelperPhone(c.phone, body)),
     );
     const ok = results.filter((r) => r.status === 'fulfilled' && (r.value.whatsapp || r.value.sms)).length;
-    console.log(`[dispatch] gap-recruit nudged ${ok}/${candidates.length} helper(s) in ${city} without '${category}'`);
+    console.log(`[dispatch] gap-recruit nudged ${ok}/${winners.length} helper(s) in ${city} without '${category}'`);
   } catch (e) {
     console.warn('[dispatch] gap-recruit nudge failed (non-fatal)', e);
   }

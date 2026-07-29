@@ -89,6 +89,15 @@ async function sendSms(to: string | null | undefined, body: string): Promise<boo
   }
 }
 
+// User-controlled free text (helper name, customer name, Revolut handle,
+// phone) is interpolated into these transactional email bodies. Escape it so a
+// crafted name/handle can't inject markup — a payment-redirect phish landing in
+// a VANO-branded email (helper → customer) or the owner's admin inbox. The
+// plain-text/SMS bodies keep the raw values (entities would show literally).
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -631,6 +640,18 @@ serve(async (req) => {
     const slotStr = booking.time_slot ? ` ${SLOT_LABELS[booking.time_slot as string] ?? booking.time_slot}` : '';
     const whenLine = dateStr ? `${dateStr}${slotStr}` : '';
 
+    // HTML-escaped forms for the email bodies below (raw values still feed the
+    // plain-text/SMS strings above). Covers every free-text field an attacker
+    // can influence: helper name, customer name, category, timing, Revolut
+    // handle, customer phone/email.
+    const eHelperFirst = escapeHtml(helperFirstName);
+    const eCustName    = escapeHtml(custName);
+    const eCatLabel    = escapeHtml(catLabel);
+    const eWhenLine    = escapeHtml(whenLine);
+    const eHandle      = helperPaymentHandle ? escapeHtml(helperPaymentHandle) : null;
+    const ePhone       = booking.customer_phone ? escapeHtml(String(booking.customer_phone)) : '';
+    const eEmail       = booking.customer_email ? escapeHtml(String(booking.customer_email)) : '';
+
     const profileUrl  = helperId ? `${siteUrl}/helpers/${helperId}` : null;
     const ratingBits  = [
       helperRating ? `&#9733; ${Number(helperRating).toFixed(1)}` : null,
@@ -639,11 +660,11 @@ serve(async (req) => {
     const helperCard = helperId ? `
     <table cellpadding="0" cellspacing="0" style="width:100%;background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;margin:0 0 24px;">
       <tr>
-        ${helperPhoto ? `<td style="padding:14px 0 14px 16px;width:64px;vertical-align:middle;"><img src="${helperPhoto}" alt="${helperFirstName}" width="52" height="52" style="border-radius:50%;object-fit:cover;display:block;" /></td>` : ''}
+        ${helperPhoto ? `<td style="padding:14px 0 14px 16px;width:64px;vertical-align:middle;"><img src="${escapeHtml(helperPhoto)}" alt="${eHelperFirst}" width="52" height="52" style="border-radius:50%;object-fit:cover;display:block;" /></td>` : ''}
         <td style="padding:14px 16px;vertical-align:middle;">
-          <p style="margin:0;color:#111827;font-size:15px;font-weight:700;">${helperFirstName}</p>
+          <p style="margin:0;color:#111827;font-size:15px;font-weight:700;">${eHelperFirst}</p>
           ${ratingBits ? `<p style="margin:2px 0 0;color:#4b5563;font-size:13px;">${ratingBits}</p>` : ''}
-          <p style="margin:4px 0 0;font-size:13px;"><a href="${profileUrl}" style="color:#4a7c59;font-weight:600;text-decoration:none;">View ${helperFirstName}'s profile &rarr;</a></p>
+          <p style="margin:4px 0 0;font-size:13px;"><a href="${profileUrl}" style="color:#4a7c59;font-weight:600;text-decoration:none;">View ${eHelperFirst}'s profile &rarr;</a></p>
         </td>
       </tr>
     </table>` : '';
@@ -656,27 +677,27 @@ serve(async (req) => {
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#4a7c59;padding:32px 32px 24px;">
     <p style="margin:0 0 4px;color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;">Helper confirmed</p>
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">${helperFirstName} is on your job ✓</p>
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">${eHelperFirst} is on your job ✓</p>
   </div>
   <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${eCustName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperFirstName}</strong> has accepted your <strong>${catLabel}</strong>${whenLine ? ' for <strong>' + whenLine + '</strong>' : ''}.
+      <strong>${eHelperFirst}</strong> has accepted your <strong>${eCatLabel}</strong>${whenLine ? ' for <strong>' + eWhenLine + '</strong>' : ''}.
     </p>
     ${helperCard}
     ${directPay ? `
     <div style="background:#fffbf0;border:1px solid #f0e2be;border-radius:14px;padding:14px 18px;margin:0 0 20px;">
-      <p style="margin:0;color:#6b5b21;font-size:13px;line-height:1.6;"><strong>How payment works:</strong> you pay ${helperFirstName} <strong>€${(priceCents / 100).toFixed(2)} directly</strong>${helperPaymentHandle ? ` (Revolut <strong>${helperPaymentHandle}</strong> or cash)` : ' (Revolut or cash)'} when the job's done — they keep 100%. VANO only charges its booking fee.</p>
+      <p style="margin:0;color:#6b5b21;font-size:13px;line-height:1.6;"><strong>How payment works:</strong> you pay ${eHelperFirst} <strong>€${(priceCents / 100).toFixed(2)} directly</strong>${eHandle ? ` (Revolut <strong>${eHandle}</strong> or cash)` : ' (Revolut or cash)'} when the job's done — they keep 100%. VANO only charges its booking fee.</p>
     </div>` : ''}
     ${payUrl && !booking.paid_at ? `
     <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:18px 20px;margin:0 0 24px;">
       <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">${directPay ? `Confirm your booking — €${(totalCents / 100).toFixed(2)} fee` : `Secure your booking — €${(totalCents / 100).toFixed(2)}`}</p>
       ${discountLine}
       <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">${directPay
-        ? `${helperFirstName} is holding your slot — the small booking fee confirms it${bookingData.cover_opted ? ' (includes your €2 Vano Cover)' : ''}. The job itself is paid to ${helperFirstName} directly after the work.`
-        : `${helperFirstName} is holding your slot — pay securely by card to lock it in. No cash needed on the day.`}</p>
+        ? `${eHelperFirst} is holding your slot — the small booking fee confirms it${bookingData.cover_opted ? ' (includes your €2 Vano Cover)' : ''}. The job itself is paid to ${eHelperFirst} directly after the work.`
+        : `${eHelperFirst} is holding your slot — pay securely by card to lock it in. No cash needed on the day.`}</p>
       <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">${directPay ? `Confirm booking — €${(totalCents / 100).toFixed(2)} fee` : `Confirm &amp; pay €${(totalCents / 100).toFixed(2)}`} →</a>
-      <p style="margin:12px 0 0;color:#9ca3af;font-size:11px;line-height:1.5;">By paying you agree to VANO's <a href="${siteUrl}/terms" style="color:#9ca3af;">Terms</a> — the work is carried out by ${helperFirstName}, an independent provider${bookingData.cover_opted ? `, with <a href="${siteUrl}/cover" style="color:#9ca3af;">Vano Cover</a> up to €250 for accidental damage` : ''}.</p>
+      <p style="margin:12px 0 0;color:#9ca3af;font-size:11px;line-height:1.5;">By paying you agree to VANO's <a href="${siteUrl}/terms" style="color:#9ca3af;">Terms</a> — the work is carried out by ${eHelperFirst}, an independent provider${bookingData.cover_opted ? `, with <a href="${siteUrl}/cover" style="color:#9ca3af;">Vano Cover</a> up to €250 for accidental damage` : ''}.</p>
     </div>` : ''}
     ${directPay && feeFree ? `
     <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:14px 18px;margin:0 0 20px;">
@@ -749,7 +770,7 @@ serve(async (req) => {
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:${payLinkUndelivered ? '#b91c1c' : '#151c28'};padding:24px 28px 20px;">
     <p style="margin:0 0 4px;color:rgba(255,255,255,0.65);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;">${payLinkUndelivered ? 'Action needed' : 'Job claimed'}</p>
-    <p style="margin:0;color:#fff;font-size:21px;font-weight:800;line-height:1.2;">${payLinkUndelivered ? `🚨 Customer never got the pay link` : `${helperFirstName} took the ${catLabel}`}</p>
+    <p style="margin:0;color:#fff;font-size:21px;font-weight:800;line-height:1.2;">${payLinkUndelivered ? `🚨 Customer never got the pay link` : `${eHelperFirst} took the ${eCatLabel}`}</p>
   </div>
   <div style="padding:22px 28px 26px;">
     ${payLinkUndelivered ? `
@@ -759,10 +780,10 @@ serve(async (req) => {
     </div>` : ''}
     <p style="margin:0 0 16px;"><span style="display:inline-block;background:${chip.bg};border:1px solid ${chip.border};color:${chip.color};font-size:13px;font-weight:700;padding:6px 12px;border-radius:100px;">${chip.label}</span></p>
     <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6;margin:0 0 18px;">
-      ${detailRow('Helper', `<strong>${helperFirstName}</strong>${ratingBits ? ` &nbsp;<span style="color:#6b7280;font-size:13px;">${ratingBits}</span>` : ''}${profileUrl ? ` &nbsp;<a href="${profileUrl}" style="color:#4a7c59;font-size:13px;font-weight:600;">profile →</a>` : ''}`)}
-      ${detailRow('Job', `${catLabel}${whenLine ? ` · ${whenLine}` : ''}`)}
-      ${detailRow('Customer', `${custName}${booking.customer_phone ? ` · <a href="tel:${booking.customer_phone}" style="color:#111827;">${booking.customer_phone}</a>` : ''}${booking.customer_email ? `<br/><span style="color:#6b7280;font-size:13px;">${booking.customer_email}</span>` : ''}`)}
-      ${directPay ? detailRow('Helper gets', `${jobStr} — paid directly by the customer${helperPaymentHandle ? ` (Revolut ${helperPaymentHandle})` : ''}`) : ''}
+      ${detailRow('Helper', `<strong>${eHelperFirst}</strong>${ratingBits ? ` &nbsp;<span style="color:#6b7280;font-size:13px;">${ratingBits}</span>` : ''}${profileUrl ? ` &nbsp;<a href="${profileUrl}" style="color:#4a7c59;font-size:13px;font-weight:600;">profile →</a>` : ''}`)}
+      ${detailRow('Job', `${eCatLabel}${whenLine ? ` · ${eWhenLine}` : ''}`)}
+      ${detailRow('Customer', `${eCustName}${booking.customer_phone ? ` · <a href="tel:${ePhone}" style="color:#111827;">${ePhone}</a>` : ''}${booking.customer_email ? `<br/><span style="color:#6b7280;font-size:13px;">${eEmail}</span>` : ''}`)}
+      ${directPay ? detailRow('Helper gets', `${jobStr} — paid directly by the customer${eHandle ? ` (Revolut ${eHandle})` : ''}`) : ''}
       ${appliedDiscountCents > 0 ? detailRow('Discount', `−€${(appliedDiscountCents / 100).toFixed(2)} referral`) : ''}
       ${detailRow('Ref', ref)}
     </table>

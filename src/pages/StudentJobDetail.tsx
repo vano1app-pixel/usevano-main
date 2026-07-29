@@ -317,8 +317,11 @@ const StudentJobDetail = () => {
       if (bookingRes.data) {
         const b = bookingRes.data as Booking;
         setBooking(b);
-        // Restore live tracking if the page is reloaded while on_way
-        if (b.status === 'on_way') startLocationWatch(bookingId);
+        // Restore live tracking if the page is reloaded while on_way. Pass the
+        // fresh coords from `b` — `booking` state hasn't populated yet, so the
+        // watch would otherwise capture null coords and never light the at-door
+        // "start the job" shortcut.
+        if (b.status === 'on_way') startLocationWatch(bookingId, b.customer_lat, b.customer_lng);
       }
       if (msgRes.data) setMessages(msgRes.data as ChatMessage[]);
       if (helperRes.data) setHelperIdVerified(!!(helperRes.data as { id_verified: boolean | null }).id_verified);
@@ -386,14 +389,18 @@ const StudentJobDetail = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function startLocationWatch(bid: string) {
+  async function startLocationWatch(bid: string, custLatArg?: number | null, custLngArg?: number | null) {
     if (watchIdRef.current !== null || watchStartingRef.current) return; // already watching / starting
     watchStartingRef.current = true;
     setSharingLocation(true);
     // Customer coords are fixed at booking time, so capturing them here is safe
-    // for the lifetime of the watch.
-    const custLat = booking?.customer_lat ?? null;
-    const custLng = booking?.customer_lng ?? null;
+    // for the lifetime of the watch. Prefer explicitly-passed coords: on the
+    // on_way RELOAD path the caller runs before `booking` state has populated,
+    // so the closure's booking is still null and the at-door proximity check
+    // would never fire. Live event handlers (advance / enable-location) pass
+    // nothing and fall back to the populated `booking` closure.
+    const custLat = custLatArg ?? booking?.customer_lat ?? null;
+    const custLng = custLngArg ?? booking?.customer_lng ?? null;
     try {
       // Native app uses @capacitor/geolocation; web uses the browser API.
       const id = await watchPosition(

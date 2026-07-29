@@ -5,7 +5,8 @@
 // the Gemini classifier in whatsapp-inbound fails soft onto keywordClassify
 // exactly like parse-custom-job fails onto the CustomJobBuilder's matcher.
 
-import { computePriceCents, SERVICE_FEE_PCT, type Category } from './householdPricing.ts';
+import { computePriceCents, type Category } from './householdPricing.ts';
+import { computeVanoFeeCents } from './vanoFees.ts';
 
 /**
  * The categories bookable over WhatsApp — the quick-book sheet's set. `custom`
@@ -104,21 +105,25 @@ export interface WaQuote {
 }
 
 /**
- * Quote a WhatsApp draft with the SAME numbers checkout charges: the shared
- * price table + the 7.5% service fee. Returns null when the combination isn't
- * priceable (the caller should re-ask the duration). Any referral
- * discount is applied by checkout at booking time and can only make the real
- * charge LOWER than this quote — never higher.
+ * Quote a WhatsApp draft with the SAME numbers checkout charges under the
+ * DIRECT-PAY model: the job price is paid to the helper directly (Revolut/cash,
+ * they keep 100%) and the ONLY thing charged to the card is the VANO booking
+ * fee (15% of the job, min €4 — computeVanoFeeCents, exactly what checkout
+ * charges). Returns null when the combination isn't priceable (the caller
+ * should re-ask the duration). Any referral discount is applied by checkout at
+ * booking time and can only make the real fee LOWER than this quote.
  */
 export function quoteDraft(category: WaCategory, sizeLabel: string): WaQuote | null {
   const priceCents = computePriceCents(category as Category, sizeLabel, '');
   if (!priceCents) return null;
-  const feeCents = Math.round(priceCents * SERVICE_FEE_PCT);
+  const feeCents = computeVanoFeeCents(priceCents);
+  // Kept as price + fee so book()'s discount check (checkout returns
+  // job + fee as total_cents) still fires when a referral lowers the fee.
   const totalCents = priceCents + feeCents;
   return {
     priceCents,
     feeCents,
     totalCents,
-    line: `${euro(priceCents)} + ${euro(feeCents)} service fee = ${euro(totalCents)}`,
+    line: `${euro(priceCents)} to your helper directly (they keep 100%) + ${euro(feeCents)} VANO booking fee on your card`,
   };
 }
