@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { extractFnError } from '@/lib/fnError';
-import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert, Check, BadgeCheck, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -13,6 +13,7 @@ import { BookingEmailCapture } from '@/components/household/BookingEmailCapture'
 import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
 import { categoryLabel, categoryEmoji } from '@/lib/bookingLabels';
+import { studyLine } from '@/lib/colleges';
 import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
 import { track } from '@/lib/track';
 import logo from '@/assets/logo.png';
@@ -490,7 +491,16 @@ const TrackBooking = () => {
     average_rating: number | null;
     accepted_count: number;
     id_verified: boolean;
+    /** The blue tick (email + ID + active plan — DB generated column). */
+    vano_verified: boolean;
+    age: number | null;
+    college: string | null;
+    course: string | null;
+    study_year: string | null;
   } | null>(null);
+  // One real review line for the chip — the strongest comfort signal at the
+  // "a stranger was just assigned to my home" moment. Absent → renders nothing.
+  const [helperQuote, setHelperQuote] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   // Pay-the-helper card: which copy chip just flashed "Copied ✓"
@@ -704,12 +714,12 @@ const TrackBooking = () => {
 
   useEffect(() => {
     const studentId = booking?.student_id;
-    if (!studentId) { setHelperName(null); setHelperCard(null); return; }
+    if (!studentId) { setHelperName(null); setHelperCard(null); setHelperQuote(null); return; }
     let cancelled = false;
     const fetch_ = async () => {
       const { data: helper } = await hdb
         .from('household_helpers')
-        .select('id, name, photo_url, average_rating, rating_avg, accepted_count, id_verified')
+        .select('id, name, photo_url, average_rating, rating_avg, accepted_count, id_verified, vano_verified, age, college, course, study_year')
         .eq('user_id', studentId)
         .maybeSingle();
       if (cancelled) return;
@@ -721,7 +731,26 @@ const TrackBooking = () => {
           average_rating: helper.average_rating ?? helper.rating_avg ?? null,
           accepted_count: helper.accepted_count ?? 0,
           id_verified: !!helper.id_verified,
+          vano_verified: !!helper.vano_verified,
+          age: helper.age ?? null,
+          college: helper.college ?? null,
+          course: helper.course ?? null,
+          study_year: helper.study_year ?? null,
         });
+        // Best recent review line for the chip — fail-soft, purely additive.
+        const { data: ratings } = await hdb
+          .from('household_ratings')
+          .select('rating, comment')
+          .eq('helper_id', helper.id)
+          .gte('rating', 4)
+          .not('comment', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (cancelled) return;
+        const quote = (ratings as { rating: number; comment: string | null }[] | null)
+          ?.map(r => (r.comment ?? '').trim())
+          .find(c => c.length >= 12) ?? null;
+        setHelperQuote(quote);
         return;
       }
       const { data: profile } = await hdb.from('profiles').select('display_name').eq('user_id', studentId).maybeSingle();
@@ -1557,7 +1586,24 @@ const TrackBooking = () => {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground font-medium">Your helper</p>
-                    <p className="text-sm font-semibold text-foreground leading-tight">{helperName}</p>
+                    <p className="text-sm font-semibold text-foreground leading-tight flex items-center gap-1">
+                      <span className="truncate">
+                        {helperName}
+                        {helperCard?.age ? <span className="font-normal text-muted-foreground">, {helperCard.age}</span> : null}
+                      </span>
+                      {helperCard?.vano_verified && (
+                        <BadgeCheck className="w-4 h-4 fill-sky-500 text-white flex-shrink-0" aria-label="VANO Verified" />
+                      )}
+                    </p>
+                    {/* The study line — "2nd year Nursing at ATU". This is the
+                        whole "trusted local student" pitch made literal at the
+                        moment a real person is assigned to their home. */}
+                    {helperCard && studyLine(helperCard) && (
+                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                        <GraduationCap className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                        <span className="truncate">{studyLine(helperCard)}</span>
+                      </p>
+                    )}
                     {helperCard?.id_verified && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sage mt-0.5">
                         <ShieldCheck className="w-3 h-3" aria-hidden="true" /> ID-verified
@@ -1575,6 +1621,13 @@ const TrackBooking = () => {
                         {helperCard.accepted_count > 0
                           ? `${helperCard.accepted_count} task${helperCard.accepted_count === 1 ? '' : 's'} done`
                           : null}
+                      </p>
+                    )}
+                    {/* A real customer's words beat any badge — one line, most
+                        recent 4★+ review with text. */}
+                    {helperQuote && (
+                      <p className="text-[11px] italic text-muted-foreground/90 mt-1 line-clamp-2">
+                        "{helperQuote}"
                       </p>
                     )}
                   </div>
@@ -1607,11 +1660,23 @@ const TrackBooking = () => {
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
             className="mt-4 rounded-2xl border-2 border-sage/40 bg-sage-light p-5 text-center"
           >
+            {/* The face at the door — she's about to open it to a stranger, so
+                the card in her hand must show the same face she was promised.
+                Bounded circle (never an unbounded user image — owner rule). */}
+            {helperCard?.photo_url && (
+              <img
+                src={helperCard.photo_url}
+                alt={helperName ?? 'Your helper'}
+                className="w-16 h-16 rounded-full object-cover object-[center_20%] border-2 border-sage/40 mx-auto mb-3"
+              />
+            )}
             <p className="font-bold text-foreground text-sm">
               {helperName ? `${helperName} is at your door 👋` : 'Your helper is here 👋'}
             </p>
             <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
-              Read this code to your helper so they can start the job:
+              {helperCard?.photo_url
+                ? 'Same face as the photo? Read them this code to start the job:'
+                : 'Read this code to your helper so they can start the job:'}
             </p>
             <p className="text-[2.5rem] leading-none font-extrabold tracking-[0.3em] tabular-nums text-sage">
               {booking.arrival_code}

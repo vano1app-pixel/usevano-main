@@ -6,7 +6,7 @@
 export const FAQS = [
   {
     q: 'Is it safe to have a student in my home?',
-    a: 'Every student is ID-verified before their first job. You see their photo, name and rating before they arrive, you can follow them on a live map on the way, and they can only start the job with the 4-digit code shown on your screen.',
+    a: 'Every student is ID-verified before their first job — a government photo-ID plus a live selfie check. You see their photo, name and rating before they arrive, you can follow them on a live map on the way, and they can only start the job with the 4-digit code shown on your screen. Every check is spelled out at vanojobs.com/safety.',
   },
   {
     q: 'Who actually does the work?',

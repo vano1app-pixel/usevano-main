@@ -12,6 +12,7 @@ import { useCountUp } from '@/hooks/useCountUp';
 import { haptic } from '@/lib/haptics';
 import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
 import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { COLLEGES, STUDY_YEARS } from '@/lib/colleges';
 import { prepareJoinPhoto } from '@/lib/safeImage';
 import logo from '@/assets/logo.png';
 
@@ -147,6 +148,11 @@ const StudentDashboard = () => {
   const [helperName, setHelperName] = useState<string | null>(null);
   const [helperPhoto, setHelperPhoto] = useState<string | null>(null);
   const [helperBio,   setHelperBio]   = useState<string | null>(null);
+  // Study fields — customer-visible ("2nd year Nursing at ATU" on the
+  // profile, homepage cards and the customer's tracking page).
+  const [helperCollege,   setHelperCollege]   = useState<string | null>(null);
+  const [helperCourse,    setHelperCourse]    = useState<string | null>(null);
+  const [helperStudyYear, setHelperStudyYear] = useState<string | null>(null);
   // How customers pay this helper directly (Revolut tag) — direct-pay model.
   const [helperHandle, setHelperHandle] = useState<string | null>(null);
   const [helperAvailability, setHelperAvailability] = useState<string[]>([]);
@@ -212,7 +218,7 @@ const StudentDashboard = () => {
       setUserId(uid);
 
       // Load helper profile first so we can filter jobs by city + categories
-      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, payment_handle, average_rating, rating_count, autopilot_opt_in, student_email_verified, id_verified, verified_plan_active';
+      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, college, course, study_year, payment_handle, average_rating, rating_count, autopilot_opt_in, student_email_verified, id_verified, verified_plan_active';
       let { data: helperRow } = await hdb
         .from('household_helpers')
         .select(HELPER_SELECT)
@@ -242,6 +248,9 @@ const StudentDashboard = () => {
         setHelperName((helperRow.name as string | null) ?? null);
         setHelperPhoto((helperRow.photo_url as string | null) ?? null);
         setHelperBio((helperRow.bio as string | null) ?? null);
+        setHelperCollege((helperRow.college as string | null) ?? null);
+        setHelperCourse((helperRow.course as string | null) ?? null);
+        setHelperStudyYear((helperRow.study_year as string | null) ?? null);
         setHelperHandle((helperRow.payment_handle as string | null) ?? null);
         setHelperAvailability((helperRow.availability as string[] | null) ?? []);
         setHelperEmailVerified(!!helperRow.student_email_verified);
@@ -376,6 +385,9 @@ const StudentDashboard = () => {
   const [showProfile,    setShowProfile]    = useState(false);
   const [profileBio,     setProfileBio]     = useState('');
   const [profileHandle,  setProfileHandle]  = useState('');
+  const [profileCollege,   setProfileCollege]   = useState('');
+  const [profileCourse,    setProfileCourse]    = useState('');
+  const [profileStudyYear, setProfileStudyYear] = useState('');
   const [profileCats,    setProfileCats]    = useState<string[]>([]);
   const [profileAvail,   setProfileAvail]   = useState<string[]>([]);
   const [profileSaving,  setProfileSaving]  = useState(false);
@@ -407,6 +419,9 @@ const StudentDashboard = () => {
   const openProfile = () => {
     setProfileBio(helperBio ?? '');
     setProfileHandle(helperHandle ?? '');
+    setProfileCollege(helperCollege ?? '');
+    setProfileCourse(helperCourse ?? '');
+    setProfileStudyYear(helperStudyYear ?? '');
     setProfileCats(helperCategories);
     setProfileAvail(helperAvailability);
     setPhotoPreview(helperPhoto);
@@ -520,6 +535,9 @@ const StudentDashboard = () => {
         fd.append('photo', photoFile);
         fd.append('bio', profileBio.trim());
         fd.append('payment_handle', profileHandle.trim());
+        fd.append('college', profileCollege.trim());
+        fd.append('course', profileCourse.trim());
+        fd.append('study_year', profileStudyYear.trim());
         fd.append('availability', JSON.stringify(profileAvail));
         const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
           method: 'POST',
@@ -536,13 +554,25 @@ const StudentDashboard = () => {
 
       const { error } = await hdb
         .from('household_helpers')
-        .update({ bio: profileBio.trim() || null, payment_handle: profileHandle.trim() || null, categories: profileCats, availability: profileAvail, ...(newPhotoUrl !== helperPhoto ? { photo_url: newPhotoUrl } : {}) })
+        .update({
+          bio: profileBio.trim() || null,
+          payment_handle: profileHandle.trim() || null,
+          college: profileCollege.trim() || null,
+          course: profileCourse.trim() || null,
+          study_year: profileStudyYear.trim() || null,
+          categories: profileCats,
+          availability: profileAvail,
+          ...(newPhotoUrl !== helperPhoto ? { photo_url: newPhotoUrl } : {}),
+        })
         .eq('user_id', userId);
       if (error) throw error;
 
       setHelperCategories(profileCats);
       setHelperBio(profileBio.trim() || null);
       setHelperHandle(profileHandle.trim() || null);
+      setHelperCollege(profileCollege.trim() || null);
+      setHelperCourse(profileCourse.trim() || null);
+      setHelperStudyYear(profileStudyYear.trim() || null);
       setHelperAvailability(profileAvail);
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
@@ -574,13 +604,18 @@ const StudentDashboard = () => {
   };
 
   // ✓ Verified = confirmed student email + Stripe ID check + the €2/month
-  // plan — mirrors /student-account. One nudge at a time: the badge first
-  // (it's the one with a real perk — verified helpers are offered jobs
-  // first), then profile completeness (bio + availability are skipped by
-  // design at signup).
+  // plan — mirrors /student-account. One nudge at a time, in this order:
+  // 1) the two FREE checks (email + ID — jobs are gated on these),
+  // 2) profile completeness (bio / college / availability — what customers
+  //    actually see; skipped by design at signup),
+  // 3) the optional €2/month blue tick.
+  // The profile nudge used to hide behind vanoVerified (the PAID tick), so a
+  // free ID-verified helper working jobs was never once asked for a bio —
+  // customers landed on empty profiles. Free checks are the gate now.
   const verificationKnown = helperEmailVerified !== null && helperIdVerified !== null;
-  const vanoVerified = !!helperEmailVerified && !!helperIdVerified && !!helperPlanActive;
-  const profileIncomplete = !helperBio || helperAvailability.length === 0;
+  const freeChecksDone = !!helperEmailVerified && !!helperIdVerified;
+  const vanoVerified = freeChecksDone && !!helperPlanActive;
+  const profileIncomplete = !helperBio || !helperCollege || helperAvailability.length === 0;
 
   const totalEarned = payouts
     .filter((p) => p.status === 'transferred')
@@ -697,9 +732,10 @@ const StudentDashboard = () => {
           )}
         </div>
 
-        {/* Get VANO Verified — the blue tick customers look for. Links to the
-            same /verify-helper checks the signup flow uses. */}
-        {helperId && verificationKnown && !vanoVerified && (
+        {/* Nudge 1 — the two FREE checks (email + ID). Jobs are gated on
+            these, so they always come first. Links to the same /verify-helper
+            checks the signup flow uses. */}
+        {helperId && verificationKnown && !freeChecksDone && (
           <motion.button
             type="button"
             initial={{ opacity: 0, y: 8 }}
@@ -713,23 +749,25 @@ const StudentDashboard = () => {
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
-                {!helperIdVerified ? 'Verify your ID to get jobs' : 'Add your blue tick'}
+                {!helperIdVerified ? 'Verify your ID to get jobs' : 'Confirm your student email'}
                 <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
               </span>
               <span className="block text-xs text-muted-foreground mt-0.5">
                 {!helperIdVerified
                   ? "Free 2-minute ID check — every helper verifies before their first job, and you won't get offers until it's done. Tap to verify now."
-                  : 'You\'re verified and getting jobs. The blue tick is an optional €2/month badge (customers see it, and it bumps you up the list). Cancel anytime.'}
+                  : 'One quick code to your inbox and your email is confirmed. Tap to finish.'}
               </span>
             </span>
             <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
           </motion.button>
         )}
 
-        {/* Finish your profile — bio + availability are deliberately skipped at
-            signup ("set those in your dashboard"), so this is where they're
-            asked for. Only once the badge is sorted, one nudge at a time. */}
-        {helperId && verificationKnown && vanoVerified && profileIncomplete && (
+        {/* Nudge 2 — finish your profile. Bio + availability are deliberately
+            skipped at signup ("set those in your dashboard"); college rides
+            along since it's the customer-facing proof of "student". Gated on
+            the FREE checks only — a free ID-verified helper taking jobs must
+            still be asked (customers are already landing on their profile). */}
+        {helperId && verificationKnown && freeChecksDone && profileIncomplete && (
           <motion.button
             type="button"
             initial={{ opacity: 0, y: 8 }}
@@ -744,11 +782,38 @@ const StudentDashboard = () => {
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold text-foreground">Finish your profile</span>
               <span className="block text-xs text-muted-foreground mt-0.5">
-                {!helperBio && helperAvailability.length === 0
-                  ? "Add a short bio and when you're free — customers see both before they book you."
-                  : !helperBio
-                    ? 'Add a short bio — customers see it before they book you.'
+                {!helperBio
+                  ? 'Add a short bio — customers read it before they book you.'
+                  : !helperCollege
+                    ? 'Add your college and course — customers book the helper they can picture.'
                     : "Set when you're free so we only offer you jobs that suit."}
+              </span>
+            </span>
+            <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
+          </motion.button>
+        )}
+
+        {/* Nudge 3 — the optional €2/month blue tick, only once the free
+            checks AND the profile are sorted. Still one card at a time. */}
+        {helperId && verificationKnown && freeChecksDone && !profileIncomplete && !vanoVerified && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            onClick={() => navigate(`/verify-helper?id=${helperId}${helperName ? `&name=${encodeURIComponent(helperName)}` : ''}`)}
+            className="mb-4 w-full rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 flex items-center gap-3 text-left active:scale-[0.99] transition-transform lg:max-w-2xl"
+          >
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
+              <ShieldCheck size={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
+                Add your blue tick
+                <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
+              </span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                You're verified and getting jobs. The blue tick is an optional €2/month badge (customers see it, and it bumps you up the list). Cancel anytime.
               </span>
             </span>
             <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
@@ -1155,6 +1220,48 @@ const StudentDashboard = () => {
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                     />
                     <p className="text-right text-xs text-muted-foreground mt-1">{profileBio.length}/120</p>
+                  </section>
+
+                  {/* Studies — the customer-facing proof of "student":
+                      "2nd year Nursing at ATU" on the public profile, the
+                      homepage cards and the customer's tracking page. */}
+                  <section>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">My studies</p>
+                    <p className="text-xs text-muted-foreground mb-3">Customers see this — a real course and college is the fastest way to look bookable.</p>
+                    <select
+                      value={profileCollege}
+                      onChange={e => setProfileCollege(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="">Choose your college…</option>
+                      {/* A stored value outside the list must stay selectable —
+                          otherwise this controlled select silently clears it. */}
+                      {profileCollege && !COLLEGES.includes(profileCollege) && (
+                        <option value={profileCollege}>{profileCollege}</option>
+                      )}
+                      {COLLEGES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={profileCourse}
+                        onChange={e => setProfileCourse(e.target.value)}
+                        placeholder="Course, e.g. Nursing"
+                        maxLength={60}
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      <select
+                        value={profileStudyYear}
+                        onChange={e => setProfileStudyYear(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Year</option>
+                        {profileStudyYear && !STUDY_YEARS.includes(profileStudyYear) && (
+                          <option value={profileStudyYear}>{profileStudyYear}</option>
+                        )}
+                        {STUDY_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
                   </section>
 
                   {/* How customers pay you — direct-pay: customers settle the job

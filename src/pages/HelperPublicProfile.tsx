@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, type Variants } from 'framer-motion';
-import { Star, MapPin, ShieldCheck, ArrowLeft, BadgeCheck } from 'lucide-react';
+import { Star, MapPin, ShieldCheck, ArrowLeft, BadgeCheck, GraduationCap } from 'lucide-react';
 import { format } from 'date-fns';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
@@ -9,6 +9,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS, AVAILABILITY_SLOTS } from '@/lib/helperCategories';
 import { skillLabel } from '@/lib/helperSkills';
+import { studyLine } from '@/lib/colleges';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
@@ -51,6 +52,9 @@ interface HelperRow {
   city:           string;
   age:            number | null;
   bio:            string | null;
+  college:        string | null;
+  course:         string | null;
+  study_year:     string | null;
   categories:     string[] | null;
   availability:   string[] | null;
   is_available:   boolean;
@@ -119,7 +123,7 @@ export const HelperPublicProfile: React.FC = () => {
     (async () => {
       const { data } = await hdb
         .from('household_helpers')
-        .select('id, name, photo_url, city, age, bio, categories, availability, is_available, accepted_count, average_rating, rating_avg, rating_count, created_at, id_verified, vano_verified')
+        .select('id, name, photo_url, city, age, bio, college, course, study_year, categories, availability, is_available, accepted_count, average_rating, rating_avg, rating_count, created_at, id_verified, vano_verified')
         .eq('id', id)
         .eq('status', 'approved')
         .maybeSingle();
@@ -148,6 +152,8 @@ export const HelperPublicProfile: React.FC = () => {
   // profile as a service Vano doesn't offer.
   const cats       = (helper?.categories ?? []).filter(s => HELPER_CATEGORY_LABELS[s] || skillLabel(s));
   const slots      = AVAILABILITY_SLOTS.filter(s => helper?.availability?.includes(s.id));
+  // "2nd year Nursing at ATU" — the literal proof behind "student helper".
+  const study      = helper ? studyLine(helper) : null;
   const written    = reviews.filter(r => r.comment && r.comment.trim().length > 0);
   // Tasks-done counts up once the profile loads
   const tasksDone  = useCountUp(helper?.accepted_count ?? 0, !!helper);
@@ -227,6 +233,11 @@ export const HelperPublicProfile: React.FC = () => {
                   <p className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                     <MapPin className="w-3.5 h-3.5 flex-shrink-0" /> {helper.city}
                   </p>
+                  {study && (
+                    <p className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                      <GraduationCap className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" /> {study}
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
                     {/* Only claim ID-verified when it's true — the badge is the
                         product; a false tick would poison every real one. (This
@@ -377,6 +388,12 @@ export const HelperPublicProfile: React.FC = () => {
                 <Link to="/cover" className="font-semibold underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</Link>
                 {' '}for €2 at checkout and accidental damage is covered up to €250.
               </p>
+              <Link
+                to="/safety"
+                className="mt-3 inline-block text-xs font-semibold text-sage-dark underline underline-offset-2 hover:text-foreground transition-colors"
+              >
+                How we check every student →
+              </Link>
               <Link
                 to="/home#category-grid"
                 className="mt-5 inline-flex items-center rounded-full bg-primary text-primary-foreground px-7 py-3 text-sm font-semibold hover:-translate-y-px hover:shadow-primary-glow active:scale-[0.97] transition-[transform,box-shadow] duration-150"
