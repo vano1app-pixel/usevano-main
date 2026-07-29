@@ -116,10 +116,12 @@ export const SocialProof: React.FC = () => {
   const reviews = EXTERNAL_REVIEWS.slice(0, 6);
 
   return (
-    <section id="reviews" className="relative bg-navy rounded-[2rem] sm:rounded-[3rem] px-4 py-24 sm:py-28 lg:py-32 scroll-mt-20">
+    // Phone gets tighter vertical rhythm (py-16, smaller gaps) — the band was
+    // brushing 1.2 screens; target is ~one. Desktop keeps the roomier slab.
+    <section id="reviews" className="relative bg-navy rounded-[2rem] sm:rounded-[3rem] px-4 py-16 sm:py-28 lg:py-32 scroll-mt-20">
       <div className="relative max-w-4xl mx-auto">
         <motion.div
-          className="text-center mb-10 lg:mb-14"
+          className="text-center mb-8 lg:mb-14"
           initial={{ opacity: 0, y: 18 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
@@ -136,8 +138,10 @@ export const SocialProof: React.FC = () => {
 
         {/* The two platform doors. Stats render only when the REAL numbers are
             pasted into externalReviews.ts (the ReviewBadges honesty rule). */}
+        {/* Side-by-side on EVERY size — two brand chips paired read tighter
+            than two stacked full-width list items on phone. */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto"
+          className="grid grid-cols-2 gap-2.5 sm:gap-3 max-w-xl mx-auto"
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-60px' }}
@@ -156,18 +160,18 @@ export const SocialProof: React.FC = () => {
                     ? `${name}: rated ${stats.rating} out of 5 from ${stats.count} reviews — opens in a new tab`
                     : `Read our reviews on ${name} — opens in a new tab`
                 }
-                className="tile-float group flex items-center gap-3 rounded-2xl bg-white border border-black/5 px-5 py-4 transition-transform duration-200 hover:-translate-y-1 active:scale-[0.98]"
+                className="tile-float group flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white border border-black/5 px-3.5 py-3.5 sm:px-5 sm:py-4 transition-transform duration-200 hover:-translate-y-1 active:scale-[0.98]"
               >
-                <Star className="w-6 h-6 flex-shrink-0" style={{ color: brand, fill: brand }} aria-hidden="true" />
+                <Star className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" style={{ color: brand, fill: brand }} aria-hidden="true" />
                 <span className="min-w-0 flex-1 text-left">
-                  <span className="block text-sm font-bold text-foreground leading-tight">
+                  <span className="block text-sm font-bold text-foreground leading-tight truncate">
                     {stats ? `${stats.rating.toFixed(1)} on ${name}` : name}
                   </span>
-                  <span className="block text-xs text-muted-foreground mt-0.5">
+                  <span className="block text-[11px] sm:text-xs text-muted-foreground mt-0.5 truncate">
                     {stats ? `${stats.count} review${stats.count === 1 ? '' : 's'}` : 'Read our reviews'}
                   </span>
                 </span>
-                <ArrowUpRight className="w-4 h-4 text-muted-foreground/60 group-hover:text-foreground transition-colors flex-shrink-0" aria-hidden="true" />
+                <ArrowUpRight className="hidden sm:block w-4 h-4 text-muted-foreground/60 group-hover:text-foreground transition-colors flex-shrink-0" aria-hidden="true" />
               </a>
             );
           })}
@@ -180,7 +184,7 @@ export const SocialProof: React.FC = () => {
         {/* Plain div — each card animates itself in (ExternalCard), so a
             container fade on top would just double the opacity ramp. */}
         {reviews.length > 0 && (
-          <div className="mt-8 flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
+          <div className="mt-6 sm:mt-8 flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
             {reviews.map((r, i) => <ExternalCard key={`${r.source}-${i}`} r={r} />)}
           </div>
         )}
@@ -189,7 +193,7 @@ export const SocialProof: React.FC = () => {
             button on navy (the page's one primary action stays "book");
             GOOGLE_REVIEW_URL opens Google's write-a-review dialog directly. */}
         <motion.div
-          className="text-center mt-10"
+          className="text-center mt-8 sm:mt-10"
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-40px' }}
@@ -226,7 +230,7 @@ export const SocialProof: React.FC = () => {
           </p>
         </motion.div>
 
-        <p className="text-center text-white/60 text-sm mt-8">
+        <p className="text-center text-white/60 text-sm mt-6 sm:mt-8">
           You only pay once a helper says yes · money-back guarantee
         </p>
       </div>
