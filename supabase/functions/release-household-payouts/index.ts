@@ -47,7 +47,7 @@ serve(async (_req) => {
       const sinceIso = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
       const { data: doneBookings } = await supabase
         .from('household_bookings')
-        .select('id, student_id, price_estimate_cents')
+        .select('id, student_id, price_estimate_cents, booking_data')
         .eq('status', 'completed')
         .not('paid_at', 'is', null)
         .not('student_id', 'is', null)
@@ -56,7 +56,7 @@ serve(async (_req) => {
         .is('disputed_at', null)
         .is('refunded_at', null)
         .gte('created_at', sinceIso)
-        .limit(200) as { data: Array<{ id: string; student_id: string; price_estimate_cents: number }> | null };
+        .limit(200) as { data: Array<{ id: string; student_id: string; price_estimate_cents: number; booking_data: Record<string, unknown> | null }> | null };
       const doneIds = (doneBookings ?? []).map((b) => b.id);
       if (doneIds.length) {
         const { data: existing } = await supabase
@@ -65,6 +65,15 @@ serve(async (_req) => {
         const PLATFORM_FEE_BPS = 1500;
         for (const b of doneBookings ?? []) {
           if (havePayout.has(b.id)) continue;
+          // DIRECT-PAY bookings intentionally never have a payout row — the
+          // customer pays the helper 100% directly (Revolut/cash) and VANO only
+          // charges its fee. capture-household-payment skips the payout insert
+          // for them, so without this guard the backfill would fabricate an 85%
+          // payout for EVERY completed direct-pay job — false "you earned €X"
+          // nudges, false "payout stuck" owner alerts, and (for onboarded
+          // helpers) a real Stripe transfer paying the helper a second time out
+          // of VANO's balance. Only ever self-heal LEGACY escrow bookings.
+          if ((b.booking_data as { direct_pay?: boolean } | null)?.direct_pay === true) continue;
           const studentCents = Math.floor((b.price_estimate_cents ?? 0) * (10000 - PLATFORM_FEE_BPS) / 10000);
           if (studentCents <= 0) continue;
           const { error: insErr } = await supabase
@@ -123,6 +132,25 @@ serve(async (_req) => {
       return new Response(JSON.stringify({ error: 'fetch_failed' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 
+    // Defence-in-depth against phantom direct-pay payouts: the backfill above no
+    // longer creates them, but any that already exist (from before that fix, or
+    // written by mistake) must NEVER be transferred — under direct-pay the
+    // customer already paid the helper 100% directly, so a transfer is VANO
+    // paying twice. Look up which of these payouts belong to direct-pay bookings
+    // and skip them. Legacy escrow bookings are never direct_pay, so real
+    // payouts are unaffected.
+    const directPaySet = new Set<string>();
+    const pendingBookingIds = [...new Set((pending ?? []).map((p) => p.booking_id as string).filter(Boolean))];
+    if (pendingBookingIds.length) {
+      const { data: pbs } = await supabase
+        .from('household_bookings')
+        .select('id, booking_data')
+        .in('id', pendingBookingIds) as { data: Array<{ id: string; booking_data: { direct_pay?: boolean } | null }> | null };
+      for (const b of pbs ?? []) {
+        if (b.booking_data?.direct_pay === true) directPaySet.add(b.id);
+      }
+    }
+
     let released = 0, skipped = 0, failed = 0, stuck = 0;
 
     for (const p of pending ?? []) {
@@ -133,6 +161,13 @@ serve(async (_req) => {
 
       try {
         if (!amountCents || amountCents <= 0) { skipped++; continue; }
+
+        // Never transfer a phantom payout attached to a direct-pay booking
+        // (see directPaySet above) — the customer already paid the helper.
+        if (directPaySet.has(p.booking_id as string)) {
+          console.warn('[release-household-payouts] skipping direct-pay phantom payout', payoutId, p.booking_id);
+          skipped++; continue;
+        }
 
         // Helper must be onboarded with a Connect account.
         const { data: helper } = await supabase

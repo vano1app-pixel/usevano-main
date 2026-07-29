@@ -40,7 +40,7 @@ marketplace).
 | 10 | Low | Partner-commission program has no self-referral guard → helper skims 3% of own jobs | **FIXED** |
 | 4 | Low | `household_chat` INSERT policy lets any authenticated user post into any booking thread | **FIXED** |
 | 2 | Medium | Assigned helper can read `arrival_code` / `rating_token` directly via PostgREST/Realtime | **Reported — owner fix (needs Playwright)** |
-| 3 | Medium | Helper can set their own `status='approved'` → suspended helper self-unsuspends | **Reported — owner-acknowledged residual** |
+| 3 | Medium | Helper can set their own `status='approved'` → suspended helper self-unsuspends | **FIXED** (trigger blocks non-admin self-status-change) |
 | 9 | Medium | `find-booking-by-phone` hands out the booking-UUID capability from a bare phone → home-address disclosure | **Reported — product decision** |
 | 11 | Info | `dispatch-household-job` has no caller auth (bounded by unguessable UUID) | **Reported** |
 | 7 | Info | CSP is `Report-Only` + allows `unsafe-inline` (no reachable XSS today) | **Reported** |
@@ -175,11 +175,34 @@ live site.
 
 ---
 
+## Correctness bug hunt (second pass, adversarially verified)
+
+A separate pass hunted for non-security correctness bugs across money math,
+the booking lifecycle, edge-function robustness, and the critical frontend
+flows. 6 candidates, all confirmed by an independent verifier and **all fixed**:
+
+| Severity | Bug | Fix |
+|----------|-----|-----|
+| **Critical** | `release-household-payouts` reconciliation backfill never filtered `direct_pay`, so **every completed direct-pay job** got a phantom 85%-of-job-price payout row → false "you earned €X" nudges, false "payout stuck" owner alerts, and (for onboarded helpers) a **real Stripe transfer paying the helper a second time** out of VANO's balance (the customer already paid them 100% directly). | Backfill now skips `booking_data.direct_pay === true`; the transfer loop also skips any pre-existing phantom direct-pay payout as defence-in-depth. |
+| Medium | WhatsApp booking door (`_shared/waIntake.ts`) quoted the **retired 7.5% escrow fee** as a lump "total charged", never telling the customer they pay the helper directly → risk of unpaid helpers. | Quote now uses `computeVanoFeeCents` (15% min €4) and states the direct-pay split. |
+| Medium | Phone **voice** agent (`_shared/voiceIntake.ts` + `agent-prompt.md`) had the identical stale-fee quote. | Same fix; prompt reworded to direct-pay. |
+| Low | Checkout dropped an invalidated referral discount but left `fee_due_cents` discounted, so a lost-CAS / failed-welcome booking still billed the discounted fee (one credit → two discounts). | `feeDueCents` restored to the undiscounted amount in both strip branches (auth hold, capture, payload now agree). |
+| Low | `TrackBooking` completion toast said "Your helper has been paid" for **direct-pay** (VANO paid them nothing). | Toast branches on `direct_pay`: "settle up with your helper directly". |
+| Low | `StudentJobDetail` `on_way` reload started the GPS watch with stale `null` customer coords → the at-door "start the job" shortcut never appeared. | Fresh coords passed into `startLocationWatch` on the reload path. |
+
+**Owner cleanup for the critical bug:** the buggy backfill has run since the
+direct-pay pivot, so production likely holds phantom `pending` `household_payouts`
+rows for direct-pay bookings (and some may have already transferred). The transfer
+loop now skips them, but you should reconcile/void the existing phantom rows —
+e.g. rows whose `booking_id` maps to a `booking_data->>direct_pay = 'true'`
+booking — and review Stripe for any transfers already sent on those.
+
 ## Verification
 - `npm run typecheck` — clean.
-- `npm test` — 234/234 pass.
-- All six edited edge functions pass an esbuild transform (syntax) check (Deno
-  isn't available in this environment for a full `deno check`).
-- The two new migrations are additive policy/function changes.
-- No frontend code was changed; no "must-never-break" flow was modified by the
-  shipped fixes (they are backend auth/rate-limit/escaping + RLS-tightening).
+- `npm test` — 234/234 pass (incl. the updated WhatsApp/voice fee lock-step tests).
+- All edited edge functions pass an esbuild transform (syntax) check (Deno isn't
+  available in this environment for a full `deno check`).
+- The migrations are additive policy/function changes.
+- The frontend edits are copy/logic-only on the critical flows; per the repo's
+  must-never-break rule they should still get a Playwright pass before merge, but
+  they change no data path (a toast string; an added coords argument).

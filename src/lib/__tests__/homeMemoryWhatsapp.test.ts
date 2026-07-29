@@ -7,9 +7,9 @@ import { getHouseholdPriceCents } from '../householdPricing';
 // drift, this fails on the actual code, not a mirror of it.
 import {
   computePriceCents,
-  SERVICE_FEE_PCT,
   type Category,
 } from '../../../supabase/functions/_shared/householdPricing';
+import { computeVanoFeeCents } from '../../../supabase/functions/_shared/vanoFees';
 import {
   WA_CATEGORIES,
   keywordClassify,
@@ -75,13 +75,16 @@ describe('server price table (shared module) matches the frontend canonical tabl
   });
 });
 
-describe('WhatsApp quote = price + the same 7.5% service fee checkout charges', () => {
-  it('quotes 2h cleaning as €36 + €2.70 = €38.70', () => {
+describe('WhatsApp quote = the same DIRECT-PAY fee checkout charges', () => {
+  it('quotes 2h cleaning as €36 to the helper + the €5.40 VANO fee on the card', () => {
     const q = quoteDraft('cleaning', '2 hours')!;
     expect(q.priceCents).toBe(3600);
-    expect(q.feeCents).toBe(Math.round(3600 * SERVICE_FEE_PCT));
-    expect(q.totalCents).toBe(3870);
-    expect(q.line).toBe('€36 + €2.70 service fee = €38.70');
+    // Card charge = the VANO booking fee only (15% min €4), not the old 7.5%.
+    expect(q.feeCents).toBe(computeVanoFeeCents(3600)); // 540
+    expect(q.feeCents).toBe(540);
+    // totalCents stays price + fee so book()'s discount check still fires.
+    expect(q.totalCents).toBe(4140);
+    expect(q.line).toBe('€36 to your helper directly (they keep 100%) + €5.40 VANO booking fee on your card');
   });
 
   it('quotes flat laundry with no size answer', () => {

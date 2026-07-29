@@ -9,7 +9,7 @@ import {
   sizeLabelFromHours,
   voiceQuote,
 } from '../../../supabase/functions/_shared/voiceIntake';
-import { SERVICE_FEE_PCT } from '../../../supabase/functions/_shared/householdPricing';
+import { computeVanoFeeCents } from '../../../supabase/functions/_shared/vanoFees';
 
 describe('voice category resolution', () => {
   it('accepts an exact catalogue key', () => {
@@ -55,16 +55,17 @@ describe('voiceQuote = the exact charge, never invented', () => {
       const size = sizeLabelFromHours(cat, hours);
       const q = voiceQuote(cat, size)!;
       expect(q.priceCents, `${cat} ${hours}h`).toBe(getHouseholdPriceCents(cat, size));
-      expect(q.feeCents).toBe(Math.round(q.priceCents * SERVICE_FEE_PCT));
+      // Card charge = the VANO booking fee only (15% min €4) under direct-pay.
+      expect(q.feeCents).toBe(computeVanoFeeCents(q.priceCents));
       expect(q.totalCents).toBe(q.priceCents + q.feeCents);
     }
   });
 
-  it('speaks the price with the pay-after-accept promise', () => {
+  it('speaks the direct-pay split with the pay-after-accept promise', () => {
     const q = voiceQuote('cleaning', '2 hours')!;
-    expect(q.spoken).toContain('€36');
-    expect(q.spoken).toContain('€2.70');
-    expect(q.spoken).toContain('€38.70');
+    expect(q.spoken).toContain('€36');       // job price, paid to the helper directly
+    expect(q.spoken).toContain('€5.40');     // the VANO booking fee on the card (15% of €36)
+    expect(q.spoken.toLowerCase()).toContain('directly');
     expect(q.spoken.toLowerCase()).toContain('after a verified helper accepts');
   });
 

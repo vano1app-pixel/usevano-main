@@ -9,7 +9,8 @@
 // what create-household-payment-checkout will charge. The agent can never
 // set a price; it can only read out what quoteDraft returns.
 
-import { computePriceCents, SERVICE_FEE_PCT, type Category } from './householdPricing.ts';
+import { computePriceCents, type Category } from './householdPricing.ts';
+import { computeVanoFeeCents } from './vanoFees.ts';
 import { WA_CATEGORIES, type WaCategory, keywordClassify, needsSize, euro } from './waIntake.ts';
 
 export { euro };
@@ -62,10 +63,13 @@ export interface VoiceQuote {
 export function voiceQuote(category: WaCategory, sizeLabel: string): VoiceQuote | null {
   const priceCents = computePriceCents(category as Category, sizeLabel, '');
   if (!priceCents) return null;
-  const feeCents = Math.round(priceCents * SERVICE_FEE_PCT);
+  // DIRECT-PAY: the job price is paid to the helper directly (they keep 100%);
+  // the card is charged ONLY the VANO booking fee (15%, min €4) — exactly what
+  // checkout charges. totalCents stays price + fee for callers that compare it.
+  const feeCents = computeVanoFeeCents(priceCents);
   const totalCents = priceCents + feeCents;
   const spoken =
-    `That's ${euro(priceCents)} for the job plus a ${euro(feeCents)} service fee — ` +
-    `${euro(totalCents)} in total. And you only pay after a verified helper accepts.`;
+    `That's ${euro(priceCents)} for the job, paid to your helper directly — they keep all of it. ` +
+    `VANO's booking fee is ${euro(feeCents)}, and you only pay that after a verified helper accepts.`;
   return { category, sizeLabel, priceCents, feeCents, totalCents, spoken };
 }

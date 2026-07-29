@@ -840,7 +840,16 @@ const TrackBooking = () => {
         } catch { /* rating is best-effort — don't block completion */ }
       }
       setBooking((b) => b ? { ...b, status: 'completed' } : b);
-      toast({ title: 'All done — thanks!', description: 'Your helper has been paid.' });
+      // Direct-pay: VANO never paid the helper (it only charged its fee) — the
+      // customer still owes the helper the job price directly. Saying "your
+      // helper has been paid" here would tell them to skip the settle-up that
+      // the whole direct-pay model depends on. Only legacy escrow prepaid the
+      // helper. (The persistent gold pay card below already carries the amount.)
+      toast(
+        booking?.booking_data?.direct_pay === true
+          ? { title: 'All done — thanks!', description: 'Now settle up with your helper directly — Revolut or cash (see the pay card below).' }
+          : { title: 'All done — thanks!', description: 'Your helper has been paid.' },
+      );
     } catch (e) {
       toast({ title: 'Could not mark done', description: e instanceof Error ? e.message : 'Please try again, or WhatsApp +353 89 981 7111', variant: 'destructive' });
     } finally {
