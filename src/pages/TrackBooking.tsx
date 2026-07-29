@@ -14,6 +14,7 @@ import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
 import { categoryLabel, categoryEmoji } from '@/lib/bookingLabels';
 import { studyLine } from '@/lib/colleges';
+import { boundedPhotoUrl } from '@/lib/boundedPhoto';
 import { format } from 'date-fns';
 import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
 import { track } from '@/lib/track';
@@ -724,9 +725,15 @@ const TrackBooking = () => {
       if (cancelled) return;
       if (helper?.name) {
         setHelperName(helper.name.split(' ')[0]);
+        // One bounded resolve feeds every surface that shows the face — the
+        // chip, the at-your-door card AND the map puck (a full-res decode
+        // inside Leaflet's transformed pane is prime iOS black-box territory
+        // — see lib/boundedPhoto.ts).
+        const safePhoto = (await boundedPhotoUrl(helper.photo_url || null, 256)) ?? (helper.photo_url || null);
+        if (cancelled) return;
         setHelperCard({
           id: helper.id,
-          photo_url: helper.photo_url || null,
+          photo_url: safePhoto,
           average_rating: helper.average_rating ?? helper.rating_avg ?? null,
           accepted_count: helper.accepted_count ?? 0,
           id_verified: !!helper.id_verified,

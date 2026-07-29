@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { boundedPhotoUrl } from '@/lib/boundedPhoto';
 
 /**
  * Social proof under the hero search bar: a face-pile of REAL approved helpers
@@ -40,16 +41,30 @@ export const HelperFacePile: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    // Photos go through boundedPhotoUrl before they touch an <img> — a
+    // full-res upload decoded behind these 32px circles is what black-boxed
+    // the pile on iOS (see lib/boundedPhoto.ts). Fail-soft to the raw URL.
+    const bound = (rows: Face[]) =>
+      Promise.all(rows.map(async f => ({
+        ...f,
+        photo_url: (await boundedPhotoUrl(f.photo_url, 128)) ?? f.photo_url,
+      })));
     (async () => {
       const v = await base().eq('id_verified', true).limit(6);
       if (cancelled) return;
       if (v.data && v.data.length > 0) {
-        setFaces(v.data); setTotal(v.count ?? v.data.length); setVerified(true); setLoaded(true);
+        const safe = await bound(v.data);
+        if (cancelled) return;
+        setFaces(safe); setTotal(v.count ?? v.data.length); setVerified(true); setLoaded(true);
         return;
       }
       const a = await base().limit(6);
       if (cancelled) return;
-      if (a.data && a.data.length > 0) { setFaces(a.data); setTotal(a.count ?? a.data.length); }
+      if (a.data && a.data.length > 0) {
+        const safe = await bound(a.data);
+        if (cancelled) return;
+        setFaces(safe); setTotal(a.count ?? a.data.length);
+      }
       setLoaded(true);
     })();
     return () => { cancelled = true; };
