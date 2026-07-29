@@ -35,6 +35,9 @@ export interface ExternalReview {
   text: string;
   /** Optional "July 2026"-style label, as shown on the platform. */
   when?: string;
+  /** Optional reviewer meta EXACTLY as the platform shows it (e.g. Google's
+   *  "Local Guide" badge) — never invent one. */
+  meta?: string;
 }
 
 /** Real profile numbers only — shown on the platform cards once set.
@@ -73,5 +76,6 @@ export const EXTERNAL_REVIEWS: ExternalReview[] = [
     rating: 4,
     text: 'sound fella came in cleaned my house before I had to move out of student accommodation in glasan',
     when: 'July 2026',
+    meta: 'Local Guide',
   },
 ];
