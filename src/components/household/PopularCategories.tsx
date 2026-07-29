@@ -3,6 +3,11 @@ import { motion } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
 
 /**
+ * PARKED 2026-07-29 (owner call: "this section is pretty useless") — the
+ * podium repeated the hero's tiles, so its navy slot on HouseholdHome now
+ * mounts SocialProof (Trustpilot/Google reviews) instead. Kept in the repo
+ * unmounted, per convention. Don't remount without the owner.
+ *
  * The three most-booked services as a winner's podium — cleaning takes the tall
  * gold #1 step in the middle, laundry the silver #2 on the left, pets the
  * bronze #3 on the right (classic 2-1-3 podium ordering). Each step is a one-tap
