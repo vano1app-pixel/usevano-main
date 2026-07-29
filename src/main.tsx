@@ -100,4 +100,23 @@ deferToIdle(() => {
       });
     });
   }
+
+  // Google Analytics 4 — loaded here (deferred + env-gated) rather than as a
+  // blocking <script> in index.html, so it stays off the critical render path
+  // like PostHog/Sentry. Inert until VITE_GA_ID (a "G-XXXXXXXX" Measurement ID)
+  // is set, so dev/CI/preview builds never pollute the production property.
+  // GA4's Enhanced Measurement (on by default in the property) captures SPA
+  // route changes, so no manual page_view wiring is needed for basic analytics.
+  const gaId = import.meta.env.VITE_GA_ID as string | undefined;
+  if (gaId) {
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+    document.head.appendChild(s);
+    const w = window as unknown as { dataLayer: unknown[]; gtag: (...args: unknown[]) => void };
+    w.dataLayer = w.dataLayer || [];
+    w.gtag = function gtag() { w.dataLayer.push(arguments); };
+    w.gtag('js', new Date());
+    w.gtag('config', gaId);
+  }
 });
