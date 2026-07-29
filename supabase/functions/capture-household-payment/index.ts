@@ -105,6 +105,20 @@ serve(async (req) => {
     // function no longer moves money for those bookings, it's purely the
     // completion choke-point (status flip + rating token + notifications).
     const directPay = ((booking.booking_data as Record<string, unknown> | null)?.direct_pay) === true;
+
+    // The per-booking rating token lives in the service-role-only
+    // household_booking_secrets table (never on the booking row — the assigned
+    // helper must not be able to read it or they could post a fake self-rating).
+    // Mint one at completion if absent; idempotent (safe to call on retries).
+    const ensureRatingToken = async () => {
+      const { data: sec } = await supabase
+        .from('household_booking_secrets').select('rating_token').eq('booking_id', bookingId).maybeSingle() as { data: { rating_token: string | null } | null };
+      if (!sec?.rating_token) {
+        await supabase.from('household_booking_secrets')
+          .upsert({ booking_id: bookingId, rating_token: crypto.randomUUID(), updated_at: new Date().toISOString() }, { onConflict: 'booking_id' });
+      }
+    };
+
     if (booking.status === 'completed') {
       return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -131,8 +145,9 @@ serve(async (req) => {
         // Self-heal: if a prior run recorded the payout but its status flip then
         // errored (a DB blip), re-attempt the flip (guarded) before returning.
         if (booking.status !== 'completed') {
+          await ensureRatingToken();
           await supabase.from('household_bookings')
-            .update({ status: 'completed', ...(booking.rating_token ? {} : { rating_token: crypto.randomUUID() }) })
+            .update({ status: 'completed' })
             .eq('id', bookingId)
             .in('status', ['accepted','on_way','arrived','in_progress']);
         }
@@ -174,9 +189,10 @@ serve(async (req) => {
     // delivered to the CUSTOMER via the tracking page and required by
     // rate-household-booking, so a helper can't rate their own job. Preserve an
     // existing token if somehow already set.
+    await ensureRatingToken();
     const { error: updateError } = await supabase
       .from('household_bookings')
-      .update({ status: 'completed', ...(booking.rating_token ? {} : { rating_token: crypto.randomUUID() }) })
+      .update({ status: 'completed' })
       .eq('id', bookingId).eq('student_id', callerId)
       .in('status', ['accepted','on_way','arrived','in_progress']);
 

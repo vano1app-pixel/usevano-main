@@ -39,7 +39,7 @@ marketplace).
 | 5/6 | **Medium** | HTML/email injection via `payment_handle`, helper name, `customer_name/phone` into transactional emails | **FIXED** |
 | 10 | Low | Partner-commission program has no self-referral guard → helper skims 3% of own jobs | **FIXED** |
 | 4 | Low | `household_chat` INSERT policy lets any authenticated user post into any booking thread | **FIXED** |
-| 2 | Medium | Assigned helper can read `arrival_code` / `rating_token` directly via PostgREST/Realtime | **Reported — owner fix (needs Playwright)** |
+| 2 | Medium | Assigned helper can read `arrival_code` / `rating_token` directly via PostgREST/Realtime | **FIXED** (secrets moved to a service-role-only table; needs Playwright on arrival+rating before merge) |
 | 3 | Medium | Helper can set their own `status='approved'` → suspended helper self-unsuspends | **FIXED** (trigger blocks non-admin self-status-change) |
 | 9 | Medium | `find-booking-by-phone` hands out the booking-UUID capability from a bare phone → home-address disclosure | **Reported — product decision** |
 | 11 | Info | `dispatch-household-job` has no caller auth (bounded by unguessable UUID) | **Reported** |
@@ -196,6 +196,33 @@ rows for direct-pay bookings (and some may have already transferred). The transf
 loop now skips them, but you should reconcile/void the existing phantom rows —
 e.g. rows whose `booking_id` maps to a `booking_data->>direct_pay = 'true'`
 booking — and review Stripe for any transfers already sent on those.
+Migration `20260729000004_void_phantom_directpay_payouts.sql` does the void
+automatically (flips pending/transferring phantoms to `reversed`) and raises a
+NOTICE counting any that already transferred and need manual Stripe review.
+
+## Follow-up pass (this session) — two more items done + a latent payout bug
+
+- **#2 `arrival_code` / `rating_token` — now FIXED.** Both secrets moved into a
+  new service-role-only `household_booking_secrets` table
+  (`20260729000005_move_booking_secrets.sql`); the base columns are kept but
+  always NULL, so a raw PostgREST select or a realtime payload carries nothing,
+  and `get_household_booking` splices the real values back in for the anonymous
+  customer only. `household-arrival`, `capture-household-payment` and
+  `rate-household-booking` read/write the secrets table. The RPC return shape and
+  every frontend type are unchanged. **Still needs a Playwright pass on the
+  arrival-code handshake + the rating flow before merge** (I can't drive those
+  against live Supabase from here); typecheck, tests and a full prod build pass.
+
+- **NEW latent bug — the payout release cron was silently paying nobody.**
+  `release-household-payouts` claims a row by writing `status='transferring'`
+  (index.ts:219), but the `household_payouts` CHECK constraint (last set in
+  `20260706020000`) never included `transferring` — so the claim update fails the
+  constraint, the client returns `{error}` (which the code doesn't read, only
+  `data`), `claimed` is null, and the row is treated as "taken by another run"
+  and skipped. Net: **no payout ever transfers through this cron**; legacy-escrow
+  helper payouts silently stick at `pending`. It slipped past because direct-pay
+  made new payout rows rare. Fixed by `20260729000003_payout_status_add_transferring.sql`
+  (adds `transferring` to the allowed set).
 
 ## Verification
 - `npm run typecheck` — clean.

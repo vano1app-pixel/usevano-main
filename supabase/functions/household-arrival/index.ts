@@ -138,6 +138,17 @@ serve(async (req) => {
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
 
+    // The arrival code lives in the service-role-only household_booking_secrets
+    // table (never on the booking row, so the assigned helper can't read it via
+    // PostgREST or realtime). Read it here for the server-side compare; the
+    // helper only ever submits a guess, never sees the value.
+    const { data: secretRow } = await supabase
+      .from('household_booking_secrets')
+      .select('arrival_code')
+      .eq('booking_id', bookingId)
+      .maybeSingle() as { data: { arrival_code: string | null } | null };
+    const arrivalCode = secretRow?.arrival_code ?? null;
+
     // Pay-before-start gate, ENFORCED SERVER-SIDE. StudentJobDetail hides the
     // arrival buttons until paid_at is set, but that's client-only: a helper
     // bypassing their UI could drive request→start_without_code and push an
@@ -253,9 +264,16 @@ serve(async (req) => {
       // arrived_at. Re-tapping is also the unlock path after too many wrong
       // code guesses (see the verify branch below).
       const newCode = String(Math.floor(1000 + Math.random() * 9000));
+      // Store the code in the service-role-only secrets table FIRST (so it's
+      // there for the customer's /track display the instant the status flips),
+      // then flip the booking. The base column stays null.
+      const { error: secretErr } = await supabase
+        .from('household_booking_secrets')
+        .upsert({ booking_id: bookingId, arrival_code: newCode, updated_at: new Date().toISOString() }, { onConflict: 'booking_id' });
+      if (secretErr) { console.error('[household-arrival] arrival code write failed', secretErr); return bad(500, 'Could not mark arrival'); }
       const { error: updErr } = await supabase
         .from('household_bookings')
-        .update({ arrival_code: newCode, arrival_verified_at: null, status: 'arrived', arrival_attempts: 0, arrived_at: new Date().toISOString() })
+        .update({ arrival_verified_at: null, status: 'arrived', arrival_attempts: 0, arrived_at: new Date().toISOString() })
         .eq('id', bookingId)
         .eq('student_id', callerId)
         .in('status', ['accepted', 'on_way', 'arrived']);
@@ -486,14 +504,14 @@ serve(async (req) => {
 
     // action === 'verify'
     if (booking.arrival_verified_at) return json(200, { ok: true, verified: true, status: 'in_progress' });
-    if (booking.status !== 'arrived' || !booking.arrival_code) return bad(409, 'No arrival code to verify yet');
+    if (booking.status !== 'arrived' || !arrivalCode) return bad(409, 'No arrival code to verify yet');
 
     // Anti-brute-force: the 4-digit code is the proof-of-presence, so cap wrong
     // guesses. After 5 misses we lock verification; the helper taps "I've
     // reached" again to issue a fresh code (which resets this counter).
     const attempts = booking.arrival_attempts ?? 0;
     if (attempts >= 5) return json(200, { ok: true, verified: false, locked: true });
-    if (!/^\d{4}$/.test(code) || code !== booking.arrival_code) {
+    if (!/^\d{4}$/.test(code) || code !== arrivalCode) {
       const nextAttempts = attempts + 1;
       await supabase.from('household_bookings').update({ arrival_attempts: nextAttempts }).eq('id', bookingId).eq('student_id', callerId);
       return json(200, { ok: true, verified: false, locked: nextAttempts >= 5 });
