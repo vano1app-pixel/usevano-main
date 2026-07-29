@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, type Variants } from 'framer-motion';
 import { Star, ArrowUpRight } from 'lucide-react';
-import { GOOGLE_BUSINESS_URL, GOOGLE_REVIEW_URL } from '@/lib/contact';
+import { GOOGLE_BUSINESS_URL } from '@/lib/contact';
 import { EXTERNAL_REVIEWS, PLATFORM_STATS, type ExternalReview } from '@/content/externalReviews';
 
 /**
@@ -88,7 +88,7 @@ function ExternalCard({ r }: { r: ExternalReview }) {
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: '-40px' }}
-      className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-border/40 text-left w-[82vw] max-w-[320px] flex-shrink-0 snap-start sm:w-auto sm:max-w-none"
+      className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-2.5 border border-border/40 text-left w-[82vw] max-w-[320px] flex-shrink-0"
     >
       <div className="flex items-center gap-2.5">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${avatarColor(r.name)}`}>
@@ -177,62 +177,27 @@ export const SocialProof: React.FC = () => {
           })}
         </motion.div>
 
-        {/* Phone: a side-swipe snap row (one card + the next peeking — the
-            HelperCards pattern; owner call 2026-07-29, the stacked cards made
-            the band ~1.7 phone screens). Edge-bleed via -mx-4 so cards scroll
-            to the screen edge. sm+: back to the three-across grid. */}
-        {/* Plain div — each card animates itself in (ExternalCard), so a
-            container fade on top would just double the opacity ramp. */}
+        {/* The reviews drift slowly sideways in a seamless loop (owner call
+            2026-07-30: "slowly moving so we can see more reviews" — this also
+            replaced the Leave-a-review button + foot lines, cut the same
+            day). The list renders twice; the track slides exactly one
+            list-width and restarts invisibly. Hover/press pauses it so cards
+            stay readable; reduced-motion falls back to a plain swipe row
+            (CSS in index.css — .vano-marquee). Speed scales with the list so
+            adding reviews never speeds the belt up. */}
         {reviews.length > 0 && (
-          <div className="mt-6 sm:mt-8 flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
-            {reviews.map((r, i) => <ExternalCard key={`${r.source}-${i}`} r={r} />)}
+          <div className="vano-marquee mt-6 sm:mt-8 -mx-4 sm:mx-0">
+            <div
+              className="vano-marquee-track flex gap-3 w-max"
+              style={{ '--marquee-dur': `${reviews.length * 14}s` } as React.CSSProperties}
+            >
+              {reviews.map((r, i) => <ExternalCard key={`a-${r.source}-${i}`} r={r} />)}
+              <div aria-hidden="true" className="contents">
+                {reviews.map((r, i) => <ExternalCard key={`b-${r.source}-${i}`} r={r} />)}
+              </div>
+            </div>
           </div>
         )}
-
-        {/* The other half of the loop — collecting the next review. Ghost
-            button on navy (the page's one primary action stays "book");
-            GOOGLE_REVIEW_URL opens Google's write-a-review dialog directly. */}
-        <motion.div
-          className="text-center mt-8 sm:mt-10"
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <motion.a
-            href={GOOGLE_REVIEW_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            whileHover="hover"
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-6 py-3 text-sm font-semibold text-foreground shadow-sm transition-[background-color,border-color,transform] duration-200 hover:bg-secondary hover:border-foreground/25 active:scale-[0.97]"
-          >
-            {/* The star wiggles on hover (variant propagates from the <a>) —
-                hover-only, so touch taps stay plain and fast. */}
-            <motion.span
-              className="inline-flex"
-              variants={{ hover: { rotate: [0, -14, 10, -6, 0], scale: 1.15, transition: { duration: 0.45, ease: 'easeInOut' } } }}
-            >
-              <Star className="w-4 h-4 fill-gold text-gold" aria-hidden="true" />
-            </motion.span>
-            Booked with us? Leave a review
-          </motion.a>
-          <p className="mt-2.5 text-xs text-muted-foreground">
-            Takes 30 seconds on Google — or{' '}
-            <a
-              href="https://www.trustpilot.com/evaluate/vanojobs.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-            >
-              review us on Trustpilot
-            </a>
-            .
-          </p>
-        </motion.div>
-
-        <p className="text-center text-muted-foreground text-sm mt-6 sm:mt-8">
-          You only pay once a helper says yes · money-back guarantee
-        </p>
       </div>
     </section>
   );
