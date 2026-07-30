@@ -114,6 +114,59 @@ const VerifyHelper: React.FC = () => {
   // the step card acknowledges the moment instead of a generic "verified".
   const [wentLive, setWentLive] = useState(false);
 
+  // ── Profile boost (2026-07-30) ─────────────────────────────────────────
+  // Right after the email code verifies — the moment motivation peaks — one
+  // optional screen collects the "get more jobs" facts: own kit,
+  // availability, languages, Garda-vetting openness. Saved via
+  // update-helper-profile with the NARROW boost token the verify response
+  // minted (it can't touch phone/email/photo/payouts). Entirely skippable
+  // and fail-soft — the two verification steps never depend on it.
+  const [boostToken, setBoostToken] = useState<string | null>(null);
+  const [boostKit, setBoostKit] = useState<string[]>([]);
+  const [boostAvail, setBoostAvail] = useState<string[]>([]);
+  const [boostLangs, setBoostLangs] = useState<string[]>([]);
+  const [boostGarda, setBoostGarda] = useState(false);
+  const [boostState, setBoostState] = useState<'idle' | 'saving' | 'saved' | 'skipped'>('idle');
+  const toggleIn = (setter: React.Dispatch<React.SetStateAction<string[]>>, v: string) =>
+    setter((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
+
+  const saveBoost = useCallback(async () => {
+    if (!helperId || !boostToken) return;
+    setBoostState('saving');
+    try {
+      const fd = new FormData();
+      fd.append('helper_id', helperId);
+      fd.append('boost_token', boostToken);
+      // Availability groups → the canonical AVAILABILITY_SLOTS slugs the
+      // dashboard/account editors use (see src/lib/helperCategories.ts).
+      const slots: string[] = [];
+      if (boostAvail.includes('weekdays')) slots.push('mon-fri-morning', 'mon-fri-afternoon');
+      if (boostAvail.includes('evenings')) slots.push('mon-fri-evening', 'sat-evening', 'sun-evening');
+      if (boostAvail.includes('weekends')) slots.push('sat-morning', 'sat-afternoon', 'sun-morning', 'sun-afternoon');
+      if (slots.length) fd.append('availability', JSON.stringify(slots));
+      fd.append('extras', JSON.stringify({
+        own_kit: boostKit,
+        languages: boostLangs,
+        garda_vetting_ok: boostGarda,
+      }));
+      // Raw fetch, not functions.invoke — the repo's FormData pattern for
+      // this endpoint (see StudentAccount's three submit sites).
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
+        body: fd,
+      });
+      if (!res.ok) throw new Error('save failed');
+      haptic(12);
+      setBoostState('saved');
+    } catch {
+      // Fail-soft: don't trap them on this optional screen — thank and move on.
+      setBoostState('saved');
+    }
+  }, [helperId, boostToken, boostKit, boostAvail, boostLangs, boostGarda]);
+
   const [idState, setIdState] = useState<IdState>(
     cachedProgress.id_check ? 'verified' : returnedFromIdCheck ? 'submitted' : 'idle',
   );
@@ -247,6 +300,8 @@ const VerifyHelper: React.FC = () => {
     // went_live = the signup spam gate just flipped this account available —
     // acknowledge the moment on the step card.
     if ((data as { went_live?: boolean } | null)?.went_live) setWentLive(true);
+    const bt = (data as { boost_token?: string } | null)?.boost_token;
+    if (bt) setBoostToken(bt);
     setEmailState('verified');
     saveProgress(helperId, { email: true });
     clearOtpState();
@@ -481,6 +536,66 @@ const VerifyHelper: React.FC = () => {
                   </div>
                 )}
               </VerifyCard>
+
+              {/* Profile boost — only offered in the minutes after the email
+                  verifies (the token is short-lived on purpose). One screen,
+                  all taps, completely optional. */}
+              {boostToken && emailState === 'verified' && boostState !== 'skipped' && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-sage/30 bg-sage-light/50 p-5">
+                  {boostState === 'saved' ? (
+                    <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-sage flex-shrink-0" /> Saved — jobs that match you will find you faster.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-bold text-foreground">30 seconds to get more jobs</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 mb-3">All optional — every tap helps us send you the right jobs first.</p>
+
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Gear you own</p>
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {[['hoover', '🧹 Hoover'], ['cleaning-products', '🧴 Cleaning products'], ['lawn-mower', '🚜 Lawn mower'], ['garden-tools', '🧤 Garden tools']].map(([v, label]) => (
+                          <button key={v} type="button" aria-pressed={boostKit.includes(v)} onClick={() => toggleIn(setBoostKit, v)}
+                            className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', boostKit.includes(v) ? 'border-sage bg-sage text-white' : 'border-border bg-white text-foreground/80')}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">When you're usually free</p>
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {[['weekdays', 'Weekday daytime'], ['evenings', 'Evenings'], ['weekends', 'Weekends']].map(([v, label]) => (
+                          <button key={v} type="button" aria-pressed={boostAvail.includes(v)} onClick={() => toggleIn(setBoostAvail, v)}
+                            className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', boostAvail.includes(v) ? 'border-sage bg-sage text-white' : 'border-border bg-white text-foreground/80')}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Languages besides English</p>
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {['Irish', 'Polish', 'Spanish', 'French', 'Portuguese', 'Hindi', 'Mandarin', 'Arabic'].map((lang) => (
+                          <button key={lang} type="button" aria-pressed={boostLangs.includes(lang)} onClick={() => toggleIn(setBoostLangs, lang)}
+                            className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', boostLangs.includes(lang) ? 'border-sage bg-sage text-white' : 'border-border bg-white text-foreground/80')}>
+                            {lang}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button type="button" aria-pressed={boostGarda} onClick={() => setBoostGarda((v) => !v)}
+                        className={cn('w-full rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition-colors mb-3', boostGarda ? 'border-sage bg-white text-foreground' : 'border-border bg-white text-foreground/70')}>
+                        {boostGarda ? '✓ ' : ''}Open to Garda vetting later — unlocks jobs helping older customers
+                      </button>
+
+                      <Button onClick={() => void saveBoost()} disabled={boostState === 'saving'} className="w-full rounded-full font-semibold gap-2">
+                        {boostState === 'saving' ? <><Loader2 className="w-4 h-4 animate-spin" />Saving…</> : 'Save — send me matching jobs'}
+                      </Button>
+                      <button type="button" onClick={() => setBoostState('skipped')} className="mt-1.5 w-full text-center text-xs text-muted-foreground underline underline-offset-2 py-1">
+                        Skip for now
+                      </button>
+                    </>
+                  )}
+                </motion.div>
+              )}
 
               {/* Step 2 — ID check */}
               <VerifyCard icon={<ShieldCheck className="w-5 h-5" />} step="2" title="Verify your ID" done={idState === 'verified'}>

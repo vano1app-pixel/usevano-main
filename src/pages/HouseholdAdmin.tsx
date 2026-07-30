@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { Loader2, RefreshCw, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SystemHealthPanel from '@/components/household/SystemHealthPanel';
+import OpsCopilotCard from '@/components/household/OpsCopilotCard';
 import { extractFnError } from '@/lib/fnError';
 
 const ADMIN_EMAIL = 'vano1app@gmail.com';
@@ -396,6 +397,11 @@ export default function HouseholdAdmin() {
       </div>
 
       <div className="p-4 max-w-3xl mx-auto space-y-3">
+
+        {/* ── Ops copilot — above the tabs' content: the ranked "what needs a
+            human right now" board. Read-only; every row deep-links to the
+            booking + the phones. ── */}
+        {tab === 'bookings' && <OpsCopilotCard />}
 
         {/* ── Bookings tab ── */}
         {tab === 'bookings' && (

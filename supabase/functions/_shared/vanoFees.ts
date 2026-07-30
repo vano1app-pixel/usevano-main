@@ -11,9 +11,13 @@
 // src/lib/householdPricing.ts mirrors the numbers for display; the contract
 // test keeps the two in lock-step (same pattern as householdPricing.ts).
 
-// Customer-side booking fee: 15% of the job price, floored at €4.
+// Customer-side booking fee: 15% of the job price, floored at €5.
+// Raised €4 → €5 (owner call 2026-07-30): Stripe's cut (~1.5% + €0.25) took
+// ~€0.79 of every €4 fee, leaving ~€3.20 on a small job — less than it costs
+// to support one. MUST mirror src/lib/householdPricing.ts; the contract test
+// fails if they drift.
 export const VANO_FEE_BPS = 1500;
-export const VANO_FEE_MIN_CENTS = 400;
+export const VANO_FEE_MIN_CENTS = 500;
 
 // Optional Vano Cover add-on (accidental damage up to €250) — flat €2,
 // ticked by the customer at booking. Never called "insurance".

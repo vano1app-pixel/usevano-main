@@ -11,14 +11,19 @@
 // cross-check).
 //
 // INVARIANT (see CLAUDE.md "Pricing"): every TIME-BASED rate must net a
-// student ≥ Ireland's €14.15/hr minimum wage after the 15% platform cut —
-// that's why the labour rates all sit at €18/hr (net €15.30/hr).
+// student ≥ Ireland's €14.15/hr minimum wage. Under direct-pay the student
+// keeps 100%, so the labour rate IS their wage. RAISED €18 → €22/hr (owner
+// call 2026-07-30) — €18 was only ~€4.50/hr better than a supermarket shift
+// with guaranteed hours and no travel, which is too thin to hold supply.
+// €22 still sits ~21% under the display-only market anchors the builder
+// quotes (€28 cleaning / €30 garden), so the value promise to households
+// survives. Every hour map below is €22 × hours; keep them that way.
 
 export const VALID_CATEGORIES = [
   // CategoryGrid originals
   'shopping', 'dog-walk', 'garden', 'moving', 'cleaning', 'tutoring',
   // Business temp staff (owner test 2026-07-23) — flyer runs, sampling,
-  // events, shop cover at a premium €22/hr; dispatches like 'custom'
+  // events, shop cover at a premium €28/hr; dispatches like 'custom'
   'business',
   // TaskShowcase own slugs (each bookable independently)
   'grocery-shopping', 'dog-walking', 'lawn-mowing', 'moving-help', 'outdoor-cleaning', 'tutoring-grinds',
@@ -35,7 +40,7 @@ export const VALID_CATEGORIES = [
   // Labels for both live on in CATEGORY_LABELS so historical bookings render.
   // Airbnb Host monthly plans
   'airbnb-essential', 'airbnb-popular', 'airbnb-premium',
-  // "Name any job" — priced by the hour at the standard €18/hr labour rate
+  // "Name any job" — priced by the hour at the standard €22/hr labour rate
   'custom',
 ] as const;
 export type Category = typeof VALID_CATEGORIES[number];
@@ -80,8 +85,12 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       '1 hr · 2 dogs':   2000,
       '2 hrs · 1 dog':   2200,
       '2 hrs · 2+ dogs': 2800,
-      // CategoryGrid quick-book — must match the prices shown in the sheet
-      '30 min': 1500, '1 hour': 2000,
+      // CategoryGrid quick-book — must match the prices shown in the sheet.
+      // 30 min holds the site-wide "from €15" anchor (already €30/hr
+      // effective — a short visit pays for the trip); the 1-hour walk rose
+      // €20 → €24 on 2026-07-30 so an hour of walking isn't the worst-paid
+      // hour on the platform now labour is €22/hr.
+      '30 min': 1500, '1 hour': 2400,
     };
     const base = combined[sizeLabel] ?? null;
     if (base == null) return null;
@@ -100,17 +109,17 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
     return base + (dogUpcharge[extraLabel] ?? 0);
   }
 
-  // Garden / lawn mowing — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)
+  // Garden / lawn mowing — hour labels must match the CategoryGrid sheet (€22/hr × 1–8h)
   if (category === 'garden' || category === 'lawn-mowing') {
     const map: Record<string, number> = {
-      // time-based (CategoryGrid)
-      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // time-based (CategoryGrid) — €22/hr since 2026-07-30
+      '1 hour': 2200,  '2 hours': 4400,  '3 hours': 6600,  '4 hours': 8800,
+      '5 hours': 11000, '6 hours': 13200, '7 hours': 15400, '8 hours': 17600,
       // half-hour billing steps (tick-box builder, 2026-07-27 — every tick
       // moves the price; mirror src/lib hoursFromLabel's decimal parsing)
-      '1.5 hours': 2700, '2.5 hours': 4500, '3.5 hours': 6300, '4.5 hours': 8100,
-      '5.5 hours': 9900, '6.5 hours': 11700, '7.5 hours': 13500,
-      'Half day': 7200,
+      '1.5 hours': 3300, '2.5 hours': 5500, '3.5 hours': 7700, '4.5 hours': 9900,
+      '5.5 hours': 12100, '6.5 hours': 14300, '7.5 hours': 16500,
+      'Half day': 8800,
       // size-based (TaskShowcase)
       'Small (terrace / apartment)': 2200,
       'Medium (semi-detached)':      3800,
@@ -120,15 +129,15 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
     return map[sizeLabel] ?? null;
   }
 
-  // Moving — hour labels must match the CategoryGrid sheet (€18/hr, '4+ hours' priced as 4h)
+  // Moving — hour labels must match the CategoryGrid sheet (€22/hr, '4+ hours' priced as 4h)
   if (category === 'moving' || category === 'moving-help') {
     const map: Record<string, number> = {
-      // time-based (CategoryGrid)
-      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200, '4+ hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // time-based (CategoryGrid) — €22/hr since 2026-07-30
+      '1 hour': 2200,  '2 hours': 4400,  '3 hours': 6600,  '4 hours': 8800, '4+ hours': 8800,
+      '5 hours': 11000, '6 hours': 13200, '7 hours': 15400, '8 hours': 17600,
       // half-hour billing steps (builder machinery — category parked but the
       // tables stay lock-step)
-      '1.5 hours': 2700, '2.5 hours': 4500, '3.5 hours': 6300,
+      '1.5 hours': 3300, '2.5 hours': 5500, '3.5 hours': 7700,
       // job-size (TaskShowcase)
       'A few boxes / items': 2500,
       'One room':            4000,
@@ -138,19 +147,19 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
     return map[sizeLabel] ?? null;
   }
 
-  // Cleaning — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)
+  // Cleaning — hour labels must match the CategoryGrid sheet (€22/hr × 1–8h)
   if (category === 'cleaning' || category === 'outdoor-cleaning') {
     const map: Record<string, number> = {
-      // time-based (CategoryGrid)
-      '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // time-based (CategoryGrid) — €22/hr since 2026-07-30
+      '1 hour': 2200,  '2 hours': 4400, '3 hours': 6600,  '4 hours': 8800,
+      '5 hours': 11000, '6 hours': 13200, '7 hours': 15400, '8 hours': 17600,
       // half-hour billing steps (tick-box builder, 2026-07-27 — every tick
       // moves the price). The sheet's cleaning chips cap at 6h since
       // 2026-07-27 (was 3h — a 4+ bed home with every task ticked, incl.
       // the extra-messy condition tick, estimates 5.4h; billing that at a
-      // low cap paid the student under the €18/hr promise), so the halves
+      // low cap paid the student under the hourly promise), so the halves
       // run to 5.5.
-      '1.5 hours': 2700, '2.5 hours': 4500, '3.5 hours': 6300, '4.5 hours': 8100, '5.5 hours': 9900,
+      '1.5 hours': 3300, '2.5 hours': 5500, '3.5 hours': 7700, '4.5 hours': 9900, '5.5 hours': 12100,
       // area-based (TaskShowcase)
       'Small area':  2200,
       'Medium area': 3800,
@@ -193,14 +202,14 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
     return ({ '1 hour': 2500, '2 hours': 4500, '3 hours': 6500 })[sizeLabel] ?? null;
   }
 
-  // Business temp staff — €22/hr premium, 2-hour MINIMUM shift (no 1-hour
+  // Business temp staff — €28/hr premium, 2-hour MINIMUM shift (no 1-hour
   // option by design: a shorter call-out isn't worth a student's trip and the
   // bigger ticket is the point — Vano's 15% fee rides on it). MUST mirror
   // HOURLY_RATE_CENTS.business in src/lib/householdPricing.ts.
   if (category === 'business') {
     const map: Record<string, number> = {
-      '2 hours': 4400,  '3 hours': 6600,  '4 hours': 8800,
-      '5 hours': 11000, '6 hours': 13200, '7 hours': 15400, '8 hours': 17600,
+      '2 hours': 5600,  '3 hours': 8400,  '4 hours': 11200,
+      '5 hours': 14000, '6 hours': 16800, '7 hours': 19600, '8 hours': 22400,
     };
     return map[sizeLabel] ?? null;
   }
@@ -217,20 +226,20 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
   if (category === 'airbnb-popular')   return 19900;
   if (category === 'airbnb-premium')   return 29900;
 
-  // Custom "name any job" — priced purely by booked time at the €18/hr labour
+  // Custom "name any job" — priced purely by booked time at the €22/hr labour
   // rate (the same hour labels the CategoryGrid sheet uses). Short visits
   // (30/45 min) are offered for quick jobs and floored to the €12 booking
   // minimum. Time-based by design: whatever the job, the floor keeps it above
   // minimum wage. MUST mirror getHouseholdPriceCents in src/lib/householdPricing.ts.
   if (category === 'custom') {
     const hourMap: Record<string, number> = {
-      '30 min': 1200, '45 min': 1350, // €18/hr × 0.5/0.75, floored at €12
-      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      '30 min': 1400, '45 min': 1650, // €22/hr × 0.5/0.75, floored at €14
+      '1 hour': 2200,  '2 hours': 4400,  '3 hours': 6600,  '4 hours': 8800,
+      '5 hours': 11000, '6 hours': 13200, '7 hours': 15400, '8 hours': 17600,
       // Alias: old clients (and any cached bundle) sent "1 hours" for every
       // typicalHours-1 catalogue job — an exact-lookup miss here 400'd the
       // whole booking. Keep the alias so stale clients still price.
-      '1 hours': 1800,
+      '1 hours': 2200,
     };
     return hourMap[sizeLabel] ?? null;
   }
@@ -244,11 +253,11 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
       'College / Uni':  3800,
     };
     const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
-    // CategoryGrid quick-book sends plain hour labels — €18/hr × 1–8h, must match the sheet
+    // CategoryGrid quick-book sends plain hour labels — €22/hr × 1–8h, must match the sheet
     if (!rate[sizeLabel]) {
       const hourMap: Record<string, number> = {
-        '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
-        '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+        '1 hour': 2200,  '2 hours': 4400, '3 hours': 6600,  '4 hours': 8800,
+        '5 hours': 11000, '6 hours': 13200, '7 hours': 15400, '8 hours': 17600,
       };
       return hourMap[sizeLabel] ?? null;
     }
@@ -258,6 +267,57 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
   }
 
   return null;
+}
+
+// ── Bring-the-basics supplies add-on (2026-07-30) ─────────────────────────
+// The equipment question's cleaning "no products" answer books the helper to
+// BRING sprays/cloths for a flat add-on. Charged only when the checkout body
+// carries an explicit `bring_supplies: true` for a cleaning booking — the
+// note text NEVER drives a price. The add-on is part of the JOB price (it's
+// the student's money — they buy the supplies), not Vano's fee; the fee is
+// computed on the BASE job price so the helper's expenses aren't taxed.
+// MUST mirror SUPPLIES_ADDON_CENTS in src/lib/householdPricing.ts —
+// jobBuilder.test.ts keeps the two in lock-step.
+export const SUPPLIES_ADDON_CENTS = 800;
+
+// ── Travel top-up (2026-07-30) ────────────────────────────────────────────
+// A €30 job with a 25-minute cycle each way is really ~€11/hr for the
+// student — the top-up keeps far-out jobs honestly worth taking. Flat ladder
+// keyed on straight-line distance from Eyre Square (helpers overwhelmingly
+// live in the city): inside ~8 km (all of the city, Salthill, Knocknacarra,
+// Barna edge) → nothing; 8–15 km (Oranmore, Claregalway) → €4; beyond
+// (Athenry, Gort…) → €8. 100% of it is the HELPER'S money (it rides the job
+// price, which Vano never touches under direct-pay); Vano's fee stays on the
+// base price. Fail-soft: no coordinates → no top-up, exactly the old price —
+// a booking can never 400 over geography. Thresholds are owner-tunable; keep
+// the two modules mirrored (jobBuilder.test.ts locks them in step).
+export const GALWAY_CENTRE = { lat: 53.2745, lng: -9.0491 }; // Eyre Square
+export const TRAVEL_TOPUP_NEAR_KM = 8;
+export const TRAVEL_TOPUP_FAR_KM = 15;
+export const TRAVEL_TOPUP_NEAR_CENTS = 400;
+export const TRAVEL_TOPUP_FAR_CENTS = 800;
+
+/** Straight-line km between two points (haversine). */
+export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Travel top-up for a job at the given coordinates, in cents (0 = none).
+ *  Anything non-finite → 0 (fail-soft — geography never blocks a booking). */
+export function travelTopupCents(lat: number | null | undefined, lng: number | null | undefined): number {
+  if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng)) return 0;
+  const km = distanceKm(lat, lng, GALWAY_CENTRE.lat, GALWAY_CENTRE.lng);
+  // Sanity ceiling: a badly-geocoded address (wrong county, wrong country)
+  // must not silently add a top-up to a booking that's probably in town.
+  if (km > 60) return 0;
+  if (km > TRAVEL_TOPUP_FAR_KM) return TRAVEL_TOPUP_FAR_CENTS;
+  if (km > TRAVEL_TOPUP_NEAR_KM) return TRAVEL_TOPUP_NEAR_CENTS;
+  return 0;
 }
 
 // Record<string, string> (not Record<Category, string>): retired slugs keep

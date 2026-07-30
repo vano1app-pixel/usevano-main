@@ -35,7 +35,7 @@ export interface ServiceLandingContent {
   intro: string;
   /** Longer body sections — unique copy is what earns the ranking. */
   body: { heading: string; text: string }[];
-  /** Headline price, e.g. "€18/hour" or "€15 flat". */
+  /** Headline price, e.g. "€22/hour" or "€15 flat". */
   priceLabel: string;
   /** One-line context under the price. */
   priceDetail: string;
@@ -66,9 +66,9 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     category: 'cleaning',
     name: 'House cleaning',
     shortLabel: 'Cleaning',
-    title: 'House Cleaning in Galway — Same-Day, from €18/hr',
+    title: 'House Cleaning in Galway — Same-Day, from €22/hr',
     description:
-      'Book an ID-verified student cleaner in Galway today. Kitchen, bathroom, floors & surfaces from €18/hr — free to book, pay when it’s done. Money-back guarantee.',
+      'Book an ID-verified student cleaner in Galway today. Kitchen, bathroom, floors & surfaces from €22/hr — free to book, pay when it’s done. Money-back guarantee.',
     h1: 'House cleaning in Galway, booked in 30 seconds',
     intro:
       'Hoovering, mopping, kitchen, bathroom and surfaces — done same-day by an ID-verified local student. You see exactly who’s coming before you pay a cent, and you can watch them arrive on a live map.',
@@ -82,7 +82,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
         text: 'Galway is a university city full of reliable students who want flexible work that pays properly — your cleaner keeps 100% of the hourly rate, paid directly by you, well above the Irish minimum wage. Each one is ID-verified before their first job, rated after every visit, and you see their name, photo and rating the moment they accept. From Salthill to Renmore, Knocknacarra to the city centre, there’s usually someone nearby today.',
       },
     ],
-    priceLabel: '€18/hour',
+    priceLabel: '€22/hour',
     priceDetail: 'Most homes book 2 hours (€36). Same-day or book ahead for tomorrow.',
     fromPriceEuro: 18,
     included: [
@@ -98,7 +98,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
       },
       {
         q: 'How much does a cleaner cost in Galway?',
-        a: 'Vano cleaning is a flat €18/hour with no hidden fees — a typical two-hour clean is €36. Agencies in Galway commonly charge €25–35/hour with minimum contracts; Vano is pay-per-visit with no commitment.',
+        a: 'Vano cleaning is a flat €22/hour with no hidden fees — a typical two-hour clean is €44, and your student keeps 100% of it. Agencies in Galway commonly charge €25–35/hour with minimum contracts; Vano is pay-per-visit with no commitment.',
       },
       PAY_AFTER_ACCEPT,
       WHO_ARE_HELPERS,
@@ -154,23 +154,23 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     category: 'garden',
     name: 'Garden help',
     shortLabel: 'Garden',
-    title: 'Garden Help in Galway — Mowing & Tidy-Ups from €18/hr',
+    title: 'Garden Help in Galway — Mowing & Tidy-Ups from €22/hr',
     description:
-      'Same-day garden help in Galway: mowing, weeding, edging and tidy-ups by ID-verified students from €18/hr, waste bagged. Free to book, pay when it’s done.',
+      'Same-day garden help in Galway: mowing, weeding, edging and tidy-ups by ID-verified students from €22/hr, waste bagged. Free to book, pay when it’s done.',
     h1: 'Garden help in Galway, without the wait',
     intro:
       'Grass gone wild, beds full of weeds, or a patio that needs clearing before the weekend? Book an ID-verified local student for mowing, weeding, edging and general tidy-ups — same-day, with all waste bagged.',
     body: [
       {
         heading: 'What garden jobs can I book?',
-        text: 'The bread and butter: mowing and strimming, weeding beds and paths, edging, hedge tidying at reachable height, leaf clearing, and hauling everything into bags. You book by the hour (€18/hr) — one hour handles a small lawn and edges, two to three covers most Galway gardens that have gotten away from you. Your own mower and tools are used, so the job is done the way you’d do it.',
+        text: 'The bread and butter: mowing and strimming, weeding beds and paths, edging, hedge tidying at reachable height, leaf clearing, and hauling everything into bags. You book by the hour (€22/hr) — one hour handles a small lawn and edges, two to three covers most Galway gardens that have gotten away from you. Your own mower and tools are used, so the job is done the way you’d do it.',
       },
       {
         heading: 'A fair deal on both sides',
         text: 'Garden contractors in Galway often won’t travel for a small job, and when they do it’s €50 before anyone lifts a rake. Vano fills exactly that gap: a strong, reliable student nearby who’s happy with an hour or two of honest outdoor work — and who keeps 100% of the hourly rate, well above minimum wage.',
       },
     ],
-    priceLabel: '€18/hour',
+    priceLabel: '€22/hour',
     priceDetail: 'One hour suits a small lawn; most gardens book 2–3 hours. Waste bagged.',
     fromPriceEuro: 18,
     included: [
@@ -253,12 +253,12 @@ const PARKED_SERVICE_LANDINGS: ServiceLandingContent[] = [
     category: 'moving',
     name: 'Moving help',
     shortLabel: 'Moving',
-    title: 'Moving Help in Galway — Strong Pair of Hands from €18/hr',
+    title: 'Moving Help in Galway — Strong Pair of Hands from €22/hr',
     description:
-      'Book same-day moving help in Galway: loading, carrying and unloading by ID-verified students from €18/hr. You arrange the van — we do the heavy lifting.',
+      'Book same-day moving help in Galway: loading, carrying and unloading by ID-verified students from €22/hr. You arrange the van — we do the heavy lifting.',
     h1: 'An extra pair of hands for moving day',
     intro:
-      'Flat swap, student move-out, a sofa that won’t move itself? Book an ID-verified local student for loading, carrying and unloading from €18/hour. You arrange the van — Vano supplies the muscle.',
+      'Flat swap, student move-out, a sofa that won’t move itself? Book an ID-verified local student for loading, carrying and unloading from €22/hour. You arrange the van — Vano supplies the muscle.',
     body: [
       {
         heading: 'What moving help covers',
@@ -269,7 +269,7 @@ const PARKED_SERVICE_LANDINGS: ServiceLandingContent[] = [
         text: 'End-of-month lease changeovers, September student move-ins, last-minute Daft viewings that turned into a deposit — Galway moves on short notice, and man-with-van outfits book out days ahead. A student helper can usually be at your door the same day, booking is free, and you pay your helper directly once the job’s done.',
       },
     ],
-    priceLabel: '€18/hour',
+    priceLabel: '€22/hour',
     priceDetail: 'You arrange the van or transport — your helper does the lifting.',
     fromPriceEuro: 18,
     included: [

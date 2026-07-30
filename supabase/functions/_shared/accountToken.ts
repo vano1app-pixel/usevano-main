@@ -114,3 +114,59 @@ export async function hasAccountAccess(token: unknown, helperId: string): Promis
   const payload = await verifyAccountToken(token);
   return !!payload && payload.h === helperId;
 }
+
+// ── Boost token (2026-07-30) — the narrow post-email-verify session ────────
+// Minted by verify-student-email-otp the moment a helper proves their inbox,
+// so the "boost your profile" screen on /verify-helper can save availability
+// + kit/languages/vetting extras with zero extra codes. DELIBERATELY WEAKER
+// than the account token: email proof is not phone proof, so this token is
+// accepted by update-helper-profile ONLY for the low-stakes profile fields
+// (availability, categories, extras) — never phone/email changes, the payout
+// handle, photo, or anything the phone-gated surfaces protect. Distinct
+// purpose marker keeps the three token families unreplayable across each
+// other.
+
+export interface BoostTokenPayload {
+  p: 'bst';
+  h: string; // household_helpers.id
+  e: number; // expiry, epoch seconds
+}
+
+/** A boost session lasts long enough to fill one short screen. */
+export const BOOST_TOKEN_TTL_SECONDS = 30 * 60;
+
+export async function signBoostToken(helperId: string): Promise<string> {
+  const payload: BoostTokenPayload = {
+    p: 'bst',
+    h: helperId,
+    e: Math.floor(Date.now() / 1000) + BOOST_TOKEN_TTL_SECONDS,
+  };
+  const part = b64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+  const sig = b64urlEncode(await hmac(part));
+  return `${part}.${sig}`;
+}
+
+/** Does this request carry a live boost session for exactly this helper row? */
+export async function hasBoostAccess(token: unknown, helperId: string): Promise<boolean> {
+  if (typeof token !== 'string' || !token) return false;
+  const dot = token.indexOf('.');
+  if (dot < 1) return false;
+  const part = token.slice(0, dot);
+  const sigGiven = token.slice(dot + 1);
+  if (!sigGiven) return false;
+  let ok = false;
+  try {
+    ok = timingSafeEqual(b64urlDecode(sigGiven), await hmac(part));
+  } catch {
+    return false;
+  }
+  if (!ok) return false;
+  let payload: BoostTokenPayload;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(b64urlDecode(part)));
+  } catch {
+    return false;
+  }
+  if (payload?.p !== 'bst' || payload?.h !== helperId || typeof payload?.e !== 'number') return false;
+  return Date.now() / 1000 <= payload.e;
+}

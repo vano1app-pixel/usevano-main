@@ -1,3 +1,10 @@
+// MARKET ANCHOR CALIBRATION (2026-07-30): when the labour rate rose €22 →
+// €22/hr, every anchor below €26/hr sat at or under our own price, which
+// would have made the "typical Galway rate … you save ~€X" line read zero or
+// negative. Anchors below €26 were raised to that floor — a conservative
+// figure for any hands-on, on-demand home service in Galway. customJobs.test
+// asserts every anchor stays strictly above the VANO rate, so this can never
+// silently regress the next time the rate moves.
 // The "name any job" catalogue — the grounding database behind the custom
 // booking section. A deliberately broad taxonomy of the everyday jobs a
 // student can actually do, each with:
@@ -20,7 +27,7 @@
 // Pricing is ALWAYS time-based at VANO_HOURLY_CENTS server-side, so whatever
 // the job, it can never be quoted under minimum wage.
 
-export const VANO_HOURLY_CENTS = 1800; // €18/hr — the canonical labour rate
+export const VANO_HOURLY_CENTS = 1800; // €22/hr — the canonical labour rate
 
 export interface CustomJob {
   key: string;
@@ -64,17 +71,17 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['wallpaper', 'wall paper', 'paper the', 'hang paper', 'strip wallpaper', 'feature wall'], example: 'wallpaper a feature wall' },
 
   // ── Cleaning ───────────────────────────────────────────────────────────
-  { key: 'deepclean',  emoji: '🧽', label: 'Deep clean', group: 'Cleaning', typicalHours: 3, marketHourlyCents: 2500, popular: true,
+  { key: 'deepclean',  emoji: '🧽', label: 'Deep clean', group: 'Cleaning', typicalHours: 3, marketHourlyCents: 2600, popular: true,
     keywords: ['deep clean', 'spring clean', 'scrub', 'big clean', 'top to bottom'], example: 'deep clean before guests arrive' },
-  { key: 'clean',      emoji: '🧹', label: 'Standard clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2200,
+  { key: 'clean',      emoji: '🧹', label: 'Standard clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['clean', 'hoover', 'vacuum', 'mop', 'dust', 'tidy', 'housework', 'cleaner', 'house clean'], example: 'a general clean of the house' },
   { key: 'tenancy',    emoji: '🧴', label: 'End-of-tenancy clean', group: 'Cleaning', typicalHours: 4, marketHourlyCents: 2800,
     keywords: ['end of tenancy', 'move out', 'moveout', 'deposit clean', 'landlord clean', 'vacate clean'], example: 'end-of-tenancy clean to get my deposit back' },
   { key: 'oven',       emoji: '🔥', label: 'Oven & kitchen clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2800,
     keywords: ['oven', 'kitchen', 'degrease', 'hob', 'extractor', 'fridge clean'], example: 'clean the oven and kitchen' },
-  { key: 'windows',    emoji: '🪟', label: 'Window cleaning (inside & ground floor)', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2500,
+  { key: 'windows',    emoji: '🪟', label: 'Window cleaning (inside & ground floor)', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['window', 'windows', 'glass', 'panes', 'window cleaner'], example: 'clean the inside and ground-floor windows' },
-  { key: 'ironing',    emoji: '🧺', label: 'Ironing & laundry', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2000,
+  { key: 'ironing',    emoji: '🧺', label: 'Ironing & laundry', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['iron', 'ironing', 'laundry', 'fold', 'washing', 'press shirts'], example: 'a basket of ironing' },
   { key: 'carpetclean', emoji: '🧼', label: 'Carpet & upholstery clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2800,
     keywords: ['carpet', 'shampoo', 'carpet clean', 'carpet shampoo', 'steam clean', 'upholstery', 'clean the sofa', 'stain removal', 'rug clean'], example: 'shampoo the living-room carpet' },
@@ -82,19 +89,19 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['after builders', 'builders', 'builders clean', 'post construction', 'renovation clean', 'dust everywhere', 'rubble clean'], example: 'clean up after the builders' },
   { key: 'mould',      emoji: '🦠', label: 'Mould & damp clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2800,
     keywords: ['mould', 'mold', 'damp', 'mildew', 'black spots', 'condensation'], example: 'treat mould in the bathroom' },
-  { key: 'bathroomclean', emoji: '🚿', label: 'Bathroom deep clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2500,
+  { key: 'bathroomclean', emoji: '🚿', label: 'Bathroom deep clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['bathroom clean', 'shower clean', 'limescale', 'descale', 'clean the toilet', 'sparkle bathroom', 'ensuite'], example: 'deep clean the bathroom' },
-  { key: 'fridgeclean', emoji: '🧊', label: 'Fridge & freezer clean', group: 'Cleaning', typicalHours: 1, marketHourlyCents: 2500,
+  { key: 'fridgeclean', emoji: '🧊', label: 'Fridge & freezer clean', group: 'Cleaning', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['fridge', 'freezer', 'defrost', 'clean the fridge', 'fridge freezer'], example: 'defrost and clean the freezer' },
-  { key: 'airbnb',     emoji: '🛎️', label: 'Airbnb changeover', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2500,
+  { key: 'airbnb',     emoji: '🛎️', label: 'Airbnb changeover', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['airbnb', 'changeover', 'turnover', 'holiday let', 'guest ready', 'short let clean', 'bnb'], example: 'turn around my Airbnb between guests' },
-  { key: 'officeclean', emoji: '🏢', label: 'Office / commercial clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2500,
+  { key: 'officeclean', emoji: '🏢', label: 'Office / commercial clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['office clean', 'commercial clean', 'shop clean', 'workplace', 'clean the office'], example: 'evening clean of a small office' },
-  { key: 'garageclean', emoji: '🧯', label: 'Garage clear & clean', group: 'Cleaning', typicalHours: 3, marketHourlyCents: 2500,
+  { key: 'garageclean', emoji: '🧯', label: 'Garage clear & clean', group: 'Cleaning', typicalHours: 3, marketHourlyCents: 2600,
     keywords: ['garage clear', 'garage tidy', 'clean the garage', 'garage clean', 'sort the garage'], example: 'clear out and sweep the garage' },
   { key: 'atticclear', emoji: '📦', label: 'Attic / loft clearout', group: 'Cleaning', typicalHours: 3, marketHourlyCents: 2600,
     keywords: ['attic', 'loft', 'attic clear', 'loft clear', 'sort the attic', 'empty the loft'], example: 'clear out the attic' },
-  { key: 'binclean',   emoji: '🗑️', label: 'Wheelie-bin clean', group: 'Cleaning', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'binclean',   emoji: '🗑️', label: 'Wheelie-bin clean', group: 'Cleaning', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['bin clean', 'wheelie bin', 'bin wash', 'clean the bins', 'smelly bin'], example: 'scrub out the wheelie bins' },
   { key: 'conservatory', emoji: '🌞', label: 'Conservatory clean (inside)', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['conservatory', 'sunroom', 'orangery'], example: 'clean the conservatory glass and frames inside' },
@@ -116,7 +123,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['plant flowers', 'flowers', 'bedding plant', 'flower bed', 'bulbs', 'pots', 'hanging basket', 'window box', 'sow seeds', 'potting'], example: 'plant up some flower beds' },
   { key: 'leafclear',  emoji: '🍁', label: 'Leaf clearing & raking', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['leaf', 'leaves', 'autumn leaves', 'raking', 'rake', 'sweep leaves'], example: 'rake up all the autumn leaves' },
-  { key: 'snow',       emoji: '❄️', label: 'Snow & ice clearing', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2500,
+  { key: 'snow',       emoji: '❄️', label: 'Snow & ice clearing', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['snow', 'snow clearing', 'grit', 'ice', 'salt the path', 'clear snow', 'icy'], example: 'clear snow from the path' },
   { key: 'turfing',    emoji: '🟩', label: 'Turfing & new lawn', group: 'Garden & outdoor', typicalHours: 4, marketHourlyCents: 3000,
     keywords: ['turf', 'new turf', 'lay lawn', 'new lawn', 'returf', 'seed lawn', 'lawn laying', 'roll out turf'], example: 'lay new turf in the back garden' },
@@ -128,11 +135,11 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['paint the fence', 'fence paint', 'paint fence', 'shed paint', 'paint the shed', 'creosote', 'wood stain', 'treat the fence'], example: 'paint the garden fence' },
   { key: 'greenhouse', emoji: '🏵️', label: 'Greenhouse help', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['greenhouse', 'glasshouse', 'polytunnel', 'cold frame'], example: 'clean and set up the greenhouse' },
-  { key: 'watering',   emoji: '🚿', label: 'Plant watering / holiday cover', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'watering',   emoji: '🚿', label: 'Plant watering / holiday cover', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['water plants', 'water the garden', 'plant watering', 'watering', 'water my plants', 'while on holiday'], example: 'water my plants while I’m away' },
-  { key: 'compost',    emoji: '♻️', label: 'Compost & mulching', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 2400,
+  { key: 'compost',    emoji: '♻️', label: 'Compost & mulching', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['compost', 'mulch', 'mulching', 'bark chip', 'soil', 'topsoil', 'manure'], example: 'spread mulch over the beds' },
-  { key: 'bbqclean',   emoji: '🍖', label: 'BBQ & patio furniture clean', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2400,
+  { key: 'bbqclean',   emoji: '🍖', label: 'BBQ & patio furniture clean', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['bbq', 'barbecue', 'clean the bbq', 'patio furniture', 'garden furniture clean'], example: 'scrub down the BBQ for summer' },
 
   // ── Moving & lifting ───────────────────────────────────────────────────
@@ -150,7 +157,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
   // that way, and never add a "we take it away" style job.
   { key: 'tiprun',     emoji: '🚛', label: 'Tip / dump run help', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 3000,
     keywords: ['dump', 'tip run', 'rubbish', 'junk', 'haul', 'disposal', 'skip', 'clear out'], example: 'help load and sort for a dump run — you drive' },
-  { key: 'packing',    emoji: '🗃️', label: 'Packing & boxing', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2500,
+  { key: 'packing',    emoji: '🗃️', label: 'Packing & boxing', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['packing', 'pack', 'wrap', 'box up', 'bubble wrap', 'pack up'], example: 'pack up the kitchen' },
   { key: 'storage',    emoji: '🔐', label: 'Storage unit help', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2800,
     keywords: ['storage unit', 'storage', 'lock up', 'self storage', 'into storage'], example: 'move boxes into a storage unit' },
@@ -193,43 +200,43 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['website', 'wordpress', 'wix', 'squarespace', 'online shop', 'update my site', 'web page'], example: 'tweak my small business website' },
 
   // ── Errands & life admin ───────────────────────────────────────────────
-  { key: 'shopping',   emoji: '🛍️', label: 'Shopping & collections', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2200, popular: true,
+  { key: 'shopping',   emoji: '🛍️', label: 'Shopping & collections', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600, popular: true,
     keywords: ['shop', 'shopping', 'collect', 'pick up', 'messages', 'errand', 'errands'], example: 'collect a few things in town' },
-  { key: 'postrun',    emoji: '📮', label: 'Pharmacy / post run', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2200,
+  { key: 'postrun',    emoji: '📮', label: 'Pharmacy / post run', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['pharmacy', 'post office', 'parcel', 'prescription', 'post', 'drop off', 'chemist'], example: 'a pharmacy and post-office run' },
-  { key: 'waitin',     emoji: '⏳', label: 'Wait-in / queue', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2000,
+  { key: 'waitin',     emoji: '⏳', label: 'Wait-in / queue', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['wait', 'queue', 'wait in', 'delivery', 'meter reader', 'wait for the'], example: 'wait in for a delivery' },
   // REMOVED (licensing / insurance): airport & station lifts — carrying
   // passengers for money needs PSV licensing and insurance a student's
   // policy doesn't cover. Same reason pet transport and courier runs are
   // gone from their groups.
-  { key: 'groceries',  emoji: '🛒', label: 'Weekly grocery shop', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2200,
+  { key: 'groceries',  emoji: '🛒', label: 'Weekly grocery shop', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['grocery', 'groceries', 'weekly shop', 'food shop', 'big shop', 'supermarket', 'aldi', 'lidl', 'tesco', 'dunnes'], example: 'do my weekly grocery shop' },
   { key: 'mealprep',   emoji: '🍲', label: 'Meal prep & cooking', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['meal prep', 'cook', 'cooking', 'batch cook', 'prepare meals', 'make dinner', 'home cooking', 'meals for the week'], example: 'batch-cook meals for the week' },
-  { key: 'dryclean',   emoji: '👔', label: 'Dry-cleaning drop & collect', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'dryclean',   emoji: '👔', label: 'Dry-cleaning drop & collect', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['dry cleaning', 'dry clean', 'dry cleaner', 'suit clean', 'alterations drop'], example: 'drop and collect the dry cleaning' },
-  { key: 'returns',    emoji: '↩️', label: 'Parcel returns', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'returns',    emoji: '↩️', label: 'Parcel returns', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['return parcel', 'drop returns', 'return to shop', 'send back', 'returns run', 'an post return'], example: 'drop off a few parcel returns' },
-  { key: 'formfilling', emoji: '📝', label: 'Forms & paperwork help', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2500,
+  { key: 'formfilling', emoji: '📝', label: 'Forms & paperwork help', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['form', 'forms', 'paperwork', 'application', 'fill in', 'passport form', 'grant form', 'admin help'], example: 'help filling in some forms' },
-  { key: 'printing',   emoji: '🖨️', label: 'Printing & scanning run', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2200,
+  { key: 'printing',   emoji: '🖨️', label: 'Printing & scanning run', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['print', 'printing', 'scan', 'photocopy', 'laminate', 'print out', 'documents printed'], example: 'print and scan some documents' },
-  { key: 'carwash',    emoji: '🚙', label: 'Car wash & valet', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2500,
+  { key: 'carwash',    emoji: '🚙', label: 'Car wash & valet', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['car wash', 'valet', 'clean my car', 'car cleaning', 'wash the car', 'hoover the car', 'car interior'], example: 'wash and valet the car' },
-  { key: 'recycling',  emoji: '♻️', label: 'Recycling & bottle run', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'recycling',  emoji: '♻️', label: 'Recycling & bottle run', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['recycling', 'bottle bank', 'recycle run', 'bring bank', 'glass recycling', 'cardboard'], example: 'take the recycling to the bottle bank' },
-  { key: 'charityshop', emoji: '🎗️', label: 'Charity-shop donation drop', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'charityshop', emoji: '🎗️', label: 'Charity-shop donation drop', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['charity shop', 'charity', 'donations', 'donate clothes', 'drop to charity', 'bags of clothes'], example: 'drop bags to the charity shop' },
-  { key: 'libraryrun', emoji: '📚', label: 'Library returns', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'libraryrun', emoji: '📚', label: 'Library returns', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['library', 'return books', 'library books', 'book return', 'renew books'], example: 'return some library books' },
-  { key: 'housesit',   emoji: '🔑', label: 'House sitting / checks', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2200,
+  { key: 'housesit',   emoji: '🔑', label: 'House sitting / checks', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['house sit', 'house sitting', 'check the house', 'house check', 'mind the house', 'while away check'], example: 'check on the house while I’m away' },
-  { key: 'keyholder',  emoji: '🗝️', label: 'Key drop / meet & let in', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'keyholder',  emoji: '🗝️', label: 'Key drop / meet & let in', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['key drop', 'hand over keys', 'let in', 'meet the', 'give keys to', 'collect keys', 'let the plumber in'], example: 'let a tradesman in and lock up' },
-  { key: 'billswitch', emoji: '💡', label: 'Bills & provider switch', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2500,
+  { key: 'billswitch', emoji: '💡', label: 'Bills & provider switch', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['bills', 'switch provider', 'switch energy', 'compare bills', 'set up bills', 'broadband deal', 'insurance quote'], example: 'help switch my energy provider' },
-  { key: 'onlinesell', emoji: '📸', label: 'Sell my stuff online', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2500,
+  { key: 'onlinesell', emoji: '📸', label: 'Sell my stuff online', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['sell online', 'donedeal', 'done deal', 'ebay', 'vinted', 'marketplace', 'adverts', 'list for sale', 'sell my'], example: 'photograph and list things to sell' },
 
   // ── Care & family ──────────────────────────────────────────────────────
@@ -258,19 +265,19 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['music lesson', 'guitar', 'piano lesson', 'learn piano', 'singing', 'violin', 'drums', 'instrument', 'music tuition', 'ukulele'], example: 'online guitar lessons for a beginner' },
 
   // ── Events & seasonal ──────────────────────────────────────────────────
-  { key: 'party',      emoji: '🎉', label: 'Party setup / cleanup', group: 'Events & seasonal', typicalHours: 3, marketHourlyCents: 2500,
+  { key: 'party',      emoji: '🎉', label: 'Party setup / cleanup', group: 'Events & seasonal', typicalHours: 3, marketHourlyCents: 2600,
     keywords: ['party', 'event', 'setup', 'clean up', 'cleanup', 'decorate', 'host', 'birthday party'], example: 'set up and clean up after a party' },
-  { key: 'xmas',       emoji: '🎄', label: 'Decorations & seasonal (indoors)', group: 'Events & seasonal', typicalHours: 2, marketHourlyCents: 2500,
+  { key: 'xmas',       emoji: '🎄', label: 'Decorations & seasonal (indoors)', group: 'Events & seasonal', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['christmas', 'xmas', 'decorations', 'tree', 'halloween', 'put up decorations'], example: 'put up the tree and indoor decorations' },
   { key: 'declutter',  emoji: '🪑', label: 'Declutter & staging', group: 'Events & seasonal', typicalHours: 2, marketHourlyCents: 2800,
     keywords: ['declutter', 'stage', 'staging', 'organise', 'organize', 'sort out', 'tidy up', 'marie kondo'], example: 'declutter and organise a room' },
   { key: 'wedding',    emoji: '💒', label: 'Wedding day help', group: 'Events & seasonal', typicalHours: 4, marketHourlyCents: 3000,
     keywords: ['wedding', 'wedding setup', 'big day', 'venue setup', 'wedding help', 'reception setup'], example: 'extra hands to set up a wedding venue' },
-  { key: 'markethelp', emoji: '🎪', label: 'Market stall help', group: 'Events & seasonal', typicalHours: 4, marketHourlyCents: 2500,
+  { key: 'markethelp', emoji: '🎪', label: 'Market stall help', group: 'Events & seasonal', typicalHours: 4, marketHourlyCents: 2600,
     keywords: ['market stall', 'stall', 'farmers market', 'craft fair', 'set up stall', 'pop up'], example: 'help run a market stall for the day' },
   { key: 'gravetend',  emoji: '🪦', label: 'Grave tending', group: 'Events & seasonal', typicalHours: 1, marketHourlyCents: 2800,
     keywords: ['grave', 'headstone', 'cemetery', 'tidy grave', 'graveyard', 'tend a grave', 'flowers on the grave'], example: 'tidy and tend a family grave' },
-  { key: 'carboot',    emoji: '🛻', label: 'Car-boot / table sale help', group: 'Events & seasonal', typicalHours: 3, marketHourlyCents: 2400,
+  { key: 'carboot',    emoji: '🛻', label: 'Car-boot / table sale help', group: 'Events & seasonal', typicalHours: 3, marketHourlyCents: 2600,
     keywords: ['car boot', 'boot sale', 'table top sale', 'jumble sale', 'bric a brac'], example: 'help me run a car-boot sale' },
   { key: 'debs',       emoji: '🤵', label: 'Debs / formal prep', group: 'Events & seasonal', typicalHours: 2, marketHourlyCents: 2800,
     keywords: ['debs', 'prom', 'formal', 'graduation', 'getting ready help', 'event prep'], example: 'a hand getting ready for the debs' },
@@ -280,37 +287,37 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['upcycle', 'restore furniture', 'sand and paint', 'refurbish', 'chalk paint', 'french polish', 'flip furniture'], example: 'sand and repaint an old dresser' },
 
   // ── Pets ───────────────────────────────────────────────────────────────
-  { key: 'dog',        emoji: '🐕', label: 'Dog walking', group: 'Pets', typicalHours: 1, marketHourlyCents: 2000, popular: true,
+  { key: 'dog',        emoji: '🐕', label: 'Dog walking', group: 'Pets', typicalHours: 1, marketHourlyCents: 2600, popular: true,
     keywords: ['dog', 'walk', 'walkies', 'walk the dog', 'dog walker'], example: 'walk the dog' },
-  { key: 'petsit',     emoji: '🐾', label: 'Pet sitting / feeding', group: 'Pets', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'petsit',     emoji: '🐾', label: 'Pet sitting / feeding', group: 'Pets', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['pet', 'cat', 'feed', 'sitting', 'litter', 'rabbit', 'pet sitting', 'mind the cat'], example: 'feed the cat while I’m out' },
-  { key: 'puppy',      emoji: '🐶', label: 'Puppy visit / let-out', group: 'Pets', typicalHours: 1, marketHourlyCents: 2200,
+  { key: 'puppy',      emoji: '🐶', label: 'Puppy visit / let-out', group: 'Pets', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['puppy', 'puppy visit', 'let the dog out', 'dog let out', 'lunchtime let out', 'pop in on the dog'], example: 'pop in to let the puppy out' },
   { key: 'doggroom',   emoji: '🛁', label: 'Dog wash & brush', group: 'Pets', typicalHours: 1, marketHourlyCents: 3000,
     keywords: ['groom', 'dog wash', 'bath the dog', 'dog groom', 'wash the dog', 'deshed'], example: 'wash and brush the dog' },
-  { key: 'littertray', emoji: '🐈‍⬛', label: 'Litter tray & cage clean', group: 'Pets', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'littertray', emoji: '🐈‍⬛', label: 'Litter tray & cage clean', group: 'Pets', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['litter', 'litter tray', 'cage clean', 'hutch clean', 'clean the cage', 'muck out cage'], example: 'clean out the cat litter and hutch' },
-  { key: 'smallpets',  emoji: '🐹', label: 'Small-pet care', group: 'Pets', typicalHours: 1, marketHourlyCents: 2000,
+  { key: 'smallpets',  emoji: '🐹', label: 'Small-pet care', group: 'Pets', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['hamster', 'guinea pig', 'fish', 'bird', 'budgie', 'tortoise', 'small pets', 'reptile', 'gerbil'], example: 'feed and check on the guinea pigs' },
   // REMOVED: pet transport / vet trips (driving with animals — insurance) and
   // horse & stable help (large-animal injury risk).
-  { key: 'chickens',   emoji: '🐔', label: 'Hens & coop care', group: 'Pets', typicalHours: 1, marketHourlyCents: 2200,
+  { key: 'chickens',   emoji: '🐔', label: 'Hens & coop care', group: 'Pets', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['chickens', 'hens', 'coop', 'eggs', 'hen house', 'poultry', 'feed the hens'], example: 'feed the hens and clean the coop' },
 
   // ── Business & events staffing ─────────────────────────────────────────
-  { key: 'flyering',   emoji: '📬', label: 'Leaflet & flyer drops', group: 'Business & events', typicalHours: 3, marketHourlyCents: 2200,
+  { key: 'flyering',   emoji: '📬', label: 'Leaflet & flyer drops', group: 'Business & events', typicalHours: 3, marketHourlyCents: 2600,
     keywords: ['leaflet', 'flyers', 'flyering', 'drop leaflets', 'distribution', 'leaflet drop', 'door to door'], example: 'deliver flyers around the estate' },
   { key: 'eventstaff', emoji: '🧑‍🍳', label: 'Event & hospitality staff', group: 'Business & events', typicalHours: 4, marketHourlyCents: 2800,
     keywords: ['event staff', 'waiting', 'bar help', 'kitchen porter', 'waitress', 'waiter', 'serving', 'function help', 'glass collector'], example: 'serving staff for a function' },
   { key: 'promo',      emoji: '📣', label: 'Promo & brand ambassador', group: 'Business & events', typicalHours: 4, marketHourlyCents: 2800,
     keywords: ['promo', 'brand ambassador', 'sampling', 'samples', 'hand out', 'promotion', 'handing out', 'street team', 'demo staff'], example: 'hand out samples at an event' },
-  { key: 'datainput',  emoji: '⌨️', label: 'Data entry & typing', group: 'Business & events', typicalHours: 2, marketHourlyCents: 2500,
+  { key: 'datainput',  emoji: '⌨️', label: 'Data entry & typing', group: 'Business & events', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['data entry', 'typing', 'spreadsheet', 'data input', 'copy typing', 'transcribe', 'excel work'], example: 'type up a stack of records' },
   { key: 'photography', emoji: '📷', label: 'Product / event photos', group: 'Business & events', typicalHours: 2, marketHourlyCents: 4000,
     keywords: ['photos', 'product photos', 'photograph', 'photography', 'photo shoot', 'event photos', 'headshots'], example: 'photograph products for my shop' },
-  { key: 'merchandising', emoji: '🏷️', label: 'Shelf stacking & merchandising', group: 'Business & events', typicalHours: 3, marketHourlyCents: 2500,
+  { key: 'merchandising', emoji: '🏷️', label: 'Shelf stacking & merchandising', group: 'Business & events', typicalHours: 3, marketHourlyCents: 2600,
     keywords: ['shelf stacking', 'restock', 'merchandising', 'stock take', 'stocktake', 'price tagging', 'shop floor'], example: 'restock and face up shelves' },
-  { key: 'mysteryshop', emoji: '🕵️', label: 'Mystery shopping / surveys', group: 'Business & events', typicalHours: 1, marketHourlyCents: 2500,
+  { key: 'mysteryshop', emoji: '🕵️', label: 'Mystery shopping / surveys', group: 'Business & events', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['mystery shop', 'mystery shopper', 'survey', 'audit', 'field research', 'in store check'], example: 'a mystery-shop visit to a store' },
 
   // ── Catch-all ──────────────────────────────────────────────────────────
@@ -330,7 +337,7 @@ export const STARTER_CUSTOM_JOBS: CustomJob[] = ['clean', 'oddjobs', 'dog']
   .map((k) => CUSTOM_JOBS.find((j) => j.key === k))
   .filter((j): j is CustomJob => !!j);
 
-// Short, visit-style jobs that suit a 30-/45-min booking (priced from €12)
+// Short, visit-style jobs that suit a 30-/45-min booking (priced from €14)
 // rather than a one-hour minimum — dog walks, let-outs, bins, key-drops,
 // quick errands. Everything else is booked by the hour.
 const SHORT_VISIT_KEYS = new Set<string>([

@@ -41,6 +41,7 @@ export type TrackEvent =
   // with { category, answer } — how big is the place/garden, what kind of
   // dog, how many bags. The funnel beat between tile/sub pick and ticks/form.
   | 'hero_size_pick'
+  | 'hero_equip_pick'
   // Tick-box job builder (cleaning/garden/moving page 1): fired on Continue
   // with { category, tasks, size } — the funnel step between tile tap and
   // checkout submit for builder categories.

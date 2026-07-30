@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILDER_MARKET_RATE_CENTS,
   BUILDER_TASKS,
+  EQUIPMENT_QUESTIONS,
   SIZING_QUESTIONS,
   builderMarketCents,
   builderMinutes,
@@ -10,10 +11,19 @@ import {
   builderSizeLabel,
   scaledTaskMinutes,
 } from '../jobBuilder';
-import { DOG_UPCHARGE_CENTS, HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, getHouseholdPriceCents } from '../householdPricing';
+import {
+  DOG_UPCHARGE_CENTS, HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, getHouseholdPriceCents,
+  SUPPLIES_ADDON_CENTS, travelTopupCents,
+  TRAVEL_TOPUP_NEAR_CENTS, TRAVEL_TOPUP_FAR_CENTS, GALWAY_CENTRE,
+} from '../householdPricing';
 // The REAL server table (pure TS, no Deno APIs) — the dog surcharge is priced
 // server-side off extra_label, so the ladder is cross-checked on actual code.
-import { computePriceCents } from '../../../supabase/functions/_shared/householdPricing';
+import {
+  computePriceCents,
+  SUPPLIES_ADDON_CENTS as SERVER_SUPPLIES_ADDON_CENTS,
+  travelTopupCents as serverTravelTopupCents,
+  GALWAY_CENTRE as SERVER_GALWAY_CENTRE,
+} from '../../../supabase/functions/_shared/householdPricing';
 
 // The size chips each builder category offers in CategoryGrid. Kept in
 // lock-step by hand (the arrays live inside the component) — if the sheet's
@@ -29,10 +39,10 @@ const allSubsets = <T,>(items: T[]): T[][] =>
   items.reduce<T[][]>((acc, item) => [...acc, ...acc.map((s) => [...s, item])], [[]]);
 
 describe('jobBuilder — the builder can never invent a price', () => {
-  it('covers exactly the hourly categories the sheet prices at €18/hr', () => {
+  it('covers exactly the hourly categories the sheet prices at €22/hr', () => {
     for (const slug of Object.keys(BUILDER_TASKS)) {
       expect(SHEET_SIZES[slug], `${slug} needs a SHEET_SIZES entry`).toBeDefined();
-      expect(HOURLY_RATE_CENTS[slug]).toBe(1800);
+      expect(HOURLY_RATE_CENTS[slug]).toBe(2200);
     }
   });
 
@@ -71,7 +81,7 @@ describe('jobBuilder — the builder can never invent a price', () => {
 
   it('SUITABLE-MONEY INVARIANT: the booked time always covers the estimated work (owner rule 2026-07-27)', () => {
     // A student must never be booked for less time than the ticks add up to
-    // — €18/hr only nets €18/hr if the hours are real. Rounding UP grows the
+    // — the hourly rate only nets that rate if the hours are real. Rounding UP grows the
     // booking; the only way to violate this is a category cap below the
     // biggest honest estimate (exactly the old cleaning-3h bug). Enumerates
     // every subset × every sizing factor (and factor 1 for wizard-less cats).
@@ -94,12 +104,12 @@ describe('jobBuilder — the builder can never invent a price', () => {
     const sizes = SHEET_SIZES.cleaning;
     const price = (keys: string[]) =>
       getHouseholdPriceCents('cleaning', builderSizeLabel(builderMinutes('cleaning', keys), sizes) as string);
-    expect(price(['kitchen', 'bathroom'])).toBe(2700);                        // 75 min → 1.5h
-    expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(3600);            // 120 min → 2h
-    expect(price(['kitchen', 'bathroom', 'bedrooms', 'floors'])).toBe(4500);  // 150 min → 2.5h
+    expect(price(['kitchen', 'bathroom'])).toBe(3300);                        // 75 min → 1.5h @ €22
+    expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(4400);            // 120 min → 2h @ €22
+    expect(price(['kitchen', 'bathroom', 'bedrooms', 'floors'])).toBe(5500);  // 150 min → 2.5h @ €22
   });
 
-  it('market anchors stay display-only, conservative, and above the €18/hr rate', () => {
+  it('market anchors stay display-only, conservative, and above the €22/hr rate', () => {
     for (const [slug, rate] of Object.entries(BUILDER_MARKET_RATE_CENTS)) {
       expect(rate).toBeGreaterThan(HOURLY_RATE_CENTS[slug]); // "you save" can never go negative
       const market = builderMarketCents(slug, '2 hours');
@@ -175,13 +185,13 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
 
   it('the home-size answer visibly moves the price for a typical cleaning tick set', () => {
     // kitchen + bathroom = 75 base minutes: every answer lands on a different
-    // rung (€18 / €27 / €36) — the question genuinely re-prices, fairly.
+    // rung (€22 / €33 / €44) — the question genuinely re-prices, fairly.
     const cents = SIZING_QUESTIONS.cleaning.options.map((o) =>
       getHouseholdPriceCents(
         'cleaning',
         builderSizeLabel(builderMinutes('cleaning', ['kitchen', 'bathroom'], o.factor), SHEET_SIZES.cleaning) as string,
       ));
-    expect(cents).toEqual([1800, 2700, 3600]);
+    expect(cents).toEqual([2200, 3300, 4400]);
   });
 
   it('the dog ladder prices identically on BOTH tables and only ever climbs (owner call: bigger dog costs more)', () => {
@@ -206,10 +216,10 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
     // The exact sheet ladder (owner call 2026-07-27): base / base / +€3 / +€5.
     const ladder = (dur: string) => opts.map((o) => getHouseholdPriceCents('dog-walk', dur, o.carry));
     expect(ladder('30 min')).toEqual([1500, 1500, 1800, 2000]);
-    expect(ladder('1 hour')).toEqual([2000, 2000, 2300, 2500]);
+    expect(ladder('1 hour')).toEqual([2400, 2400, 2700, 2900]); // base €24 since 2026-07-30
     // Small/Medium ARE the old base prices — the ladder never discounts.
     expect(getHouseholdPriceCents('dog-walk', '30 min')).toBe(1500);
-    expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
+    expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2400);
   });
 
   it('laundry answers are the real bag ladder, in ladder order, on the canonical labels', () => {
@@ -230,5 +240,59 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
         expect(Number.isInteger(builderMinutes(slug, subset, 1.35))).toBe(true); // whole minutes only
       }
     }
+  });
+});
+
+// ── The equipment question + its money surfaces (2026-07-30) ──────────────
+describe('equipment question — carries ride the note, add-ons stay in lock-step', () => {
+  it('every option has a non-empty carry and key', () => {
+    for (const [slug, q] of Object.entries(EQUIPMENT_QUESTIONS)) {
+      expect(q.title.length, slug).toBeGreaterThan(0);
+      expect(q.options.length, slug).toBeGreaterThanOrEqual(2);
+      for (const o of q.options) {
+        expect(o.key.length, `${slug}/${o.key}`).toBeGreaterThan(0);
+        expect(o.carry.trim().length, `${slug}/${o.key} carry`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('the supplies add-on exists ONLY on cleaning, exactly once, and the two price tables agree', () => {
+    for (const [slug, q] of Object.entries(EQUIPMENT_QUESTIONS)) {
+      const addons = q.options.filter((o) => o.suppliesAddon);
+      expect(addons.length, slug).toBe(slug === 'cleaning' ? 1 : 0);
+    }
+    expect(SUPPLIES_ADDON_CENTS).toBe(SERVER_SUPPLIES_ADDON_CENTS);
+    expect(SUPPLIES_ADDON_CENTS).toBeGreaterThan(0);
+  });
+});
+
+// ── Travel top-up (2026-07-30) — display mirror ↔ server charge lock-step ──
+describe('travel top-up — the two modules can never disagree', () => {
+  const SAMPLES: Array<[number, number, string]> = [
+    [53.2745, -9.0491, 'Eyre Square'],
+    [53.2607, -9.0800, 'Salthill'],
+    [53.2836, -9.0453, 'Terryland'],
+    [53.2690, -8.9210, 'Oranmore'],
+    [53.3306, -8.9464, 'Claregalway'],
+    [53.3025, -8.7440, 'Athenry'],
+    [53.3498, -6.2603, 'Dublin (bad geocode, > sanity ceiling)'],
+  ];
+
+  it('client mirror and server charge produce the same cents everywhere', () => {
+    expect(GALWAY_CENTRE).toEqual(SERVER_GALWAY_CENTRE);
+    for (const [lat, lng, label] of SAMPLES) {
+      expect(travelTopupCents(lat, lng), label).toBe(serverTravelTopupCents(lat, lng));
+    }
+    // No coords / junk coords = no top-up — geography can never 400 a booking.
+    expect(serverTravelTopupCents(null, null)).toBe(0);
+    expect(serverTravelTopupCents(NaN, 1)).toBe(0);
+  });
+
+  it('the ladder shape holds: free in town, near-ring, far-ring, ceiling', () => {
+    expect(travelTopupCents(53.2745, -9.0491)).toBe(0); // Eyre Square
+    expect(travelTopupCents(53.2607, -9.0800)).toBe(0); // Salthill — in town, never surcharged
+    expect(travelTopupCents(53.2690, -8.9210)).toBe(TRAVEL_TOPUP_NEAR_CENTS); // Oranmore
+    expect(travelTopupCents(53.3025, -8.7440)).toBe(TRAVEL_TOPUP_FAR_CENTS);  // Athenry
+    expect(travelTopupCents(53.3498, -6.2603)).toBe(0); // Dublin = bad geocode → 0
   });
 });

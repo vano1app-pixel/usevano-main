@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { ReferralEntryCard } from '@/components/household/ReferralEntryCard';
+import OpenJobsBoard from '@/components/household/OpenJobsBoard';
 import { useToast } from '@/hooks/use-toast';
 import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { COLLEGES, STUDY_YEARS } from '@/lib/colleges';
@@ -945,6 +946,18 @@ const StudentAccount = () => {
         </div>
 
         <div className="space-y-7">
+          {/* Jobs open right now — the missed-the-ping recovery board, FIRST
+              on purpose: jobs are why a helper opens this page. The claim
+              button is the same signed accept link dispatch texts, so the
+              whole hardened accept flow is reused untouched. Unverified
+              helpers see the money but get the verify CTA. */}
+          <OpenJobsBoard
+            helperId={helper.id}
+            accountToken={accountTokenRef.current}
+            idVerified={helper.id_verified === true}
+            onVerify={() => navigate(`/verify-helper?id=${helper.id}&name=${encodeURIComponent(helper.name)}`)}
+          />
+
           {/* Refer & earn — helpers recruiting friends is the network-effect
               loop. They're phone-verified here, so pass their email through and
               /refer loads their code + earnings with zero typing. */}

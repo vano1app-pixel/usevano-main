@@ -315,8 +315,10 @@ serve(async (_req) => {
     const payUrl   = b.stripe_checkout_url as string;
     const nudgeTag = count >= 1 ? ' (reminder)' : '';
     // Direct-pay: the card charge is only Vano's booking fee — the job itself
-    // is paid to the helper directly on the day. Legacy: full job payment.
-    const isDirectPay = bd.direct_pay === true;
+    // is paid to the helper directly on the day. Card-pay (2026-07-30): the
+    // whole job rides the card, so the "small fee" copy would lie — those
+    // read like legacy ("complete your secure payment"). Legacy: full job.
+    const isDirectPay = bd.direct_pay === true && bd.card_pay !== true;
     const feeStr = isDirectPay && typeof bd.fee_due_cents === 'number'
       ? `€${(bd.fee_due_cents / 100).toFixed(2).replace(/\.00$/, '')}` : '';
     const smsAsk = isDirectPay

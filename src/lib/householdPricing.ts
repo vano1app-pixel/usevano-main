@@ -11,26 +11,41 @@
 
 /**
  * Per-hour rate for TIME-BASED labour, in cents (quoted as €X/hr × N hours).
- * Household rates sit at €18/hr so a student nets ≥ €14.15/hr after the 15% cut.
+ *
+ * RAISED €18 → €22/hr (owner call 2026-07-30). Two reasons, both about
+ * making the site worth using for BOTH sides:
+ *   • HELPERS: under direct-pay the student keeps 100%, so this is literally
+ *     their wage. €18 was only €4.50/hr above a Tesco shift with guaranteed
+ *     hours and no travel — too thin to hold supply. €22 makes VANO the
+ *     obviously better choice.
+ *   • HOUSEHOLDS: still ~21% under the display-only market anchors this repo
+ *     already quotes (€28/hr cleaning, €30/hr garden — see
+ *     BUILDER_MARKET_RATE_CENTS in jobBuilder.ts), so the "students are
+ *     better value than an agency" promise stays true and the builder's
+ *     "you save ~€X" line can never read negative.
+ * Trivially clear of the €14.15/hr minimum-wage floor the tests enforce.
  *
  * `custom` is the catch-all "name any job" rate: because it's priced by the
- * hour at the same €18/hr floor, a custom job can never undercut minimum wage,
+ * hour at the same €22/hr floor, a custom job can never undercut minimum wage,
  * whatever the task. The market-comparison figures shown next to it in the
  * CustomJobBuilder are display-only and never charged.
  *
  * `business` (owner test, 2026-07-23) is the temp-staff tier — flyer runs,
- * sampling, events, shop cover — priced at a PREMIUM €22/hr: businesses pay
+ * sampling, events, shop cover — priced at a PREMIUM €28/hr: businesses pay
  * agency-style money, the student keeps 100% of the bigger rate, and Vano's
  * 15% fee rides on the bigger ticket. 2-hour minimum shift (see CategoryGrid
  * sizes — there's no '1 hour' option).
  */
 export const HOURLY_RATE_CENTS: Record<string, number> = {
-  garden:   1800,
-  moving:   1800,
-  cleaning: 1800,
-  tutoring: 1800,
-  custom:   1800,
-  business: 2200,
+  garden:   2200,
+  moving:   2200,
+  cleaning: 2200,
+  tutoring: 2200,
+  custom:   2200,
+  // Business was the €22 "premium" tier when households sat at €18. Households
+  // are now €22 too, so the premium moves up to keep the tier meaningful.
+  // Parked category — no live customer sees this.
+  business: 2800,
 };
 
 /** Flat, JOB-BASED prices (one price for the task done), in cents. */
@@ -67,12 +82,13 @@ function hoursFromLabel(size: string): number | null {
  * sheet offers (dog walk is a flat 30-min / 1-hour walk, not an hourly rate).
  */
 /**
- * Booking minimum (cents) for short custom visits. €18/hr × 0.5 = €9 would be
- * too small to be worth a student's trip, so a half-hour job is floored to
- * €12. Direct-pay: the student keeps 100% (€12 for 30 min = €24/hr), well
- * clear of minimum wage. Mirrors the server's custom hour map.
+ * Booking minimum (cents) for short custom visits. €22/hr × 0.5 = €11 is
+ * too small to be worth a student's trip out, so a half-hour job is floored
+ * to €14. Direct-pay: the student keeps 100% (€14 for 30 min = €28/hr), which
+ * is the point — a short visit has to pay for the journey, not just the task.
+ * Mirrors the server's custom hour map.
  */
-export const MIN_BOOKING_CENTS = 1200;
+export const MIN_BOOKING_CENTS = 1400;
 
 /**
  * Dog-type surcharge for quick-book walks (owner call 2026-07-27: a bigger/
@@ -90,18 +106,66 @@ export const DOG_UPCHARGE_CENTS: Record<string, number> = {
   'Two dogs':   500,
 };
 
+/**
+ * Bring-the-basics supplies add-on (2026-07-30): the equipment question's
+ * cleaning "no products" answer books the helper to bring sprays/cloths for
+ * this flat add-on. Display mirror of SUPPLIES_ADDON_CENTS in
+ * supabase/functions/_shared/householdPricing.ts — the SERVER charges it
+ * (from an explicit bring_supplies boolean, never the note text) and it's
+ * the STUDENT'S money (they buy the supplies); Vano's fee stays on the base
+ * job price. jobBuilder.test.ts keeps the two in lock-step.
+ */
+export const SUPPLIES_ADDON_CENTS = 800;
+
+/**
+ * Travel top-up (2026-07-30) — display mirror of the server ladder in
+ * supabase/functions/_shared/householdPricing.ts (which charges it
+ * authoritatively from the geocoded booking coordinates). Flat ladder on
+ * straight-line km from Eyre Square: ≤8 km → €0, 8–15 km → €4, beyond → €8.
+ * 100% goes to the helper (it rides the job price). Fail-soft: no coords →
+ * 0. jobBuilder.test.ts locks the two modules in step.
+ */
+export const GALWAY_CENTRE = { lat: 53.2745, lng: -9.0491 }; // Eyre Square
+export const TRAVEL_TOPUP_NEAR_KM = 8;
+export const TRAVEL_TOPUP_FAR_KM = 15;
+export const TRAVEL_TOPUP_NEAR_CENTS = 400;
+export const TRAVEL_TOPUP_FAR_CENTS = 800;
+
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export function travelTopupCents(lat: number | null | undefined, lng: number | null | undefined): number {
+  if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng)) return 0;
+  const km = distanceKm(lat, lng, GALWAY_CENTRE.lat, GALWAY_CENTRE.lng);
+  if (km > 60) return 0; // bad geocode sanity ceiling — mirrors the server
+  if (km > TRAVEL_TOPUP_FAR_KM) return TRAVEL_TOPUP_FAR_CENTS;
+  if (km > TRAVEL_TOPUP_NEAR_KM) return TRAVEL_TOPUP_NEAR_CENTS;
+  return 0;
+}
+
 export function getHouseholdPriceCents(slug: string, size: string, extraLabel?: string): number | null {
   if (slug === 'shopping') return LAUNDRY_BAG_CENTS[size] ?? FLAT_PRICE_CENTS.shopping;
   if (slug in FLAT_PRICE_CENTS) return FLAT_PRICE_CENTS[slug];
   if (slug === 'dog-walk') {
-    const base = size === '30 min' ? 1500 : 2000;
+    // 30 min stays €15 — the site-wide "from €15" anchor, and already €30/hr
+    // effective because a short visit has to pay for the trip. The 1-hour
+    // walk rises €20 → €24: at €20 it would have been BELOW the new €22/hr
+    // labour rate, which would have made an hour of walking the worst-paid
+    // hour on the platform.
+    const base = size === '30 min' ? 1500 : 2400;
     return base + (extraLabel ? DOG_UPCHARGE_CENTS[extraLabel] ?? 0 : 0);
   }
   // Custom "name any job" supports short half-/three-quarter-hour visits for
   // quick jobs (dog walk, bins, key-drop…), floored at the booking minimum.
   if (slug === 'custom') {
-    if (size === '30 min') return MIN_BOOKING_CENTS;                 // €18/hr × 0.5 = €9 → floored to €12
-    if (size === '45 min') return Math.max(1350, MIN_BOOKING_CENTS); // €18/hr × 0.75 = €13.50
+    if (size === '30 min') return MIN_BOOKING_CENTS;                 // €22/hr × 0.5 = €11 → floored to €14
+    if (size === '45 min') return Math.max(1650, MIN_BOOKING_CENTS); // €22/hr × 0.75 = €16.50
   }
   const rate = HOURLY_RATE_CENTS[slug];
   if (rate) {
@@ -127,9 +191,13 @@ export function hourlyRateLabel(slug: string): string | null {
 // when a helper accepts. Mirrors supabase/functions/_shared/vanoFees.ts —
 // householdPayMath.test.ts keeps the two in lock-step.
 
-/** Customer-side booking fee: 15% of the job price, floored at €4. */
+/** Customer-side booking fee: 15% of the job price, floored at €5.
+ *  Raised €4 → €5 (owner call 2026-07-30): Stripe takes ~€0.79 of a €4 fee,
+ *  so small jobs netted VANO barely €3.20 — under the cost of supporting
+ *  them. Mirrors _shared/vanoFees.ts; householdPayMath.test keeps them in
+ *  lock-step. */
 export const VANO_FEE_BPS = 1500;
-export const VANO_FEE_MIN_CENTS = 400;
+export const VANO_FEE_MIN_CENTS = 500;
 /** Optional Vano Cover add-on (accidental damage up to €250) — flat €2. */
 export const VANO_COVER_CENTS = 200;
 
@@ -137,3 +205,14 @@ export function computeVanoFeeCents(jobPriceCents: number): number {
   if (!Number.isFinite(jobPriceCents) || jobPriceCents <= 0) return VANO_FEE_MIN_CENTS;
   return Math.max(VANO_FEE_MIN_CENTS, Math.round((jobPriceCents * VANO_FEE_BPS) / 10000));
 }
+
+// ── Card-pay option (2026-07-30, owner test) ─────────────────────────────
+// A second way to PAY, not a second flow: the customer can choose to put the
+// whole job on their card at accept (job price + fee, one tap, held by
+// Stripe) instead of paying the helper directly — the helper STILL keeps
+// 100% of the job price (VANO transfers it in full on completion via Stripe
+// Connect; only the same 15%/min-€4 fee is VANO's). Everything downstream
+// branches on booking_data.card_pay; direct pay stays the default. Flip this
+// to false to pull the option from the sheet without touching the server —
+// in-flight card-pay bookings still complete correctly (data-driven).
+export const CARD_PAY_OFFERED = true;

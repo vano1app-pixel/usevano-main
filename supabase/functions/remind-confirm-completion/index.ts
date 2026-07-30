@@ -103,7 +103,9 @@ serve(async (req) => {
     // shape revolut.me/<tag>/<amount> so the app opens with recipient AND
     // amount pre-filled.
     const bd = (b.booking_data ?? {}) as Record<string, unknown>;
-    const directPay = bd.direct_pay === true;
+    // Card-pay (2026-07-30): the customer already paid everything by card —
+    // the settle-up copy would ask them to pay twice. Those read like legacy.
+    const directPay = bd.direct_pay === true && bd.card_pay !== true;
     const priceCents = b.price_estimate_cents ?? 0;
     const amt = (priceCents / 100).toFixed(2).replace(/\.00$/, '');
     const rawHandle = String(bd.helper_payment_handle ?? '').trim();

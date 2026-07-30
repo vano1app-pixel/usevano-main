@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { signAcceptToken } from "../_shared/acceptToken.ts";
+// Neighbourhood label for the OFFER — a helper decides on the trip, and the
+// exact address is theirs only after they claim (owner call 2026-07-30).
+import { approxAreaLabel } from "../_shared/serviceAreas.ts";
 
 // Triggered by create-household-payment-checkout when a booking goes live,
 // and by the redispatch-stale-jobs cron when all offers have expired.
@@ -406,7 +409,7 @@ serve(async (req) => {
     // booking doesn't exist or isn't pending, there's nothing to dispatch.
     const { data: dbBooking } = await supabase
       .from('household_bookings')
-      .select('id, city, status, category, scheduled_date, price_estimate_cents, booking_data')
+      .select('id, city, status, category, scheduled_date, price_estimate_cents, booking_data, customer_lat, customer_lng, customer_address')
       .eq('id', bookingId)
       .maybeSingle();
 
@@ -422,6 +425,15 @@ serve(async (req) => {
     // helper the FULL job price directly — 100%, no cut. Legacy escrow
     // bookings still in flight keep the old 85% payout figure so the offer
     // never overpromises vs what actually lands.
+    // The OFFER's location line: neighbourhood, never the address. Helpers
+    // need enough to judge the trip ("Salthill" vs "Oranmore"); the exact
+    // address unlocks on accept. Falls back to the city, then a safe generic.
+    const areaLabel = approxAreaLabel({
+      lat: (dbBooking as { customer_lat?: number | null }).customer_lat ?? null,
+      lng: (dbBooking as { customer_lng?: number | null }).customer_lng ?? null,
+      address: (dbBooking as { customer_address?: string | null }).customer_address ?? null,
+      city,
+    });
     const bookingDataForPay = (dbBooking as { booking_data?: Record<string, unknown> | null }).booking_data ?? null;
     const isDirectPay = bookingDataForPay?.direct_pay === true;
     const helperPayBaseCents = Math.max(
@@ -736,7 +748,7 @@ serve(async (req) => {
         if (subs && subs.length > 0) {
           const pushPayload = JSON.stringify({
             title: earnCents ? `Earn ${fmtEuro(earnCents)} — ${jobLabel}` : `New job — ${jobLabel}`,
-            body: `${city ?? 'Ireland'}${duration ? ` · ${duration}` : ''} · first to accept gets it`,
+            body: `${areaLabel}${duration ? ` · ${duration}` : ''} · first to accept gets it`,
             tag: `vano-job-${bookingId}`,
             url: `/student-job/${bookingId}`,
           });
@@ -759,7 +771,7 @@ serve(async (req) => {
     {
       const reminderPrefix = quiet ? 'Still open ⏰ ' : '';
       const whenShort = /^ASAP/.test(whenText) ? 'ASAP' : whenText;
-      const lead = `VANO: ${reminderPrefix}${earnCents ? `Earn ${fmtEuro(earnCents)} — ` : ''}${jobLabel}${duration ? ` (${duration})` : ''} in ${city ?? 'your area'}, ${whenShort}.`;
+      const lead = `VANO: ${reminderPrefix}${earnCents ? `Earn ${fmtEuro(earnCents)} — ` : ''}${jobLabel}${duration ? ` (${duration})` : ''} in ${areaLabel}, ${whenShort}.`;
       const phoneHelpers = (helpers as Array<{ id: string; phone?: string }>).filter((h) => h.phone);
       const phoneResults = await Promise.allSettled(
         // Per-helper one-tap link: tapping claims the job, no login.
@@ -794,7 +806,7 @@ serve(async (req) => {
     <table cellpadding="0" cellspacing="0" style="width:100%;background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;margin:0 0 18px;">
       <tr><td style="padding:14px 18px 2px;color:#111827;font-size:16px;font-weight:700;">${escapeHtml(jobLabel)}${duration ? ` · ${escapeHtml(duration)}` : ''}</td></tr>
       ${jobNote ? `<tr><td style="padding:2px 18px 0;color:#374151;font-size:14px;font-style:italic;line-height:1.5;">&ldquo;${escapeHtml(jobNote)}&rdquo;</td></tr>` : ''}
-      <tr><td style="padding:8px 18px 2px;color:#374151;font-size:14px;">📍 ${escapeHtml(city ?? 'Ireland')}</td></tr>
+      <tr><td style="padding:8px 18px 2px;color:#374151;font-size:14px;">📍 ${escapeHtml(areaLabel)} <span style="color:#9ca3af;">· exact address when you accept</span></td></tr>
       <tr><td style="padding:2px 18px 14px;color:#374151;font-size:14px;">🕐 ${escapeHtml(whenText)}</td></tr>
     </table>
     <a href="${acceptUrl}" style="display:block;background:#4a7c59;color:#fff;font-size:17px;font-weight:700;padding:16px 24px;border-radius:100px;text-decoration:none;text-align:center;">Accept this job →</a>
@@ -813,10 +825,10 @@ serve(async (req) => {
                 from: resendFrom,
                 to: [h.email!],
                 subject: earnCents
-                  ? `Earn ${fmtEuro(earnCents)} — ${jobLabel} in ${city ?? 'your area'} (1 tap to accept)`
-                  : `New VANO job — ${jobLabel} in ${city ?? 'your area'}`,
+                  ? `Earn ${fmtEuro(earnCents)} — ${jobLabel} in ${areaLabel} (1 tap to accept)`
+                  : `New VANO job — ${jobLabel} in ${areaLabel}`,
                 html,
-                text: `Hi ${firstName}! ${earnCents ? `Earn ${fmtEuro(earnCents)}${isDirectPay ? ' (you keep 100%)' : ''} — ` : ''}${jobLabel}${duration ? ` (${duration})` : ''} in ${city ?? 'your area'}. When: ${whenText}.${jobNote ? ` "${jobNote}".` : ''} Accept in one tap (first gets it): ${acceptUrl} — expires in ${OFFER_TTL_MINUTES} min. Full details: ${jobUrl}`,
+                text: `Hi ${firstName}! ${earnCents ? `Earn ${fmtEuro(earnCents)}${isDirectPay ? ' (you keep 100%)' : ''} — ` : ''}${jobLabel}${duration ? ` (${duration})` : ''} in ${areaLabel}. When: ${whenText}.${jobNote ? ` "${jobNote}".` : ''} Accept in one tap (first gets it): ${acceptUrl} — expires in ${OFFER_TTL_MINUTES} min. Full details: ${jobUrl}`,
               }),
             });
             if (!res.ok) {

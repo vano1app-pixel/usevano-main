@@ -63,8 +63,8 @@ describe('voiceQuote = the exact charge, never invented', () => {
 
   it('speaks the direct-pay split with the pay-after-accept promise', () => {
     const q = voiceQuote('cleaning', '2 hours')!;
-    expect(q.spoken).toContain('€36');       // job price, paid to the helper directly
-    expect(q.spoken).toContain('€5.40');     // the VANO booking fee on the card (15% of €36)
+    expect(q.spoken).toContain('€44');       // job price, paid to the helper directly
+    expect(q.spoken).toContain('€6.60');     // the VANO booking fee on the card (15% of €44)
     expect(q.spoken.toLowerCase()).toContain('directly');
     expect(q.spoken.toLowerCase()).toContain('after a verified helper accepts');
   });

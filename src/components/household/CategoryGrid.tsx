@@ -13,9 +13,10 @@ import { AddressPicker } from '@/components/household/AddressPicker';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
-import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS } from '@/lib/householdPricing';
+import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES_ADDON_CENTS, travelTopupCents, CARD_PAY_OFFERED } from '@/lib/householdPricing';
+import { COOLING_OFF_DAYS, IMMEDIATE_PERFORMANCE_CONSENT_TEXT } from '@/lib/legalEntity';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
-import { BUILDER_TASKS, SIZING_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, scaledTaskMinutes, hoursFromSizeLabel, type SizingOption } from '@/lib/jobBuilder';
+import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, scaledTaskMinutes, hoursFromSizeLabel, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -65,7 +66,7 @@ const CATEGORIES: Category[] = [
     // Renamed "Dog walk" → "Pets" (July 2026): the sub-service step underneath
     // exposes the vetted pet jobs (wash & brush, sitting/feeding, puppy visits,
     // small pets & hens). The slug stays 'dog-walk' — walks book this category
-    // at its flat prices; the other pet jobs book as 'custom' at €18/hr.
+    // at its flat prices; the other pet jobs book as 'custom' at €22/hr.
     emoji: '🐾', label: 'Pets',  slug: 'dog-walk',
     hint: 'Walks, washes, sitting & feeding',
     description: 'Dog walks (collected & returned safely), washes, and pet sitting visits.',
@@ -110,11 +111,11 @@ const CATEGORIES: Category[] = [
 // The "Anything else ✨" tile opens the same sheet on a describe-it page —
 // popular jobs tappable, typing only for the long tail. Every step is tracked
 // (hero_tile_tap / hero_sub_pick / hero_search_open / hero_usual_tap).
-// Custom picks still price through the canonical €18/hr rate.
+// Custom picks still price through the canonical €22/hr rate.
 
 // How long the job takes — drives the hourly price for custom sub-services.
 const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
-// Short visit jobs (dog walk, bins, key-drop…) can be booked sub-hour, from €12.
+// Short visit jobs (dog walk, bins, key-drop…) can be booked sub-hour, from €14.
 const SHORT_DURATIONS = ['30 min', '45 min', '1 hour', '2 hours'];
 
 // The "Anything else" tile's entry — opened the sheet on the describe-it
@@ -130,7 +131,7 @@ const CUSTOM_TILE: Category = {
 // ─── Sub-services (wizard page 1) ─────────────────────────────────────────
 // Each tile's "What kind of …?" options. kind:'core' books the tile's own
 // category (flat/dog-walk/cleaning prices + its dispatch pool); kind:'custom'
-// books the named catalogue job as a 'custom' booking (€18/hr, dispatches to
+// books the named catalogue job as a 'custom' booking (€22/hr, dispatches to
 // all approved helpers) with the job label riding through note + extra_label —
 // that's the "better info" win: dispatch texts and the helper's job screen
 // show exactly what was asked for. jobKeys MUST exist in customJobs.ts — the
@@ -512,9 +513,18 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Rebooks + deep links with a size (`direct`/`initialSize`) never re-ask.
   const question = SIZING_QUESTIONS[entryCat.slug];
   const [sizing, setSizing] = useState<SizingOption | null>(null);
-  // Page-1 phase: 'ask' = the sizing question, 'main' = ticks (builders) or
-  // the sub-service list (everything else).
-  const [pickPhase, setPickPhase] = useState<'ask' | 'main'>(
+  // The one-tap equipment question (2026-07-30, owner ask: "if the job needs
+  // a tool, ask the customer if they have it"). Asked right after the sizing
+  // question — the answer rides the NOTE so dispatch offers + the helper's
+  // job screen read the setup ("Has hoover + products") before accepting.
+  // Cleaning's "no products" answer books the helper to bring the basics
+  // (+€8, priced by the SERVER from an explicit bring_supplies boolean).
+  // Rebooks + deep links with a size never see either question, as before.
+  const equipQuestion = EQUIPMENT_QUESTIONS[entryCat.slug];
+  const [equip, setEquip] = useState<EquipmentOption | null>(null);
+  // Page-1 phase: 'ask' = the sizing question, 'equip' = the equipment
+  // question, 'main' = ticks (builders) or the sub-service list.
+  const [pickPhase, setPickPhase] = useState<'ask' | 'equip' | 'main'>(
     startOnPick && question && builderTasks ? 'ask' : 'main',
   );
   const [active, setActive] = useState<{ cat: Category; note?: string; extraLabel?: string }>(
@@ -544,6 +554,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const [editDetails, setEditDetails] = useState(false);
   // Optional Vano Cover add-on — customer-elected at booking, flat €2.
   const [coverOpted, setCoverOpted] = useState(false);
+  // How the job gets paid. CARD IS NOW THE DEFAULT (owner call 2026-07-30:
+  // "keep escrow, it's faster and less friction") — one card payment covers
+  // the job + the VANO fee at accept, and the helper STILL keeps 100% of the
+  // job price (Stripe Connect transfers it on completion; VANO never holds
+  // the money, which is what keeps this out of payment-intermediary
+  // territory). 'direct' stays available for customers who'd rather hand
+  // over cash/Revolut on the day, and for helpers not yet onboarded for
+  // payouts. Display-only here; the server stamps booking_data.card_pay.
+  const [payMode, setPayMode] = useState<'direct' | 'card'>('card');
   // The open question the form never asked (2026-07-27): gate code, parking,
   // the dog's name. Collapsed to one quiet line — zero friction for everyone
   // who skips it; the text rides the booking note to dispatch offers and the
@@ -679,11 +698,33 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     if (opt.size) setSize(opt.size);
     navDir.current = 1;
     if (builderTasks) {
-      setPickPhase('main');
+      setPickPhase(equipQuestion ? 'equip' : 'main');
       return;
     }
     if (opt.carry) setActive((a) => ({ ...a, note: opt.carry, extraLabel: opt.carry }));
+    if (equipQuestion) {
+      // One more tap — "lead & bags by the door?" — before the form.
+      setPickPhase('equip');
+      return;
+    }
     setPickPhase('main'); // so "back" from the form lands on the sub list, not the question
+    setStep('form');
+  }
+
+  // One tap answers the equipment question. Builders move on to the ticks;
+  // Pets go straight to the form with the carry riding the NOTE only — the
+  // extraLabel must stay the PRICED dog answer (the server reads it).
+  function applyEquip(opt: EquipmentOption) {
+    haptic(10);
+    track('hero_equip_pick', { category: entryCat.slug, answer: opt.key });
+    setEquip(opt);
+    navDir.current = 1;
+    if (builderTasks) {
+      setPickPhase('main');
+      return;
+    }
+    setActive((a) => ({ ...a, note: [a.note, opt.carry].filter(Boolean).join(' · ') }));
+    setPickPhase('main');
     setStep('form');
   }
 
@@ -696,6 +737,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     ? builderSizeLabel(builderMinutes(entryCat.slug, ticked, sizingFactor), entryCat.sizes)
     : null;
   const builderPriceCents = builderSize ? getPriceCents(entryCat.slug, builderSize) : null;
+  // What the build-up card shows: labour + the bring-the-basics supplies
+  // add-on when the equipment answer picked it. The market "you save" anchor
+  // keeps comparing labour to labour (supplies aren't cleaning hours).
+  const builderEquipCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
+  const builderDisplayCents = builderPriceCents != null ? builderPriceCents + builderEquipCents : null;
   const builderMarket = builderSize ? builderMarketCents(entryCat.slug, builderSize) : null;
 
   // Page 1 (builder) → page 2: same contract as applyPick — the ticked list
@@ -714,7 +760,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     });
     setActive({
       cat: entryCat,
-      note: [sizing?.carry, builderNote(entryCat.slug, ticked)].filter(Boolean).join(' · '),
+      // Scope first, then the tasks, then the equipment answer — one string
+      // the helper reads top to bottom before saying yes.
+      note: [sizing?.carry, builderNote(entryCat.slug, ticked), equip?.carry].filter(Boolean).join(' · '),
       extraLabel: builderShortLabel(entryCat.slug, ticked) ?? undefined,
     });
     setSize(builderSize);
@@ -733,13 +781,18 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     business:   'What does your business need?',
   };
   const pickTitle = isDescribe ? 'What do you need done?' : (PICK_TITLES[entryCat.slug] ?? `What kind of ${entryCat.label.toLowerCase()}?`);
-  // The sizing question takes over page 1's header while it's being asked.
+  // The sizing/equipment questions take over page 1's header while asked.
   const asking = step === 'pick' && pickPhase === 'ask' && !!question;
-  const headerTitle = asking && question ? question.title : pickTitle;
-  const headerWhy = asking && question ? question.why : null;
+  const askingEquip = step === 'pick' && pickPhase === 'equip' && !!equipQuestion;
+  const headerTitle = asking && question ? question.title
+    : askingEquip && equipQuestion ? equipQuestion.title
+    : pickTitle;
+  const headerWhy = asking && question ? question.why
+    : askingEquip && equipQuestion ? equipQuestion.why
+    : null;
   // Answer rows carry the real resulting price — the single price source,
   // never hardcoded. Laundry rows price their bag label; dog rows price the
-  // picked walk duration WITH that answer (€15/€15/€18/€20), so the
+  // picked walk duration WITH that answer (€15/€15/€18/€20 for 30 min), so the
   // surcharge is visible BEFORE the tap, never after. Builder answers scale
   // the ticks, so there's no price to show yet.
   const sizingPriceLabel = (opt: SizingOption): string => {
@@ -755,12 +808,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     ? [...subServices.featured, ...(showMoreSubs ? subServices.more : [])]
     : [];
   // Row price: core rows use the category's real table (flat €15 laundry,
-  // €15/€20 walks, "from €18" hourly); custom rows are the flat truth — €18/hr
-  // (short-visit jobs can book 30 min from €12).
+  // €15/€20 walks, "from €22" hourly); custom rows are the flat truth — €22/hr
+  // (short-visit jobs can book 30 min from €14).
   const subPriceLabel = (s: SubService): string => {
-    if (s.kind === 'custom') return isShortVisit(s.jobKey) ? 'from €12' : '€18/hr';
+    if (s.kind === 'custom') return isShortVisit(s.jobKey) ? 'from €14' : '€22/hr';
     const cents = getPriceCents(entryCat.slug, s.size ?? entryCat.sizes?.[0] ?? '');
-    if (!cents) return '€18/hr';
+    if (!cents) return '€22/hr';
     // Walk rows read "from €15": the dog question after this pick can raise
     // the price (big dog / two dogs), so an exact figure here would lie.
     if (entryCat.slug === 'dog-walk' && s.size) return `from ${fmt(cents)}`;
@@ -868,7 +921,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // prices it — builder "+2" labels and custom job names are ignored); the
   // server re-prices the same pair authoritatively at checkout.
   const priceCents = getPriceCents(cat.slug, size, extraLabel);
-  const priceLabel = priceCents ? fmt(priceCents) : null;
+  // Bring-the-basics supplies (equipment question) + travel top-up (far-out
+  // addresses) — both the STUDENT'S money, both recomputed authoritatively
+  // by the server (bring_supplies boolean / geocoded coordinates); these are
+  // display mirrors so the sheet's total never surprises at accept time.
+  const suppliesCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
+  const travelCents = coords ? travelTopupCents(coords.lat, coords.lng) : 0;
+  const jobTotalCents = priceCents != null ? priceCents + suppliesCents + travelCents : null;
+  // The docked CTA quotes what the booking COSTS IN TOTAL — job money
+  // (labour + supplies + travel) plus VANO's fee and any Cover. In card mode
+  // that is exactly the receipt's total band; in direct mode it's the true
+  // all-in cost (fee on the card today, the rest to the helper after). It
+  // used to quote the job money alone, which read €41 on a €46 checkout.
+  const totalCostCents = jobTotalCents != null
+    ? jobTotalCents + computeVanoFeeCents(priceCents ?? 0) + (coverOpted ? VANO_COVER_CENTS : 0)
+    : null;
+  const priceLabel = totalCostCents ? fmt(totalCostCents) : null;
 
   // Live field validity — drives the small green ✓ next to each label as it's
   // filled. Quiet reassurance at the highest-friction step (a stranger typing
@@ -1035,6 +1103,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           size_label:       size,
           scheduled:        isScheduledAhead,
           cover:            coverOpted,
+          // Equipment answer: the helper brings the basics (+€8, cleaning
+          // only — the server validates and prices it).
+          ...(suppliesCents > 0 ? { bring_supplies: true } : {}),
+          // Card-pay option: one card payment for everything at accept.
+          ...(CARD_PAY_OFFERED && payMode === 'card' ? { card_pay: true } : {}),
+          // Distance-selling evidence: the customer expressly asked for
+          // immediate performance and acknowledged the 14-day right ends once
+          // the job is done (the sentence shown above the Book button).
+          immediate_performance_consent: true,
           ...(computeScheduledAt(when) ? { scheduled_at: computeScheduledAt(when) } : {}),
           // Wizard scope first, then the customer's own words — one string
           // the helper reads top to bottom ("3-bed home · Kitchen … · Gate
@@ -1172,7 +1249,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               {/* Back — grows in from zero width so the title glides right
                   instead of being shoved when the button appears. */}
               <AnimatePresence initial={false}>
-                {startOnPick && (step === 'form' || (asking && !builderTasks)) && (
+                {startOnPick && (step === 'form' || (asking && !builderTasks) || askingEquip) && (
                   <motion.button
                     key="wizard-back"
                     type="button"
@@ -1182,6 +1259,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     onClick={() => {
                       navDir.current = -1;
                       if (step === 'form') setStep('pick');
+                      // Equipment question → back to the sizing question
+                      // (builders) or the sub list (pets).
+                      else if (pickPhase === 'equip') setPickPhase(builderTasks && question ? 'ask' : 'main');
                       else setPickPhase('main');
                     }}
                     aria-label={step === 'form' ? 'Back to job types' : 'Back to job list'}
@@ -1339,7 +1419,23 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-base sm:text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               )}
-              {question && pickPhase === 'ask' && !isDescribe ? (
+              {equipQuestion && pickPhase === 'equip' && !isDescribe ? (
+                /* ── The one-tap equipment question. Rows use the same
+                    grammar as the sizing question; the cleaning "helper
+                    brings products" row wears its honest +€8. */
+                <div className="space-y-2" role="group" aria-label={equipQuestion.title}>
+                  {equipQuestion.options.map((opt, i) =>
+                    renderSubRow(
+                      opt.key,
+                      opt.emoji,
+                      opt.label,
+                      opt.hint ?? null,
+                      (opt.key === equip?.key ? '✓ ' : '') + (opt.suppliesAddon ? `+${fmt(SUPPLIES_ADDON_CENTS)}` : ''),
+                      () => applyEquip(opt),
+                      i,
+                    ))}
+                </div>
+              ) : question && pickPhase === 'ask' && !isDescribe ? (
                 /* ── The one-tap sizing question (the speed wizard). Rows use
                     the same grammar as the sub-picker: emoji + label + honest
                     hint, price only where the answer IS a price (laundry
@@ -1374,6 +1470,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
                         <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{sizing.emoji}</span>
                         <span className="font-semibold truncate">{sizing.carry ?? sizing.label}</span>
+                      </span>
+                      <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">Change</span>
+                    </button>
+                  )}
+                  {/* The equipment answer stays visible + changeable too — it
+                      rides the note the helper reads, and cleaning's supplies
+                      answer moves the price. */}
+                  {equip && (
+                    <button
+                      type="button"
+                      onClick={() => { haptic(8); navDir.current = -1; setPickPhase('equip'); }}
+                      className="mb-2.5 flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-white px-3.5 py-2.5 text-left transition-colors hover:bg-secondary/40"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
+                        <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{equip.emoji}</span>
+                        <span className="font-semibold truncate">{equip.carry}{equip.suppliesAddon ? ` (+${fmt(SUPPLIES_ADDON_CENTS)})` : ''}</span>
                       </span>
                       <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">Change</span>
                     </button>
@@ -1437,10 +1549,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   <div className="surface-float rounded-2xl border border-border bg-white px-4 pt-3.5 pb-4">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className={cn('text-sm min-w-0', builderSize ? 'text-foreground/70' : 'text-muted-foreground')}>
-                        {builderSize ? `About ${builderSize} · €18/hr` : 'Tick what needs doing'}
+                        {builderSize ? `About ${builderSize} · €22/hr` : 'Tick what needs doing'}
                       </span>
-                      {builderPriceCents != null
-                        ? <AnimatedPrice announce cents={builderPriceCents} className="text-2xl font-bold text-foreground flex-shrink-0" />
+                      {builderDisplayCents != null
+                        ? <AnimatedPrice announce cents={builderDisplayCents} className="text-2xl font-bold text-foreground flex-shrink-0" />
                         : <span className="text-2xl font-bold text-foreground/25 tabular-nums flex-shrink-0" aria-hidden="true">€0</span>}
                     </div>
                     {builderPriceCents != null && builderMarket != null && builderMarket > builderPriceCents && (
@@ -1454,7 +1566,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       onClick={applyBuilderPick}
                       className="mt-3 w-full h-12 rounded-full text-[15px] font-bold"
                     >
-                      {builderPriceCents != null ? `Continue · ${fmt(builderPriceCents)}` : 'Tick at least one job'}
+                      {builderDisplayCents != null ? `Continue · ${fmt(builderDisplayCents)}` : 'Tick at least one job'}
                     </Button>
                   </div>
                   </div>
@@ -1469,7 +1581,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         row.emoji,
                         row.label,
                         row.key === 'other' ? 'Tell us exactly what you need' : row.group,
-                        isShortVisit(row.key) ? 'from €12' : '€18/hr',
+                        isShortVisit(row.key) ? 'from €14' : '€22/hr',
                         () => applyPick({ kind: 'custom', jobKey: row.key }),
                         // Cascade only the opening "popular jobs" list — live
                         // search results should update instantly, not animate.
@@ -1772,110 +1884,201 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </div>
 
             <div className="space-y-5">
-            {/* Price card — the maths reads top to bottom: job → fee → optional
-                €2 Cover → what actually lands on the card. The Cover opt-in
-                lives IN the breakdown, so ticking it visibly rolls the total
-                (+€2) instead of changing nothing on screen. Direct-pay: the
-                job money goes to the helper (100%); the card is only ever
-                charged the fee (+ Cover), and only at accept. */}
+            {/* Checkout (redesigned 2026-07-30, owner ask: "make it look like
+                Deliveroo — simple, colour-coded, less AI-generated"). Three
+                beats, in the order a person actually decides:
+                  1. HOW you'll pay — chosen first, so the total never changes
+                     under you after you've read it (it used to);
+                  2. the RECEIPT — a till-receipt card in three bands, with the
+                     two pots colour-coded (sage = your helper's money, navy =
+                     VANO's fee) because "who gets this?" is the question this
+                     pricing model always raises;
+                  3. the TOTAL — one big number on a tinted footer.
+                The explanatory paragraphs that used to sit here are gone: the
+                colour coding and the one-line reassurance under the total say
+                the same thing without a wall of text. */}
             <motion.div variants={listItem} className="space-y-3 pt-1">
-              {/* The plain-words money explainer — first-timers meet the
-                  two-pot maths (job money vs VANO fee) right here, so one
-                  familiar sentence de-mystifies it BEFORE the numbers.
-                  Written for the slowest reader in the room, on purpose. */}
-              {priceCents && (
-                <p className="text-[13px] leading-relaxed text-muted-foreground text-center px-1">
-                  Like paying a babysitter — you pay your student directly once
-                  the job's done. The small VANO fee is what books them.
-                </p>
+              {/* ── HOW YOU'LL PAY ───────────────────────────────────
+                  Deliveroo's lesson: decide the payment method FIRST, then
+                  read the receipt. This used to sit BELOW the numbers, so
+                  the total changed under you after you'd already read it.
+                  Two cards, colour-coded — sage (the trust colour) for the
+                  selected one, and the wallet names spelled out because
+                  "Apple Pay" is the single biggest reassurance on a phone. */}
+              {CARD_PAY_OFFERED && priceCents && (
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    How you'll pay
+                  </p>
+                  <div role="radiogroup" aria-label="How you'll pay" className="grid grid-cols-2 gap-2">
+                    {([
+                      { mode: 'card' as const,   title: 'By card',        sub: 'Apple Pay · Google Pay · Card', foot: 'Nothing on the day' },
+                      { mode: 'direct' as const, title: 'Pay them',      sub: 'Revolut or cash',              foot: 'On the day, in person' },
+                    ]).map((o) => {
+                      const on = payMode === o.mode;
+                      return (
+                        <button
+                          key={o.mode}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => { setPayMode(o.mode); haptic(8); }}
+                          className={cn(
+                            'relative rounded-2xl border-2 px-3.5 py-3 text-left',
+                            'transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.97]',
+                            on ? 'border-sage bg-sage-light' : 'border-border bg-white hover:border-foreground/20',
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className={cn(
+                              'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150',
+                              on ? 'border-sage bg-sage' : 'border-foreground/25 bg-white',
+                            )} aria-hidden="true">
+                              {on && <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />}
+                            </span>
+                            <span className="text-[15px] font-bold text-foreground">{o.title}</span>
+                          </span>
+                          <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">{o.sub}</span>
+                          <span className={cn('mt-0.5 block text-[11px] font-semibold', on ? 'text-sage-dark' : 'text-muted-foreground')}>{o.foot}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-              {priceCents && (
-                <div className="px-4 py-4 rounded-2xl bg-foreground/[0.04] border border-foreground/10">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[15px] text-foreground/70 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'As soon as possible' : when}{size ? ` · ${size}` : ''}</span>
-                    <AnimatedPrice cents={priceCents} className="text-xl font-bold text-foreground flex-shrink-0" />
-                  </div>
-                  <p className="text-[13px] text-muted-foreground mt-1">Paid straight to your helper — they keep 100%</p>
 
-                  <div className="flex items-center justify-between gap-3 mt-3 border-t border-foreground/10 pt-3">
-                    <span className="text-sm text-foreground/70">VANO booking fee</span>
-                    <AnimatedPrice cents={computeVanoFeeCents(priceCents)} className="text-sm font-semibold text-foreground flex-shrink-0" />
-                  </div>
-
-                  <AnimatePresence initial={false}>
-                    {coverOpted && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: SHEET_EASE }}
-                        className="overflow-hidden"
-                      >
-                        <div className="flex items-center justify-between gap-3 mt-2">
-                          <span className="text-sm text-foreground/70">Vano Cover</span>
-                          <span className="text-sm font-semibold text-foreground flex-shrink-0">+{fmt(VANO_COVER_CENTS)}</span>
-                        </div>
-                      </motion.div>
+              {/* ── THE RECEIPT ──────────────────────────────────────
+                  One card, three bands, read top to bottom like a till
+                  receipt: what your helper gets · what VANO charges ·
+                  the total. The two pots are COLOUR-CODED (sage dot =
+                  the student's money, navy dot = VANO's fee) because
+                  "who is this money going to" is the single question
+                  customers ask about this pricing model. */}
+              {priceCents && jobTotalCents != null && (
+                <div className="overflow-hidden rounded-2xl border border-border bg-white">
+                  {/* Band 1 — the helper's money */}
+                  <div className="px-4 pt-3.5 pb-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate text-[15px] font-semibold text-foreground">
+                        {cat.label}{size ? ` · ${size}` : ''}
+                      </span>
+                      <AnimatedPrice cents={priceCents} className="flex-shrink-0 text-[15px] font-bold text-foreground" />
+                    </div>
+                    {suppliesCents > 0 && (
+                      <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+                        <span className="text-muted-foreground">Helper brings products</span>
+                        <span className="flex-shrink-0 font-semibold text-foreground">+{fmt(suppliesCents)}</span>
+                      </div>
                     )}
-                  </AnimatePresence>
+                    {travelCents > 0 && (
+                      <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+                        <span className="text-muted-foreground">Travel to you</span>
+                        <span className="flex-shrink-0 font-semibold text-foreground">+{fmt(travelCents)}</span>
+                      </div>
+                    )}
+                    <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-sage-dark">
+                      <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sage" aria-hidden="true" />
+                      {fmt(jobTotalCents)} to your helper — they keep 100%
+                    </p>
+                  </div>
 
-                  {/* The only money that ever touches the card — rolls when the
-                      duration or Cover changes it (the "price builds up" beat) */}
-                  <div className="flex items-center justify-between gap-3 mt-3 border-t border-foreground/10 pt-3">
-                    <span className="text-[15px] font-bold text-foreground">You pay when a helper says yes</span>
+                  {/* Band 2 — what VANO charges */}
+                  <div className="border-t border-border/70 px-4 py-3">
+                    <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-navy/45" aria-hidden="true" />
+                        VANO booking fee
+                      </span>
+                      <AnimatedPrice cents={computeVanoFeeCents(priceCents)} className="flex-shrink-0 text-[13px] font-semibold text-foreground" />
+                    </div>
+                    <AnimatePresence initial={false}>
+                      {coverOpted && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.18, ease: SHEET_EASE }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-navy/45" aria-hidden="true" />
+                              Vano Cover
+                            </span>
+                            <span className="flex-shrink-0 font-semibold text-foreground">+{fmt(VANO_COVER_CENTS)}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Band 3 — the total, the one number people look for */}
+                  <div className="flex items-center justify-between gap-3 border-t border-border/70 bg-secondary/40 px-4 py-3.5">
+                    <span className="text-[13px] font-semibold text-foreground/80">
+                      {payMode === 'card' ? 'Card total on accept' : 'Card today'}
+                    </span>
                     <AnimatedPrice
                       announce
-                      cents={computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
-                      className="text-lg font-bold text-sage-dark flex-shrink-0"
+                      cents={(payMode === 'card' ? jobTotalCents : 0) + computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
+                      className="flex-shrink-0 text-2xl font-extrabold text-foreground"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Vano Cover — its OWN clear, tappable card with a big visible
-                  tick, right under the price. It used to be a tiny checkbox
-                  buried in the fee breakdown ("hidden, no tick"). */}
+              {/* One line, and deliberately NOT "you only pay when a helper
+                  says yes" — the docked bar already says that, and repeating
+                  it is exactly the padding that makes a checkout read as
+                  generated. This says the thing the bar doesn't. */}
+              {priceCents && (
+                <p className="flex items-center justify-center gap-1.5 text-[12px] text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0 text-sage" aria-hidden="true" />
+                  {payMode === 'card'
+                    ? 'Apple Pay, Google Pay or card · secured by Stripe'
+                    : "Only VANO's fee goes on your card — the rest is cash or Revolut"}
+                </p>
+              )}
+
+              {/* Vano Cover — a compact ADD row, not a third competing card.
+                  It only earns full weight once it's on (the amount then
+                  appears in the receipt above). */}
               {priceCents && (
                 <button
                   type="button"
                   onClick={() => { setCoverOpted(v => !v); haptic(8); }}
                   aria-pressed={coverOpted}
                   className={cn(
-                    'w-full flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors duration-150',
-                    coverOpted ? 'border-sage bg-sage-light' : 'border-border bg-white hover:bg-secondary/40',
+                    'flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left',
+                    'transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.98]',
+                    coverOpted ? 'border-sage bg-sage-light' : 'border-dashed border-border bg-white hover:border-foreground/25',
                   )}
                 >
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150',
-                      coverOpted ? 'border-sage bg-sage' : 'border-foreground/30 bg-white',
+                      'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150',
+                      coverOpted ? 'border-sage bg-sage' : 'border-foreground/25 bg-white',
                     )}
                   >
                     <AnimatePresence initial={false}>
                       {coverOpted && (
                         <motion.span
-                          initial={{ scale: 0.4, opacity: 0 }}
+                          initial={{ scale: 0.6, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0.4, opacity: 0 }}
-                          transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                          exit={{ scale: 0.6, opacity: 0 }}
+                          transition={{ type: 'spring', duration: 0.3, bounce: 0.2 }}
                           className="inline-flex"
                         >
-                          <Check className="h-4 w-4 text-white" strokeWidth={3.5} />
+                          <Check className="h-3.5 w-3.5 text-white" strokeWidth={3.5} />
                         </motion.span>
                       )}
                     </AnimatePresence>
                   </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-2">
-                      <span className="text-[15px] font-bold text-foreground">Add Vano Cover</span>
-                      <span className="text-sm font-bold text-sage-dark flex-shrink-0">+{fmt(VANO_COVER_CENTS)}</span>
-                    </span>
-                    <span className="block text-[13px] text-muted-foreground mt-0.5">
-                      Covers accidental damage up to €250 ·{' '}
-                      <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>how it works</a>
-                    </span>
+                  <span className="min-w-0 flex-1 text-[13px] leading-snug text-foreground">
+                    <span className="font-semibold">Add Vano Cover</span>
+                    <span className="text-muted-foreground"> — accidental damage up to €250</span>
                   </span>
+                  <span className="flex-shrink-0 text-[13px] font-bold text-sage-dark">+{fmt(VANO_COVER_CENTS)}</span>
                 </button>
               )}
 
@@ -1917,7 +2120,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 footer. */}
             <motion.div variants={listItem} className="sm:max-w-lg sm:mx-auto space-y-2 pt-1">
               <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
-                Booking only reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
+                {payMode === 'card'
+                  ? 'Nothing is charged until a helper accepts — then one card payment covers the job and the small VANO fee. Your helper keeps 100% of the job price.'
+                  : 'Booking only reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job\'s done.'}
               </p>
               <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
                 By tapping Book you agree to VANO's{' '}
@@ -1925,6 +2130,21 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 {' '}— your helper is an independent person you pay directly, and{' '}
                 <a href="/cover" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
                 {' '}is there if you add it.
+              </p>
+              {/* The {COOLING_OFF_DAYS}-day distance-selling right (SI 484/2013). Same-day
+                  help is "fully performed" long before it expires, but the right
+                  is only extinguished where the customer EXPRESSLY asked for
+                  immediate performance AND acknowledged losing it. Tapping Book
+                  is that express request; this sentence is the acknowledgement,
+                  and checkout stamps it onto the booking as evidence. Plain
+                  words on purpose — a right buried in legalese isn't informed
+                  consent, and the free-cancel-before-they-start half is
+                  genuinely good news worth reading. */}
+              <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
+                {IMMEDIATE_PERFORMANCE_CONSENT_TEXT}{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">
+                  Your {COOLING_OFF_DAYS}-day right
+                </a>
               </p>
             </motion.div>
           </motion.form>
@@ -2196,7 +2416,7 @@ export const CategoryGrid: React.FC = () => {
               day (owner call: liability triage — heavy items + no
               goods-in-transit/injury cover is the same class of risk that
               retired 'midnight-lift' and 'plumbing'; small carries still
-              book via the custom catalogue at €18/hr). Machinery for both
+              book via the custom catalogue at €22/hr). Machinery for both
               stays in CATEGORIES for old deep links + in-flight bookings. */}
           {CATEGORIES.filter((c) => c.slug !== 'business' && c.slug !== 'moving').map((c) => {
             return (

@@ -72,9 +72,15 @@ serve(async (_req) => {
           // payout for EVERY completed direct-pay job — false "you earned €X"
           // nudges, false "payout stuck" owner alerts, and (for onboarded
           // helpers) a real Stripe transfer paying the helper a second time out
-          // of VANO's balance. Only ever self-heal LEGACY escrow bookings.
-          if ((b.booking_data as { direct_pay?: boolean } | null)?.direct_pay === true) continue;
-          const studentCents = Math.floor((b.price_estimate_cents ?? 0) * (10000 - PLATFORM_FEE_BPS) / 10000);
+          // of VANO's balance. Only ever self-heal LEGACY escrow bookings —
+          // and CARD-PAY bookings (2026-07-30), which DO owe the helper a
+          // payout row for 100% of the job price (VANO held the money).
+          const bdBackfill = b.booking_data as { direct_pay?: boolean; card_pay?: boolean } | null;
+          const isCardPayBackfill = bdBackfill?.direct_pay === true && bdBackfill?.card_pay === true;
+          if (bdBackfill?.direct_pay === true && !isCardPayBackfill) continue;
+          const studentCents = isCardPayBackfill
+            ? (b.price_estimate_cents ?? 0)
+            : Math.floor((b.price_estimate_cents ?? 0) * (10000 - PLATFORM_FEE_BPS) / 10000);
           if (studentCents <= 0) continue;
           const { error: insErr } = await supabase
             .from('household_payouts')
@@ -145,9 +151,12 @@ serve(async (_req) => {
       const { data: pbs } = await supabase
         .from('household_bookings')
         .select('id, booking_data')
-        .in('id', pendingBookingIds) as { data: Array<{ id: string; booking_data: { direct_pay?: boolean } | null }> | null };
+        .in('id', pendingBookingIds) as { data: Array<{ id: string; booking_data: { direct_pay?: boolean; card_pay?: boolean } | null }> | null };
       for (const b of pbs ?? []) {
-        if (b.booking_data?.direct_pay === true) directPaySet.add(b.id);
+        // Card-pay bookings (2026-07-30) DO get released — VANO holds their
+        // job money and owes the helper the transfer. Only settle-direct
+        // bookings are skipped (the customer already paid the helper).
+        if (b.booking_data?.direct_pay === true && b.booking_data?.card_pay !== true) directPaySet.add(b.id);
       }
     }
 
