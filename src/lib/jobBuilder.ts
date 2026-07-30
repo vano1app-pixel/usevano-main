@@ -42,6 +42,16 @@ export interface BuilderTask {
    * hour — and now books 70.
    */
   scales?: boolean;
+  /**
+   * Gear this job cannot be done without — a `KIT_HIRE_CENTS` slug from
+   * `src/lib/kit.ts`.
+   *
+   * If the household's equipment answer says they DON'T have it, the row
+   * isn't dead: it becomes "+€10, your helper brings one", the fee rides the
+   * job price as the student's money, and dispatch only offers the job to
+   * helpers whose own_kit has it. See the kit module for why.
+   */
+  needsKit?: string;
 }
 
 /** Categories that use the tick-box page instead of the sub-service picker.
@@ -64,13 +74,13 @@ export const BUILDER_TASKS: Record<string, BuilderTask[]> = {
     { key: 'messy',    emoji: '🌪️', label: 'Extra messy right now',    minutes: 30 },
   ],
   garden: [
-    { key: 'mowing',   emoji: '🌱', label: 'Lawn mowing',              minutes: 45 },
+    { key: 'mowing',   emoji: '🌱', label: 'Lawn mowing',              minutes: 45, needsKit: 'lawn-mower' },
     { key: 'weeding',  emoji: '🌿', label: 'Weeding & beds',           minutes: 45 },
     { key: 'hedges',   emoji: '✂️', label: 'Hedge trimming',           minutes: 30 },
     // FIXED scope: planting is bounded by what the customer bought, not by
     // how much lawn surrounds it.
     { key: 'planting', emoji: '🪴', label: 'Planting',                 minutes: 30, scales: false },
-    { key: 'power',    emoji: '💦', label: 'Power washing',            minutes: 60 },
+    { key: 'power',    emoji: '💦', label: 'Power washing',            minutes: 60, needsKit: 'power-washer' },
     { key: 'leaves',   emoji: '🍂', label: 'Leaves & tidy-up',         minutes: 30 },
     // Condition tick — a jungle takes honestly longer than a kept lawn.
     { key: 'overgrown', emoji: '🌾', label: 'Quite overgrown',         minutes: 45 },
@@ -223,18 +233,20 @@ export interface EquipmentOption {
   /** Cleaning only: helper brings the basics — server prices the flat add-on. */
   suppliesAddon?: boolean;
   /**
-   * BUILDER_TASKS keys this answer makes impossible, each with the reason the
-   * customer sees on the greyed row.
+   * Kit slugs the HOUSEHOLD does not own.
    *
-   * Without this the two questions contradicted each other: a customer could
-   * answer "no mower" and then tick "Lawn mowing ~45 min", and we'd dispatch a
-   * helper across town to a job that cannot be done — the exact doorstep
-   * failure the equipment question exists to prevent (found 2026-07-30 while
-   * re-reading the wizard). Blocked rows are shown greyed with the reason and
-   * tap back to the answer, rather than vanishing: a disappearing row reads as
-   * a bug, and the customer may want to change their answer instead.
+   * This started life as `blocks` — a list of tasks the answer made
+   * impossible, greyed out on the row. That fixed a genuine contradiction
+   * (answer "no mower", still tick mowing, helper cycles across town to a
+   * job that can't be done) but it fixed it by refusing the sale to exactly
+   * the household that most needs a gardener.
+   *
+   * Now it's an offer instead: a task whose `needsKit` appears here is still
+   * tickable and carries the hire fee — "+€10, your helper brings one" —
+   * and dispatch matches on the helper's own_kit so we only promise it to
+   * someone who has the thing. Empty/absent = they have everything.
    */
-  blocks?: Record<string, string>;
+  lacks?: string[];
 }
 
 export interface EquipmentQuestion {
@@ -259,13 +271,13 @@ export const EQUIPMENT_QUESTIONS: Record<string, EquipmentQuestion> = {
     why: 'So your helper arrives ready — no doorstep surprises',
     options: [
       { key: 'mower',    emoji: '🚜', label: 'Mower & tools', hint: 'All set for any garden job',            carry: 'Has mower + tools' },
-      // A helper cannot bring a lawnmower on a bike. Ticking mowing after this
-      // answer would book a job that dies on the doorstep, so the row greys out.
-      { key: 'basic',    emoji: '🧤', label: 'Some tools, no mower', hint: 'Weeding, hedges & tidy-ups work great', carry: 'Tools but no mower — no mowing',
-        blocks: { mowing: 'needs a mower' } },
-      // Nor a power washer. Hand tools (shears, gloves, rake) they do bring.
+      // No mower in the shed → mowing is still bookable, the helper just
+      // brings one for the hire fee (and only mower-owning helpers are offered
+      // the job). Cheaper than owning a mower you store eleven months a year.
+      { key: 'basic',    emoji: '🧤', label: 'Some tools, no mower', hint: 'Weeding, hedges & tidy-ups work great', carry: 'Tools but no mower',
+        lacks: ['lawn-mower'] },
       { key: 'none',     emoji: '🤷', label: 'No tools', hint: 'Helper brings gloves & hand tools for light work', carry: 'No tools — helper brings gloves & hand tools',
-        blocks: { mowing: 'needs a mower', power: 'needs a power washer' } },
+        lacks: ['lawn-mower', 'power-washer'] },
     ],
   },
   'dog-walk': {

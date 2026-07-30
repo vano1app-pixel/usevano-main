@@ -5,6 +5,8 @@ import { signAcceptToken } from "../_shared/acceptToken.ts";
 // exact address is theirs only after they claim (owner call 2026-07-30).
 import { approxAreaLabel } from "../_shared/serviceAreas.ts";
 import { durationText } from "../_shared/householdJob.ts";
+// Kit matching — a booking that needs a mower only reaches helpers who own one.
+import { KIT_HIRE_CENTS, kitLabel, normalizeKit } from "../_shared/kit.ts";
 
 // Triggered by create-household-payment-checkout when a booking goes live,
 // and by the redispatch-stale-jobs cron when all offers have expired.
@@ -325,8 +327,13 @@ async function sendGapRecruitNudges(opts: {
   catLabel: string;
   earnCents: number | null;
   siteUrl: string;
+  /** Kit slug this job needed and the pool didn't have — switches the nudge
+   *  from "add this category" to "have you got a mower?". */
+  kitSlug?: string | null;
+  kitLabelText?: string;
+  kitCents?: number;
 }): Promise<void> {
-  const { supabase, city, category, catLabel, earnCents, siteUrl } = opts;
+  const { supabase, city, category, catLabel, earnCents, siteUrl, kitSlug, kitLabelText, kitCents } = opts;
   try {
     const cooldownCutoff = new Date(Date.now() - GAP_NUDGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000).toISOString();
     // Multiple .or() filters AND together — same PostgREST idiom as the
@@ -342,7 +349,12 @@ async function sendGapRecruitNudges(opts: {
       // — the onboarding nudge cron chases the ID check itself.
       .eq('id_verified', true)
       .not('phone', 'is', null)
-      .or(`categories.is.null,categories.not.cs.{${category}}`)
+      // Kit gaps target the OPPOSITE crowd to a category gap: helpers who
+      // already do this work but haven't told us they own the gear (or don't
+      // yet). Same NULL-counts-as-missing idiom.
+      .or(kitSlug
+        ? `own_kit.is.null,own_kit.not.cs.{${kitSlug}}`
+        : `categories.is.null,categories.not.cs.{${category}}`)
       .or(`gap_nudged_at.is.null,gap_nudged_at.lt.${cooldownCutoff}`)
       // Proven responders first — they're the likeliest to actually opt in.
       .order('accepted_count', { ascending: false })
@@ -365,13 +377,19 @@ async function sendGapRecruitNudges(opts: {
     if (winners.length === 0) return;
 
     const earn = earnCents ? ` (€${(earnCents / 100).toFixed(2)} to you)` : '';
-    const addUrl = `${siteUrl}/student-account?add=${encodeURIComponent(category)}`;
-    const body = `VANO: A ${catLabel} job${earn} just went out in ${city} — it skipped you because ${catLabel} isn't in your "Jobs I do" list. Add it in 10 seconds and you'll get the next one: ${addUrl}`;
+    const addUrl = kitSlug
+      ? `${siteUrl}/student-account?kit=${encodeURIComponent(kitSlug)}`
+      : `${siteUrl}/student-account?add=${encodeURIComponent(category)}`;
+    // Demand pulls supply: the kit version quotes the extra the customer has
+    // ALREADY agreed to pay, which is the whole reason to tick the box.
+    const body = kitSlug
+      ? `VANO: A ${catLabel} job in ${city} needed a ${(kitLabelText ?? 'piece of kit').toLowerCase()} — the customer paid €${((kitCents ?? 0) / 100).toFixed(0)} extra for one and it skipped you. Got one? Tick it in 10 seconds and you'll get the next: ${addUrl}`
+      : `VANO: A ${catLabel} job${earn} just went out in ${city} — it skipped you because ${catLabel} isn't in your "Jobs I do" list. Add it in 10 seconds and you'll get the next one: ${addUrl}`;
     const results = await Promise.allSettled(
       winners.map((c) => notifyHelperPhone(c.phone, body)),
     );
     const ok = results.filter((r) => r.status === 'fulfilled' && (r.value.whatsapp || r.value.sms)).length;
-    console.log(`[dispatch] gap-recruit nudged ${ok}/${winners.length} helper(s) in ${city} without '${category}'`);
+    console.log(`[dispatch] gap-recruit nudged ${ok}/${winners.length} helper(s) in ${city} without '${kitSlug ?? category}'`);
   } catch (e) {
     console.warn('[dispatch] gap-recruit nudge failed (non-fatal)', e);
   }
@@ -512,6 +530,18 @@ serve(async (req) => {
     // helper can do it, so it fans out too. Both auto-skip gap nudges below.
     const isCatchAll = category === 'custom' || category === 'business';
 
+    // ── KIT MATCHING (2026-07-30) ────────────────────────────────────────
+    // The customer said they have no mower and paid the hire fee for one, so
+    // this offer may ONLY go to a helper who actually owns one — promising
+    // gear and sending someone empty-handed is worse than never offering it.
+    // A HARD filter, deliberately: helpers with a null own_kit simply don't
+    // match kit jobs (they still get every other job, and the gap nudge below
+    // invites them to tick the box). Fail-soft on shape — an unrecognised
+    // slug is dropped by normalizeKit rather than emptying the pool.
+    const kitRequired = normalizeKit((bookingDataForPay as Record<string, unknown> | null)?.kit_required);
+    const withKit = <T extends { contains: (c: string, v: string[]) => T }>(q: T): T =>
+      kitRequired.length ? q.contains('own_kit', kitRequired) : q;
+
     // Find helpers in the booking city first (bookings without a city skip
     // straight to the platform-wide search below).
     let helpers: Array<{ id: string; name: string; phone: string; email?: string; user_id?: string }> | null = null;
@@ -528,6 +558,7 @@ serve(async (req) => {
         // it keys on id_verified alone (free), never the paid tick.
         .eq('id_verified', true);
       if (!isCatchAll) cityQuery = cityQuery.contains('categories', [category]);
+      cityQuery = withKit(cityQuery);
       // ✓-Verified helpers get first dibs (the badge's tangible perk — the
       // €2/month tick has to buy something real), then fair rotation by
       // fewest accepted jobs. vano_verified = email + ID + active plan.
@@ -555,6 +586,7 @@ serve(async (req) => {
         .eq('is_available', true)
         .eq('id_verified', true); // first-job gate — same as the city query
       if (!isCatchAll) allQuery = allQuery.contains('categories', [category]);
+      allQuery = withKit(allQuery);
       const { data: allHelpers, error: allErr } = await allQuery
         .order('vano_verified', { ascending: false })
         .order('accepted_count', { ascending: true })
@@ -718,6 +750,10 @@ serve(async (req) => {
       ? durationText((bookingDataForPay.size_label as string).trim())
       : '';
     const whenText = friendlyWhen(scheduled_date);
+    // Kit jobs say so on the offer. The helper is only being texted because
+    // their own_kit matched, but "bring your mower" has to be impossible to
+    // miss — turning up without it is the one way this job fails.
+    const kitText = kitRequired.length ? `Bring your ${kitLabel(kitRequired).toLowerCase()} — the customer has none.` : '';
 
     // One-tap accept links — a signed, expiring, per-helper link that claims the
     // job in a single tap with no login (see accept-job + _shared/acceptToken).
@@ -810,6 +846,7 @@ serve(async (req) => {
     <table cellpadding="0" cellspacing="0" style="width:100%;background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;margin:0 0 18px;">
       <tr><td style="padding:14px 18px 2px;color:#111827;font-size:16px;font-weight:700;">${escapeHtml(jobLabel)}${duration ? ` · ${escapeHtml(duration)}` : ''}</td></tr>
       ${jobNote ? `<tr><td style="padding:2px 18px 0;color:#374151;font-size:14px;font-style:italic;line-height:1.5;">&ldquo;${escapeHtml(jobNote)}&rdquo;</td></tr>` : ''}
+      ${kitText ? `<tr><td style="padding:8px 18px 0;color:#166534;font-size:14px;font-weight:700;line-height:1.5;">🚜 ${escapeHtml(kitText)}</td></tr>` : ''}
       <tr><td style="padding:8px 18px 2px;color:#374151;font-size:14px;">📍 ${escapeHtml(areaLabel)} <span style="color:#9ca3af;">· exact address when you accept</span></td></tr>
       <tr><td style="padding:2px 18px 14px;color:#374151;font-size:14px;">🕐 ${escapeHtml(whenText)}</td></tr>
     </table>
@@ -832,7 +869,7 @@ serve(async (req) => {
                   ? `Earn ${fmtEuro(earnCents)} — ${jobLabel} in ${areaLabel} (1 tap to accept)`
                   : `New VANO job — ${jobLabel} in ${areaLabel}`,
                 html,
-                text: `Hi ${firstName}! ${earnCents ? `Earn ${fmtEuro(earnCents)}${isDirectPay ? ' (you keep 100%)' : ''} — ` : ''}${jobLabel}${duration ? ` (${duration})` : ''} in ${areaLabel}. When: ${whenText}.${jobNote ? ` "${jobNote}".` : ''} Accept in one tap (first gets it): ${acceptUrl} — expires in ${OFFER_TTL_MINUTES} min. Full details: ${jobUrl}`,
+                text: `Hi ${firstName}! ${earnCents ? `Earn ${fmtEuro(earnCents)}${isDirectPay ? ' (you keep 100%)' : ''} — ` : ''}${jobLabel}${duration ? ` (${duration})` : ''} in ${areaLabel}. When: ${whenText}.${jobNote ? ` "${jobNote}".` : ''}${kitText ? ` ${kitText}` : ''} Accept in one tap (first gets it): ${acceptUrl} — expires in ${OFFER_TTL_MINUTES} min. Full details: ${jobUrl}`,
               }),
             });
             if (!res.ok) {
@@ -858,7 +895,17 @@ serve(async (req) => {
     // rounds and for the 'custom' catch-all, which already fans out to
     // everyone.)
     if (!quiet && !isCatchAll && city && (expandedSearch || offers.length < GAP_NUDGE_MIN_COVERAGE)) {
-      await sendGapRecruitNudges({ supabase, city, category, catLabel, earnCents, siteUrl });
+      // A kit job that went thin is a KIT gap, not a category gap — the local
+      // helpers do garden work, they just haven't told us they own a mower.
+      // One clear ask (the first required item), quoting the money the
+      // customer has already agreed to pay for it.
+      const gapKit = kitRequired[0] ?? null;
+      await sendGapRecruitNudges({
+        supabase, city, category, catLabel, earnCents, siteUrl,
+        kitSlug: gapKit,
+        kitLabelText: gapKit ? kitLabel([gapKit]) : undefined,
+        kitCents: gapKit ? KIT_HIRE_CENTS[gapKit] ?? 0 : 0,
+      });
     }
 
     return new Response(

@@ -17,6 +17,7 @@ import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES
 import { COOLING_OFF_DAYS, IMMEDIATE_PERFORMANCE_CONSENT_TEXT } from '@/lib/legalEntity';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
 import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, minutesText, taskMinutes, hoursFromSizeLabel, bookedMinutes, durationText, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
+import { KIT_HIRE_CENTS, kitHireCents, kitLabel } from '@/lib/kit';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -522,6 +523,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Rebooks + deep links with a size never see either question, as before.
   const equipQuestion = EQUIPMENT_QUESTIONS[entryCat.slug];
   const [equip, setEquip] = useState<EquipmentOption | null>(null);
+  // Gear the helper is booked to BRING (kit slugs). Set when the builder page
+  // hands over; the SERVER re-prices it from this list, never from the note.
+  const [kit, setKit] = useState<string[]>([]);
   // Page-1 phase: 'ask' = the sizing question, 'equip' = the equipment
   // question, 'main' = ticks (builders) or the sub-service list.
   const [pickPhase, setPickPhase] = useState<'ask' | 'equip' | 'main'>(
@@ -718,10 +722,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     haptic(10);
     track('hero_equip_pick', { category: entryCat.slug, answer: opt.key });
     setEquip(opt);
-    // An answer can make a ticked task impossible ("no mower" after ticking
-    // Lawn mowing). Drop those ticks here rather than letting a blocked task
-    // ride into the booking through a back-and-change.
-    if (opt.blocks) setTicked((v) => v.filter((k) => !(k in opt.blocks!)));
+    // Ticks SURVIVE an answer change — a job that needs gear the household
+    // lacks simply gains the hire fee (and loses it again if they say they
+    // do have it). Dropping the tick was the old behaviour, back when a
+    // missing mower killed the row outright.
     navDir.current = 1;
     if (builderTasks) {
       setPickPhase('main');
@@ -752,7 +756,18 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // What the build-up card shows: labour + the bring-the-basics supplies
   // add-on when the equipment answer picked it. The market "you save" anchor
   // keeps comparing labour to labour (supplies aren't cleaning hours).
-  const builderEquipCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
+  // Gear the household hasn't got, for the jobs they've actually ticked.
+  // The fee is the STUDENT'S money (fuel, wear, hauling a mower across town),
+  // so it rides the job price exactly like the supplies add-on, and the
+  // booking fee stays computed on the BASE price. Dispatch then only offers
+  // the job to helpers whose own_kit carries it.
+  const builderKit = builderTasks
+    ? builderTasks
+        .filter((t) => t.needsKit && ticked.includes(t.key) && equip?.lacks?.includes(t.needsKit))
+        .map((t) => t.needsKit as string)
+    : [];
+  const builderKitCents = kitHireCents(builderKit);
+  const builderEquipCents = (equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0) + builderKitCents;
   const builderDisplayCents = builderPriceCents != null ? builderPriceCents + builderEquipCents : null;
   // What actually leaves the customer's pocket: the job, the supplies add-on,
   // and VANO's booking fee (charged on the BASE job price — the helper's
@@ -781,9 +796,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       cat: entryCat,
       // Scope first, then the tasks, then the equipment answer — one string
       // the helper reads top to bottom before saying yes.
-      note: [sizing?.carry, builderNote(entryCat.slug, ticked), equip?.carry].filter(Boolean).join(' · '),
+      note: [
+        sizing?.carry,
+        builderNote(entryCat.slug, ticked),
+        equip?.carry,
+        builderKit.length ? `Helper brings: ${kitLabel(builderKit)}` : null,
+      ].filter(Boolean).join(' · '),
       extraLabel: builderShortLabel(entryCat.slug, ticked) ?? undefined,
     });
+    setKit(builderKit);
     setSize(builderSize);
     navDir.current = 1;
     setStep('form');
@@ -945,8 +966,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // by the server (bring_supplies boolean / geocoded coordinates); these are
   // display mirrors so the sheet's total never surprises at accept time.
   const suppliesCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
+  // Hired gear (a mower, a power washer) the household hasn't got — also the
+  // student's money, also re-priced by the server from the explicit `kit`
+  // list rather than the note.
+  const kitCents = kitHireCents(kit);
   const travelCents = coords ? travelTopupCents(coords.lat, coords.lng) : 0;
-  const jobTotalCents = priceCents != null ? priceCents + suppliesCents + travelCents : null;
+  const jobTotalCents = priceCents != null ? priceCents + suppliesCents + kitCents + travelCents : null;
   // The docked CTA quotes what the booking COSTS IN TOTAL — job money
   // (labour + supplies + travel) plus VANO's fee and any Cover. In card mode
   // that is exactly the receipt's total band; in direct mode it's the true
@@ -1131,6 +1156,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           // Equipment answer: the helper brings the basics (+€8, cleaning
           // only — the server validates and prices it).
           ...(suppliesCents > 0 ? { bring_supplies: true } : {}),
+          ...(kit.length ? { kit } : {}),
           // Card-pay option: one card payment for everything at accept.
           ...(CARD_PAY_OFFERED && payMode === 'card' ? { card_pay: true } : {}),
           // Distance-selling evidence: the customer expressly asked for
@@ -1518,24 +1544,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   <div className="space-y-2" role="group" aria-label={pickTitle}>
                     {builderTasks.map((t, i) => {
                       const on = ticked.includes(t.key);
-                      // Ruled out by the equipment answer they just gave.
-                      const blockedWhy = equip?.blocks?.[t.key];
-                      if (blockedWhy) return (
-                        <button
-                          key={t.key}
-                          type="button"
-                          onClick={() => { haptic(8); navDir.current = -1; setPickPhase('equip'); }}
-                          className="cascade-in flex w-full items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-secondary/30 px-3.5 py-3.5 text-left"
-                          style={{ '--cascade-i': Math.min(i, 8) } as React.CSSProperties}
-                        >
-                          <span aria-hidden="true" className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 border-foreground/15 bg-white/60" />
-                          <span className="text-2xl leading-none flex-shrink-0 opacity-40" aria-hidden="true">{t.emoji}</span>
-                          <span className="flex-1 min-w-0 text-[15px] font-semibold text-muted-foreground leading-snug">{t.label}</span>
-                          <span className="text-[11px] font-semibold text-muted-foreground/80 flex-shrink-0 text-right leading-tight">
-                            {blockedWhy}<br /><span className="text-sage-dark">Change</span>
-                          </span>
-                        </button>
-                      );
+                      // Needs gear the household hasn't got — still bookable,
+                      // the helper just brings it for the hire fee (and only
+                      // helpers who own one are offered the job).
+                      const hireSlug = t.needsKit && equip?.lacks?.includes(t.needsKit) ? t.needsKit : null;
+                      const hireCents = hireSlug ? KIT_HIRE_CENTS[hireSlug] ?? 0 : 0;
                       return (
                         <button
                           key={t.key}
@@ -1568,7 +1581,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                               oven) don't. taskMinutes is the SAME function the
                               billed total goes through, so the chips on screen
                               always add up to the price. */}
-                          <span className="text-xs font-semibold text-muted-foreground tabular-nums flex-shrink-0">{minutesLabel(taskMinutes(t, sizingFactor))}</span>
+                          <span className="flex flex-col items-end flex-shrink-0 leading-tight">
+                            <span className="text-xs font-semibold text-muted-foreground tabular-nums">{minutesLabel(taskMinutes(t, sizingFactor))}</span>
+                            {/* The whole point of the kit loop: a household
+                                with no mower is the one that most needs a
+                                gardener, so this is an offer, not a refusal. */}
+                            {hireCents > 0 && (
+                              <span className="mt-0.5 text-[10px] font-bold text-sage-dark whitespace-nowrap">
+                                +{fmt(hireCents)} we bring it
+                              </span>
+                            )}
+                          </span>
                         </button>
                       );
                     })}
@@ -2051,6 +2074,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       </span>
                       <AnimatedPrice cents={priceCents} className="flex-shrink-0 text-[15px] font-bold text-foreground" />
                     </div>
+                    {kitCents > 0 && (
+                      <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px] text-muted-foreground">
+                        <span className="min-w-0 truncate">Helper brings {kitLabel(kit).toLowerCase()}</span>
+                        <span className="flex-shrink-0 font-semibold text-foreground">+{fmt(kitCents)}</span>
+                      </div>
+                    )}
                     {suppliesCents > 0 && (
                       <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]">
                         <span className="text-muted-foreground">Helper brings products</span>

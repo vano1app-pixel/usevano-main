@@ -10,6 +10,8 @@ import {
   SUPPLIES_ADDON_CENTS,
   travelTopupCents,
 } from "../_shared/householdPricing.ts";
+// "We'll bring the mower" — gear the household hasn't got. See _shared/kit.ts.
+import { kitHireCents, normalizeKit } from "../_shared/kit.ts";
 // Free-text safety screen — shared pure module so the blocked lines are
 // pinned by vitest (src/lib/__tests__/safetyScreen.test.ts).
 import { screenRequestText } from "../_shared/safetyScreen.ts";
@@ -121,7 +123,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw, cover, bring_supplies, card_pay, immediate_performance_consent } = body;
+    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw, cover, bring_supplies, kit, card_pay, immediate_performance_consent } = body;
     // Optional Vano Cover add-on — customer-elected at booking, flat €2.
     const coverOpted = cover === true;
 
@@ -185,9 +187,19 @@ serve(async (req) => {
     // cloths), so it rides the job price; Vano's fee stays on the base
     // price so the helper's expenses aren't taxed.
     const suppliesCents = bring_supplies === true && cat === 'cleaning' ? SUPPLIES_ADDON_CENTS : 0;
-    // The full job total starts as table price + supplies; the travel top-up
-    // (needs the geocoded coordinates) is added after the geocode below.
-    let jobTotalCents = priceCents + suppliesCents;
+    // Hired kit (2026-07-30): the household said they have no mower / no power
+    // washer, so the helper brings one. Priced from the EXPLICIT `kit` list —
+    // never parsed out of the note — and normalizeKit drops anything it
+    // doesn't recognise, so a stale client can't 400 a booking over gear.
+    // Like supplies it's the STUDENT'S money (fuel, wear, hauling it across
+    // town), so it rides the job price and Vano's fee stays on the base.
+    // It also becomes a DISPATCH REQUIREMENT: booking_data.kit_required makes
+    // the offer go only to helpers whose own_kit carries it.
+    const kitRequired = normalizeKit(kit);
+    const kitCents = kitHireCents(kitRequired);
+    // The full job total starts as table price + supplies + kit; the travel
+    // top-up (needs the geocoded coordinates) is added after the geocode below.
+    let jobTotalCents = priceCents + suppliesCents + kitCents;
 
     // ── CARD-PAY OPTION (2026-07-30, owner test) ─────────────────────────
     // A second way to PAY, not a second flow: the customer chooses at the
@@ -364,6 +376,7 @@ serve(async (req) => {
       cover_opted:       coverOpted,
       cover_cents:       coverCents,
       ...(suppliesCents > 0 ? { bring_supplies: true, supplies_cents: suppliesCents } : {}),
+      ...(kitRequired.length ? { kit_required: kitRequired, kit_cents: kitCents } : {}),
       // Card-pay: the accept-time card charge is job_price_cents +
       // fee_due_cents in one session; the helper is paid 100% of the job
       // price by Stripe Connect transfer on completion.
