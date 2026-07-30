@@ -112,7 +112,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     slug: "platform-fee",
     term: "Booking fee (platform fee)",
     short:
-      "The small fee Vano charges the customer when a helper accepts — 15% of the job price, minimum €4.",
+      "The small fee Vano charges the customer when a helper accepts — 15% of the job price, minimum €5.",
     category: "Payments",
     bodyHtml: `
 <p>The <strong>booking fee</strong> is how Vano is paid: <strong>15% of the job price, with a €4 minimum</strong>, charged to the customer's card when a helper accepts. It's the only money Vano touches — it funds the matching, ID checks, support and the money-back guarantee.</p>
@@ -284,7 +284,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Pets",
     bodyHtml: `
 <p><strong>On-lead dog walking</strong> means your dog stays on the lead for the entire walk, door to door. It's the standard for professional walks — and the only kind Vano helpers do — because it's the safe default when a dog is out with someone who isn't its owner: no recall gambles, no traffic risk, no run-ins with other dogs.</p>
-<p>A Vano walk is <strong>€15 for 30 minutes or €20 for a full hour</strong>, bookable <a href="/glossary/same-day-home-help">same-day</a>. You'll see who's coming (photo, name, rating) before they ring the bell — see <a href="/dog-walking-galway">dog walking in Galway</a> and our <a href="/blog/dog-walker-galway-cost">dog walker price guide</a>.</p>
+<p>A Vano walk is <strong>€15 for 30 minutes or €24 for a full hour</strong>, bookable <a href="/glossary/same-day-home-help">same-day</a>. You'll see who's coming (photo, name, rating) before they ring the bell — see <a href="/dog-walking-galway">dog walking in Galway</a> and our <a href="/blog/dog-walker-galway-cost">dog walker price guide</a>.</p>
 `,
     related: ["vano-helper", "id-verified-helper", "same-day-home-help"],
   },
