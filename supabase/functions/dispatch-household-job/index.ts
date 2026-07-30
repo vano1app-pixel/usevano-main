@@ -4,6 +4,7 @@ import { signAcceptToken } from "../_shared/acceptToken.ts";
 // Neighbourhood label for the OFFER — a helper decides on the trip, and the
 // exact address is theirs only after they claim (owner call 2026-07-30).
 import { approxAreaLabel } from "../_shared/serviceAreas.ts";
+import { durationText } from "../_shared/householdJob.ts";
 
 // Triggered by create-household-payment-checkout when a booking goes live,
 // and by the redispatch-stale-jobs cron when all offers have expired.
@@ -710,8 +711,11 @@ serve(async (req) => {
     const jobNote = noteRaw && noteRaw.toLowerCase() !== jobLabel.toLowerCase()
       ? (noteRaw.length > 140 ? `${noteRaw.slice(0, 139)}…` : noteRaw)
       : '';
+    // Offers read in words: the builder's quarter-hour labels are stored as
+    // decimals for the price parsers ("1.75 hours"), which is not something to
+    // text a student at 8am.
     const duration = typeof bookingDataForPay?.size_label === 'string' && (bookingDataForPay.size_label as string).trim()
-      ? (bookingDataForPay.size_label as string).trim()
+      ? durationText((bookingDataForPay.size_label as string).trim())
       : '';
     const whenText = friendlyWhen(scheduled_date);
 

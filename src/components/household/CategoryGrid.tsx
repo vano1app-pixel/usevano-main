@@ -13,10 +13,10 @@ import { AddressPicker } from '@/components/household/AddressPicker';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
-import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES_ADDON_CENTS, travelTopupCents, CARD_PAY_OFFERED } from '@/lib/householdPricing';
+import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES_ADDON_CENTS, travelTopupCents, CARD_PAY_OFFERED, HOURLY_RATE_CENTS } from '@/lib/householdPricing';
 import { COOLING_OFF_DAYS, IMMEDIATE_PERFORMANCE_CONSENT_TEXT } from '@/lib/legalEntity';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
-import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, scaledTaskMinutes, hoursFromSizeLabel, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
+import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, minutesText, scaledTaskMinutes, hoursFromSizeLabel, bookedMinutes, durationText, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -336,7 +336,7 @@ function computeScheduledAt(when: string): string | null {
 function buildWhatsAppMsg(cat: Category, when: string, size: string, address?: string): string {
   const lines = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
   if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : when.startsWith('Tomorrow') ? when : `today at ${when}`}`);
-  if (size) lines.push(`Duration: ${size}`);
+  if (size) lines.push(`Duration: ${durationText(size)}`);
   if (address) lines.push(`Address: ${address}`);
   lines.push('Can you let me know who is available?');
   return lines.join('\n');
@@ -733,9 +733,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // The sizing answer scales the MINUTES (estimates are calibrated to the
   // middle answer), so the total still rounds onto an existing size label.
   const sizingFactor = sizing?.factor ?? 1;
+  // The estimate the customer can literally add up off the tick rows, and the
+  // time we actually book (rounded UP in quarter-hour steps, never below the
+  // 1-hour minimum). Showing BOTH is the fix for the 2026-07-30 owner report
+  // — "I've clicked two, same price" was the 1-hour minimum doing its job
+  // silently. Silent is what made it look broken.
+  const builderEstMinutes = builderTasks ? builderMinutes(entryCat.slug, ticked, sizingFactor) : 0;
   const builderSize = builderTasks && entryCat.sizes
-    ? builderSizeLabel(builderMinutes(entryCat.slug, ticked, sizingFactor), entryCat.sizes)
+    ? builderSizeLabel(builderEstMinutes, entryCat.sizes)
     : null;
+  const builderBookedMinutes = builderSize ? bookedMinutes(builderSize) : null;
+  const builderSpareMinutes = builderBookedMinutes != null ? builderBookedMinutes - builderEstMinutes : 0;
   const builderPriceCents = builderSize ? getPriceCents(entryCat.slug, builderSize) : null;
   // What the build-up card shows: labour + the bring-the-basics supplies
   // add-on when the equipment answer picked it. The market "you save" anchor
@@ -964,9 +972,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Long catalogue labels ("Oven & kitchen clean") overflow the docked button
   // — the job name is already in the header + summary line, so the CTA drops
   // it rather than truncating mid-word.
+  // Sizes computed by the tick-box builder are quarter-hour DECIMALS
+  // ("1.75 hours") because every price parser in the codebase reads a leading
+  // number. Nobody books "1.75 hours" though, so every place a size is SHOWN
+  // runs it through durationText → "1 hr 45 min". Non-duration labels
+  // ("2 bags", "Small area") come back untouched.
+  const sizeText = size ? durationText(size) : '';
   const ctaLabel = [
     cat.label.length <= 12 ? `Book ${cat.label}` : 'Book',
-    size || null,
+    sizeText || null,
     priceLabel,
   ].filter(Boolean).join(' · ');
 
@@ -1549,15 +1563,42 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   <div className="surface-float rounded-2xl border border-border bg-white px-4 pt-3.5 pb-4">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className={cn('text-sm min-w-0', builderSize ? 'text-foreground/70' : 'text-muted-foreground')}>
-                        {builderSize ? `About ${builderSize} · €22/hr` : 'Tick what needs doing'}
+                        {builderSize
+                          ? <>You're booking <span className="font-semibold text-foreground">{durationText(builderSize)}</span> · €{HOURLY_RATE_CENTS[entryCat.slug] / 100}/hr</>
+                          : 'Tick what needs doing'}
                       </span>
                       {builderDisplayCents != null
                         ? <AnimatedPrice announce cents={builderDisplayCents} className="text-2xl font-bold text-foreground flex-shrink-0" />
                         : <span className="text-2xl font-bold text-foreground/25 tabular-nums flex-shrink-0" aria-hidden="true">€0</span>}
                     </div>
+                    {/* The maths, out loud. The ticks add up to an estimate;
+                        we book the next quarter-hour up, never under an hour.
+                        Spare time isn't a rounding gouge — it's time the
+                        customer has already paid for, so we say "tick more,
+                        it's included" and mean it. */}
+                    {builderSize && builderEstMinutes > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                        {ticked.length === 1 ? 'Your tick adds up to' : `Your ${ticked.length} ticks add up to`}{' '}
+                        <span className="font-semibold text-foreground/80 tabular-nums">
+                          {minutesText(builderEstMinutes)}
+                        </span>
+                        {builderSpareMinutes > 0
+                          ? <> · minimum booking is 1 hr, so you've <span className="font-semibold text-sage-dark">~{builderSpareMinutes} min spare — tick more, it's included</span></>
+                          : <> · booked time covers all of it</>}
+                      </p>
+                    )}
                     {builderPriceCents != null && builderMarket != null && builderMarket > builderPriceCents && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Typical Galway rate ~{fmt(builderMarket)} · <span className="font-semibold text-sage-dark">you save ~{fmt(builderMarket - builderPriceCents)}</span>
+                      </p>
+                    )}
+                    {/* The honest answer to "what if it takes longer?" — the
+                        helper can ask for extra time on the day and the
+                        customer approves it on the tracking page. Said here,
+                        BEFORE booking, so it's never a doorstep surprise. */}
+                    {builderSize && (
+                      <p className="text-[11px] text-muted-foreground/80 mt-1.5 leading-relaxed">
+                        Bigger than it looks on the day? Your helper can ask for extra time — you approve it first, and it's never charged automatically.
                       </p>
                     )}
                     <Button
@@ -1728,7 +1769,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
                   <Clock className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
                   <span className="font-semibold">{when === 'Now' ? 'ASAP' : when}</span>
-                  {size && <span className="text-muted-foreground truncate">· {size}</span>}
+                  {sizeText && <span className="text-muted-foreground truncate">· {sizeText}</span>}
                 </span>
                 <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">{showWhen ? 'Done' : 'Change'}</span>
               </button>
@@ -1769,16 +1810,18 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                             {cat.sizeLabel ?? 'How long?'}
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {/* The builder can set a half-hour size ('1.5
+                            {/* The builder can set a quarter-hour size ('1.75
                                 hours') that isn't a standard chip — inject it
                                 in duration order so the selection is always
-                                visible and tappable. */}
+                                visible and tappable. The chip READS in words
+                                ("1 hr 45 min"); the value stays the numeric
+                                label the price tables are keyed on. */}
                             {(size && !cat.sizes.includes(size)
                               ? [...cat.sizes, size].sort((a, b) => (hoursFromSizeLabel(a) ?? 99) - (hoursFromSizeLabel(b) ?? 99))
                               : cat.sizes
                             ).map(opt => (
                               <Chip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
-                                {opt}
+                                {durationText(opt)}
                               </Chip>
                             ))}
                           </div>
@@ -1960,7 +2003,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   <div className="px-4 pt-3.5 pb-3">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="min-w-0 truncate text-[15px] font-semibold text-foreground">
-                        {cat.label}{size ? ` · ${size}` : ''}
+                        {cat.label}{sizeText ? ` · ${sizeText}` : ''}
                       </span>
                       <AnimatedPrice cents={priceCents} className="flex-shrink-0 text-[15px] font-bold text-foreground" />
                     </div>

@@ -79,6 +79,11 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.complete-household-job]
     verify_jwt = false
+  # The customer's tap that approves (or declines) a helper's request for extra
+  # time on an underway job. Anonymous like every other customer action — the
+  # booking UUID is the credential.
+  [functions.respond-extra-time]
+    verify_jwt = false
   # Nudges the customer to confirm a finished job (and escalates to an admin if
   # they don't) so a helper isn't left unpaid. Called by the cron and internally
   # by household-arrival; never moves money. No user JWT to verify.

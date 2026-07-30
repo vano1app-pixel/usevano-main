@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isTimedCategory, bookedDurationMinutes } from "../_shared/householdJob.ts";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
+import { canRequestExtraTime, extraTimeText, pendingExtraTime, type ExtraTimeState } from "../_shared/extraTime.ts";
 
 // Arrival-code handshake for the household flow.
 //
@@ -122,7 +123,8 @@ serve(async (req) => {
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
     const action = (body?.action === 'verify' || body?.action === 'finished' || body?.action === 'start_without_code'
       || body?.action === 'confirm_paid' || body?.action === 'report_unpaid' || body?.action === 'start_gps'
-      || body?.action === 'sos' || body?.action === 'sos_safe')
+      || body?.action === 'sos' || body?.action === 'sos_safe'
+      || body?.action === 'request_extra_time' || body?.action === 'cancel_extra_time')
       ? body.action : 'request';
     const code = typeof body?.code === 'string' ? body.code.trim() : '';
     if (!bookingId) return bad(400, 'booking_id required');
@@ -250,6 +252,77 @@ serve(async (req) => {
       } catch (e) { console.error('[household-arrival] sos admin page failed', e); }
 
       return json(200, { ok: true, alerted });
+    }
+
+    if (action === 'request_extra_time' || action === 'cancel_extra_time') {
+      // ── "This job is bigger than it was booked for" ──────────────────────
+      // The helper ASKS; the customer approves on /track (respond-extra-time).
+      // Nothing about the money moves here — the extra is paid directly to the
+      // helper at the end, with no Vano fee, so Stripe is not involved at all.
+      // price_estimate_cents is deliberately untouched: it is what was quoted
+      // and, under card-pay, what was charged.
+      const bd = (booking.booking_data ?? {}) as Record<string, unknown> & ExtraTimeState;
+
+      if (action === 'cancel_extra_time') {
+        // Withdraw a request the customer hasn't answered yet ("actually,
+        // I'll finish in time"). Idempotent — no pending request is a no-op,
+        // not an error; the helper's screen may just be stale.
+        const live = pendingExtraTime(bd);
+        if (!live) return json(200, { ok: true, extra_time: null });
+        const { error: cancelErr } = await supabase
+          .from('household_bookings')
+          .update({ booking_data: { ...bd, extra_time: null } })
+          .eq('id', bookingId)
+          .eq('student_id', callerId);
+        if (cancelErr) { console.error('[household-arrival] extra-time cancel failed', cancelErr); return bad(500, 'Could not withdraw the request'); }
+        return json(200, { ok: true, extra_time: null });
+      }
+
+      // Only while the work is actually happening. Before the job starts the
+      // honest fix is to change the booking; after it's done, extra time isn't
+      // a thing that can still be worked.
+      if (!['arrived', 'in_progress'].includes(booking.status)) {
+        return bad(409, 'Extra time can only be asked for while the job is underway.');
+      }
+      const minutes = Number(body?.minutes);
+      const check = canRequestExtraTime(booking.category ?? '', bd, minutes);
+      if (check.ok === false) return bad(409, check.reason);
+
+      const request = {
+        minutes,
+        cents: check.cents,
+        requested_at: new Date().toISOString(),
+        status: 'pending' as const,
+      };
+      const { error: reqErr } = await supabase
+        .from('household_bookings')
+        .update({ booking_data: { ...bd, extra_time: request } })
+        .eq('id', bookingId)
+        .eq('student_id', callerId)
+        .in('status', ['arrived', 'in_progress']);
+      if (reqErr) { console.error('[household-arrival] extra-time request failed', reqErr); return bad(500, 'Could not send the request'); }
+
+      await supabase.from('household_job_updates').insert({
+        booking_id: bookingId,
+        status: booking.status,
+        note: `Helper asked for ${extraTimeText(minutes)} extra — waiting on the customer.`,
+      });
+
+      // Reach the customer in their pocket AND on the page. This is a moment
+      // they have to act on: the helper is standing in their kitchen waiting.
+      const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+      let helperFirst = 'Your helper';
+      const { data: reqHelper } = await supabase
+        .from('household_helpers').select('name').eq('user_id', callerId).maybeSingle() as { data: { name?: string | null } | null };
+      if (reqHelper?.name) helperFirst = String(reqHelper.name).split(' ')[0];
+      void sendHouseholdPush(bookingId, 'extra_time');
+      void sendPocketMessage(
+        booking.customer_phone,
+        `⏱ ${helperFirst} says your job needs ${extraTimeText(minutes)} more (€${(check.cents / 100).toFixed(2)}, paid straight to them — no Vano fee). ` +
+        `Approve or decline here: ${siteUrl}/track/${bookingId}`,
+      );
+
+      return json(200, { ok: true, extra_time: request });
     }
 
     if (action === 'request') {

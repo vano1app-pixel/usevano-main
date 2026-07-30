@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BILLING_STEP_MINUTES,
   BUILDER_MARKET_RATE_CENTS,
   BUILDER_TASKS,
   EQUIPMENT_QUESTIONS,
+  MIN_BOOKING_MINUTES,
   SIZING_QUESTIONS,
+  bookedMinutes,
   builderMarketCents,
   builderMinutes,
   builderNote,
   builderShortLabel,
   builderSizeLabel,
+  durationText,
+  minutesText,
   scaledTaskMinutes,
 } from '../jobBuilder';
 import {
@@ -46,7 +51,7 @@ describe('jobBuilder — the builder can never invent a price', () => {
     }
   });
 
-  it('every possible tick combination computes a priceable half-hour size within the category cap', () => {
+  it('every possible tick combination computes a priceable quarter-hour size within the category cap', () => {
     for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
       const maxHours = Math.max(...SHEET_SIZES[slug].map((s) => Number(s.match(/^\d+(\.\d+)?/)?.[0] ?? 0)));
       for (const subset of allSubsets(tasks.map((t) => t.key))) {
@@ -59,13 +64,29 @@ describe('jobBuilder — the builder can never invent a price', () => {
         const hours = Number((size as string).match(/^\d+(\.\d+)?/)?.[0]);
         expect(hours).toBeGreaterThanOrEqual(1);
         expect(hours).toBeLessThanOrEqual(maxHours);
-        expect(hours * 2, 'half-hour steps only').toBe(Math.round(hours * 2));
+        expect(hours * 4, 'quarter-hour steps only').toBe(Math.round(hours * 4));
         expect(getHouseholdPriceCents(slug, size as string), `${slug} / ${size}`).not.toBeNull();
       }
     }
   });
 
-  it('rounds minutes UP in half-hour steps and caps at the biggest label', () => {
+  it('the billed minutes are exactly the per-row estimates the customer can read off the screen', () => {
+    // The 2026-07-30 report started here: the rows said ~35 + ~25 while the
+    // maths billed round((45+30) × 0.75) = 56. Anyone adding up the screen got
+    // a different number to the one they were charged for. Now they match.
+    for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
+      const factors = SIZING_QUESTIONS[slug]?.options.map((o) => o.factor as number) ?? [1];
+      for (const factor of factors) {
+        for (const subset of allSubsets(tasks.map((t) => t.key))) {
+          const onScreen = subset.reduce(
+            (sum, k) => sum + scaledTaskMinutes(tasks.find((t) => t.key === k)!.minutes, factor), 0);
+          expect(builderMinutes(slug, subset, factor), `${slug} ×${factor} ${subset.join('+')}`).toBe(onScreen);
+        }
+      }
+    }
+  });
+
+  it('rounds minutes UP in quarter-hour steps and caps at the biggest label', () => {
     const sizes = SHEET_SIZES.garden;
     expect(builderSizeLabel(builderMinutes('garden', ['mowing']), sizes)).toBe('1 hour'); // 45 min → 1h floor
     expect(builderSizeLabel(builderMinutes('garden', ['mowing', 'weeding']), sizes)).toBe('1.5 hours'); // 90 min
@@ -104,9 +125,81 @@ describe('jobBuilder — the builder can never invent a price', () => {
     const sizes = SHEET_SIZES.cleaning;
     const price = (keys: string[]) =>
       getHouseholdPriceCents('cleaning', builderSizeLabel(builderMinutes('cleaning', keys), sizes) as string);
-    expect(price(['kitchen', 'bathroom'])).toBe(3300);                        // 75 min → 1.5h @ €22
+    expect(price(['kitchen', 'bathroom'])).toBe(2750);                        // 75 min → 1.25h @ €22
     expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(4400);            // 120 min → 2h @ €22
     expect(price(['kitchen', 'bathroom', 'bedrooms', 'floors'])).toBe(5500);  // 150 min → 2.5h @ €22
+  });
+
+  // THE TEST THAT SHOULD HAVE EXISTED. The 2026-07-27 version above checked
+  // three hand-picked cleaning sets at factor 1 and passed happily while the
+  // owner's actual screen (2026-07-30: "I've clicked two, same price") showed
+  // kitchen and kitchen+bathroom BOTH at €22 — because they were at the small
+  // home factor, which the hand-picked cases never touched. This one
+  // enumerates EVERY subset × EVERY task-you-could-add-next × EVERY sizing
+  // answer, in every builder category. It cannot be satisfied by luck.
+  it('MONOTONIC-TICK INVARIANT: adding any tick raises the price — every category, every sizing answer', () => {
+    for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
+      const sizes = SHEET_SIZES[slug];
+      const capMinutes = Math.max(...sizes.map((s) => Number(s.match(/^\d+(\.\d+)?/)?.[0] ?? 0))) * 60;
+      const factors = SIZING_QUESTIONS[slug]?.options.map((o) => o.factor as number) ?? [1];
+      const keys = tasks.map((t) => t.key);
+      let floorTies = 0;
+      for (const factor of factors) {
+        for (const subset of allSubsets(keys)) {
+          for (const next of keys.filter((k) => !subset.includes(k))) {
+            const grown = [...subset, next];
+            const estBefore = builderMinutes(slug, subset, factor);
+            const estAfter = builderMinutes(slug, grown, factor);
+            const before = subset.length
+              ? getHouseholdPriceCents(slug, builderSizeLabel(estBefore, sizes) as string) as number
+              : 0;
+            const after = getHouseholdPriceCents(slug, builderSizeLabel(estAfter, sizes) as string) as number;
+            const where = `${slug} ×${factor} [${subset.join('+') || 'nothing'}] + ${next}`;
+            // The ONE honest exception: both sides still fit inside the
+            // 1-hour minimum, so the customer is buying the same hour. The
+            // build-up card says so out loud ("~25 min spare — tick more,
+            // it's included"), which is what makes it a deal and not a bug.
+            if (estAfter <= MIN_BOOKING_MINUTES) {
+              // Both sides are the 1-hour minimum, at the minimum's price.
+              expect(after, where).toBe(getHouseholdPriceCents(slug, '1 hour'));
+              if (subset.length) expect(before, where).toBe(after);
+              floorTies++;
+              continue;
+            }
+            // …and the cap, which no honest estimate currently reaches.
+            expect(estAfter, `${where} would be truncated by the ${capMinutes}m cap`)
+              .toBeLessThanOrEqual(capMinutes);
+            expect(after, `${where}: €${before / 100} → €${after / 100}`).toBeGreaterThan(before);
+          }
+        }
+      }
+      // Sanity: the exception is a narrow doorway, not a barn door. If a
+      // refactor ever let most combinations fall through it, this trips.
+      expect(floorTies, `${slug}: too many ties hiding behind the 1-hour floor`)
+        .toBeLessThan(factors.length * 2 ** keys.length);
+    }
+  });
+
+  it('the owner’s exact 2026-07-30 screen now prices differently for one tick vs two', () => {
+    // Small home (factor 0.75) — the case in the screenshot. Kitchen alone is
+    // 35 min and floors to the 1-hour minimum; adding the bathroom fills that
+    // hour exactly (60 min), so it is STILL the same hour — but the card now
+    // says "~25 min spare, tick more, it's included" instead of silently
+    // repeating €22. A third tick is where the price has to move, and does.
+    const sizes = SHEET_SIZES.cleaning;
+    const est = (keys: string[]) => builderMinutes('cleaning', keys, 0.75);
+    const price = (keys: string[]) =>
+      getHouseholdPriceCents('cleaning', builderSizeLabel(est(keys), sizes) as string);
+    expect(est(['kitchen'])).toBe(35);
+    expect(est(['kitchen', 'bathroom'])).toBe(60);            // exactly the hour they already bought
+    expect(est(['kitchen', 'bathroom', 'bedrooms'])).toBe(95);
+    expect(price(['kitchen'])).toBe(2200);
+    expect(price(['kitchen', 'bathroom'])).toBe(2200);        // same hour, and the card says why
+    expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(3850);   // 95 min → 1.75 h @ €22
+    // And the pair that used to collide ABOVE the floor (5 vs 6 ticks at the
+    // small-home factor both booked 3 hours under half-hour steps).
+    const five = ['kitchen', 'bathroom', 'bedrooms', 'floors', 'oven'];
+    expect(price(five)).toBeLessThan(price([...five, 'windows']) as number);
   });
 
   it('market anchors stay display-only, conservative, and above the €22/hr rate', () => {
@@ -165,7 +258,7 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
           const hours = Number((size as string).match(/^\d+(\.\d+)?/)?.[0]);
           expect(hours).toBeGreaterThanOrEqual(1);
           expect(hours).toBeLessThanOrEqual(maxHours);
-          expect(hours * 2, 'half-hour steps only').toBe(Math.round(hours * 2));
+          expect(hours * 4, 'quarter-hour steps only').toBe(Math.round(hours * 4));
           expect(getHouseholdPriceCents(slug, size as string), `${slug} / ${size}`).not.toBeNull();
         }
       }
@@ -185,13 +278,15 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
 
   it('the home-size answer visibly moves the price for a typical cleaning tick set', () => {
     // kitchen + bathroom = 75 base minutes: every answer lands on a different
-    // rung (€22 / €33 / €44) — the question genuinely re-prices, fairly.
+    // rung (€22 / €27.50 / €38.50) — the question genuinely re-prices, fairly.
     const cents = SIZING_QUESTIONS.cleaning.options.map((o) =>
       getHouseholdPriceCents(
         'cleaning',
         builderSizeLabel(builderMinutes('cleaning', ['kitchen', 'bathroom'], o.factor), SHEET_SIZES.cleaning) as string,
       ));
-    expect(cents).toEqual([2200, 3300, 4400]);
+    expect(cents).toEqual([2200, 2750, 3850]);
+    // …and never downwards: a bigger home can only cost the same or more.
+    expect([...cents].sort((a, b) => (a as number) - (b as number))).toEqual(cents);
   });
 
   it('the dog ladder prices identically on BOTH tables and only ever climbs (owner call: bigger dog costs more)', () => {
@@ -224,6 +319,42 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
 
   it('laundry answers are the real bag ladder, in ladder order, on the canonical labels', () => {
     expect(SIZING_QUESTIONS.shopping.options.map((o) => o.size)).toEqual(Object.keys(LAUNDRY_BAG_CENTS));
+  });
+
+  it('quarter-hour labels stay numeric for the parsers and human on screen', () => {
+    // The stored/priced label must keep a leading decimal — every parser in
+    // the codebase reads one — while the SCREEN never says "1.25 hours".
+    expect(BILLING_STEP_MINUTES).toBe(15);
+    expect(MIN_BOOKING_MINUTES).toBe(60);
+    expect(durationText('1 hour')).toBe('1 hr');
+    expect(durationText('1.25 hours')).toBe('1 hr 15 min');
+    expect(durationText('2.5 hours')).toBe('2 hrs 30 min');
+    expect(durationText('4 hours')).toBe('4 hrs');
+    expect(durationText('4+ hours')).toBe('4 hrs');
+    expect(durationText('30 min')).toBe('30 min');
+    // Not a duration → returned untouched. These two are reached from generic
+    // UI, so "2 bags" must never render as "2 hrs".
+    expect(durationText('2 bags')).toBe('2 bags');
+    expect(durationText('Small area')).toBe('Small area');
+    expect(bookedMinutes('1.75 hours')).toBe(105);
+    expect(bookedMinutes('30 min')).toBe(30);
+    expect(bookedMinutes('1 bag')).toBeNull();
+    expect(bookedMinutes('Medium (semi-detached)')).toBeNull();
+    expect(minutesText(35)).toBe('35 min');
+    expect(minutesText(60)).toBe('1 hr');
+    expect(minutesText(95)).toBe('1 hr 35 min');
+    expect(minutesText(0)).toBe('0 min');
+    // Every label the builder can compute renders as words, in both categories.
+    for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
+      const factors = SIZING_QUESTIONS[slug]?.options.map((o) => o.factor as number) ?? [1];
+      for (const factor of factors) {
+        for (const subset of allSubsets(tasks.map((t) => t.key))) {
+          if (!subset.length) continue;
+          const size = builderSizeLabel(builderMinutes(slug, subset, factor), SHEET_SIZES[slug]) as string;
+          expect(durationText(size), size).toMatch(/^\d+ hrs?( \d+ min)?$/);
+        }
+      }
+    }
   });
 
   it('scaledTaskMinutes stays a tidy 5-minute display estimate', () => {

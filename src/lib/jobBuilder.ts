@@ -238,11 +238,21 @@ export const EQUIPMENT_QUESTIONS: Record<string, EquipmentQuestion> = {
 const taskByKey = (slug: string, key: string): BuilderTask | undefined =>
   BUILDER_TASKS[slug]?.find((t) => t.key === key);
 
-/** Sum of ticked minutes × the sizing answer's factor (unknown keys are
- *  ignored — fail-soft; no answer = factor 1, exactly the old behaviour). */
+/**
+ * Sum of the ticked tasks' minutes under the sizing answer.
+ *
+ * It sums the SAME per-row numbers the customer can see on the ticks
+ * (scaledTaskMinutes), not `round(total × factor)` (owner report 2026-07-30:
+ * "cleaning makes no sense"). The old maths meant the chips said ~35 + ~25
+ * and the billed total was 56 — the customer could add up the screen and get
+ * a different answer to the one they were charged for. Now the screen adds
+ * up. Unknown keys are ignored — fail-soft; no answer = factor 1.
+ */
 export function builderMinutes(slug: string, keys: string[], factor = 1): number {
-  const base = keys.reduce((sum, k) => sum + (taskByKey(slug, k)?.minutes ?? 0), 0);
-  return Math.round(base * factor);
+  return keys.reduce((sum, k) => {
+    const t = taskByKey(slug, k);
+    return t ? sum + scaledTaskMinutes(t.minutes, factor) : sum;
+  }, 0);
 }
 
 /** Leading hour count from a size label ("2 hours", "1.5 hours", "4+ hours")
@@ -254,24 +264,89 @@ export function hoursFromSizeLabel(size: string): number | null {
 }
 
 /**
- * Round summed minutes UP to the next HALF-HOUR billing step (owner call
- * 2026-07-27: with whole-hour rounding, two ticks and three ticks kept
- * landing on the same price — every tick must move the number). Floor is
- * 1 hour (the booking minimum), cap is the category's biggest bookable
- * duration (the note still lists everything ticked, so the helper knows
- * the full ask). 0 minutes → null (nothing ticked yet).
+ * The billing step, in minutes. QUARTER-HOUR since 2026-07-30.
  *
- * The label is computed ("1.5 hours", "2 hours"), not picked from the
- * chips array — both price tables carry the half-hour entries, and the
- * lock-step tests fail if a computable label ever isn't priceable.
+ * History, because this number has moved twice for the same reason: whole
+ * hours (→ 2026-07-27) then half hours (→ 2026-07-30) both let two DIFFERENT
+ * tick sets land on the same price. The half-hour step survived factor 1 but
+ * collapsed under the sizing answers — at cleaning's 0.75 the 5th and 6th
+ * ticks both booked 3h, and at garden's 0.7 the 2nd and 3rd both booked 1.5h.
+ *
+ * A quarter-hour step makes it structurally impossible: the SMALLEST thing
+ * anyone can tick is 30 min at the smallest factor (0.7) = 21 displayed
+ * minutes, and any addition of ≥15 minutes must cross at least one step
+ * boundary. So above the minimum, every extra tick moves the price — for
+ * every task, in every category, under every sizing answer. jobBuilder.test
+ * enumerates all of it rather than trusting this paragraph.
+ */
+export const BILLING_STEP_MINUTES = 15;
+
+/** The booking minimum, in minutes. A €22/hr job that's really 35 minutes of
+ *  work still costs the student a round trip across town, so an hour is the
+ *  smallest thing we sell. It is NOT hidden: the build-up card says so and
+ *  offers the spare time back ("~25 min spare — tick more, it's included"),
+ *  which is the honest reading of what the customer is buying. */
+export const MIN_BOOKING_MINUTES = 60;
+
+/**
+ * Round summed minutes UP to the next quarter-hour billing step. Floor is
+ * the booking minimum, cap is the category's biggest bookable duration (the
+ * note still lists everything ticked, so the helper knows the full ask).
+ * 0 minutes → null (nothing ticked yet).
+ *
+ * The label is computed ("1.25 hours", "1.5 hours"), not picked from the
+ * chips array — both price tables carry the quarter-hour entries, and the
+ * lock-step tests fail if a computable label ever isn't priceable. It stays
+ * a NUMERIC label because every parser in the codebase reads a leading
+ * decimal; `durationText` is what turns it into human words on screen.
  */
 export function builderSizeLabel(minutes: number, sizes: string[]): string | null {
   if (minutes <= 0) return null;
   const maxHours = sizes.reduce((m, s) => Math.max(m, hoursFromSizeLabel(s) ?? 0), 0);
   if (!maxHours) return null;
-  const halfSteps = Math.max(2, Math.ceil(minutes / 30)); // in half-hours, min 1h
-  const hours = Math.min(maxHours, halfSteps / 2);
+  const perHour = 60 / BILLING_STEP_MINUTES;
+  const steps = Math.max(MIN_BOOKING_MINUTES / BILLING_STEP_MINUTES, Math.ceil(minutes / BILLING_STEP_MINUTES));
+  const hours = Math.min(maxHours, steps / perHour);
   return hours === 1 ? '1 hour' : `${hours} hours`;
+}
+
+/**
+ * Booked minutes behind a size label — "1.25 hours" → 75, "30 min" → 30, or
+ * null for anything that isn't a duration.
+ *
+ * It checks the UNIT, unlike `hoursFromSizeLabel`, which reads the leading
+ * number and would happily call "2 bags" two hours. Both of these helpers
+ * are reached from generic UI, so they have to be safe on a laundry label.
+ */
+export function bookedMinutes(sizeLabel: string): number | null {
+  const m = sizeLabel.match(/^(\d+(?:\.\d+)?)\s*\+?\s*(hours?|hrs?|min(?:ute)?s?)\b/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return /^m/i.test(m[2]) ? Math.round(n) : Math.round(n * 60);
+}
+
+/**
+ * The human rendering of a size label — "1 hr", "1 hr 15 min", "2 hrs 30 min".
+ * The stored/priced label stays numeric (every parser reads it); this is only
+ * ever for screens and messages, because "1.25 hours" is not how anyone
+ * books a cleaner.
+ */
+export function durationText(sizeLabel: string): string {
+  const mins = bookedMinutes(sizeLabel);
+  return mins == null ? sizeLabel : minutesText(mins);
+}
+
+/** "45 min" / "1 hr" / "1 hr 35 min" — the same words `durationText` speaks,
+ *  for a raw minute count (the running tick estimate). */
+export function minutesText(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes));
+  const whole = Math.floor(m / 60);
+  const rest = m % 60;
+  const parts: string[] = [];
+  if (whole > 0) parts.push(`${whole} hr${whole === 1 ? '' : 's'}`);
+  if (rest > 0 || whole === 0) parts.push(`${rest} min`);
+  return parts.join(' ');
 }
 
 /** Display-only market comparison for the chosen duration, or null. */

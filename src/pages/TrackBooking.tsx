@@ -12,6 +12,10 @@ import { BeforeAfterCard } from '@/components/household/BeforeAfterCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
+import {
+  approvedExtraCents, approvedExtraMinutes, extraTimeText, pendingExtraTime,
+  type ExtraTimeRequest, type ExtraTimeState,
+} from '@/lib/extraTime';
 import { categoryLabel, categoryEmoji } from '@/lib/bookingLabels';
 import { studyLine } from '@/lib/colleges';
 import { boundedPhotoUrl } from '@/lib/boundedPhoto';
@@ -84,6 +88,12 @@ interface Booking {
     /** AUTH-AT-BOOKING: fee reserved (held) at booking, captured at accept. */
     fee_auth_required?: boolean;
     fee_authorized_at?: string;
+    /** Extra time (2026-07-30): the helper's live ask, plus the running
+     *  totals the customer has approved. Always paid directly to the helper
+     *  with no VANO fee — see src/lib/extraTime.ts. */
+    extra_time?: ExtraTimeRequest | null;
+    extra_time_minutes?: number | null;
+    extra_time_cents?: number | null;
   } | null;
   created_at: string;
 }
@@ -509,6 +519,7 @@ const TrackBooking = () => {
   const [sending, setSending] = useState(false);
   // Pay-the-helper card: which copy chip just flashed "Copied ✓"
   const [copiedChip, setCopiedChip] = useState<'amount' | 'tag' | null>(null);
+  const [extraBusy, setExtraBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
@@ -870,6 +881,40 @@ const TrackBooking = () => {
     })();
     return () => { cancelled = true; };
   }, [pushSupported, bookingId]);
+
+  // The customer's half of the extra-time handshake: the helper asked for
+  // more time on an underway job, and this is the tap that answers. Nothing
+  // is charged either way — approved extra time is paid straight to the
+  // helper at the end, with no VANO fee, so no card is touched here.
+  const respondExtraTime = async (approve: boolean) => {
+    if (!bookingId || extraBusy) return;
+    setExtraBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('respond-extra-time', { body: { booking_id: bookingId, approve } });
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error(await extractFnError(data, error, 'Please try again, or WhatsApp +353 89 981 7111'));
+      }
+      const res = data as { extra_time_minutes?: number; extra_time_cents?: number } | null;
+      setBooking((b) => b ? {
+        ...b,
+        booking_data: {
+          ...(b.booking_data ?? {}),
+          extra_time: b.booking_data?.extra_time
+            ? { ...(b.booking_data.extra_time as ExtraTimeRequest), status: approve ? 'approved' : 'declined' }
+            : null,
+          extra_time_minutes: res?.extra_time_minutes ?? b.booking_data?.extra_time_minutes,
+          extra_time_cents: res?.extra_time_cents ?? b.booking_data?.extra_time_cents,
+        },
+      } : b);
+      toast(approve
+        ? { title: 'Extra time approved', description: 'Your helper has been told. It’s added to what you pay them directly at the end.' }
+        : { title: 'Declined', description: 'No problem — your helper will finish what was booked.' });
+    } catch (err) {
+      toast({ title: 'Could not save your answer', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setExtraBusy(false);
+    }
+  };
 
   // The customer confirms the work is finished — completes the booking and
   // auto-releases the helper's payout. Any rating chosen on the same card is
@@ -2243,6 +2288,76 @@ const TrackBooking = () => {
           </motion.div>
         )}
 
+        {/* "Your helper needs a bit more time" (2026-07-30). The booked time
+            always covers what was ticked at booking, but a real house can be
+            worse than a tick list — this is the agreed way to handle it
+            instead of the helper silently working for free or walking out
+            half-done. Nothing is charged: approved extra time is paid
+            straight to the helper at the end, with no VANO fee. It sits ABOVE
+            the pay card because it changes the number on it. */}
+        {!isCancelled && ['arrived', 'in_progress', 'completed'].includes(booking.status) && (() => {
+          const bdx = (booking.booking_data ?? {}) as ExtraTimeState;
+          const pending = pendingExtraTime(bdx);
+          const agreedMins = approvedExtraMinutes(bdx);
+          const agreedCents = approvedExtraCents(bdx);
+          const who = helperName || 'Your helper';
+          // Card-pay put the JOB money on the card, so approved extra time is
+          // the one thing still owed at the door — it has to survive the flip
+          // to 'completed' or the helper never gets it. Under direct-pay the
+          // pay card below already carries it in its single total, so this
+          // one steps aside once the job is done.
+          const cardPay = booking.booking_data?.card_pay === true;
+          if (!pending && agreedMins === 0) return null;
+          if (booking.status === 'completed' && !(cardPay && agreedMins > 0)) return null;
+          if (!pending) {
+            return (
+              <div className="mt-4 rounded-2xl border border-sage/30 bg-sage-light px-4 py-3">
+                <p className="text-sm font-semibold text-foreground">
+                  ✓ {extraTimeText(agreedMins)} extra time agreed — €{(agreedCents / 100).toFixed(2)}
+                </p>
+                <p className="text-xs text-foreground/70 mt-0.5 leading-relaxed">
+                  {cardPay
+                    ? `Your card covered the booked job. This bit is paid to ${who} directly (Revolut or cash) — VANO takes nothing on it.`
+                    : `Added to what you pay ${who} directly at the end — VANO takes nothing on it.`}
+                </p>
+              </div>
+            );
+          }
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 rounded-2xl border-2 border-gold/50 bg-amber-50/70 p-5"
+            >
+              <p className="text-[13px] font-semibold text-foreground/70">{who} needs a bit longer</p>
+              <p className="mt-1.5 text-[26px] leading-tight font-bold text-foreground">
+                {extraTimeText(pending.minutes)} more · €{(pending.cents / 100).toFixed(2)}
+              </p>
+              <p className="mt-2 text-[13px] text-foreground/70 leading-relaxed">
+                Only if you're happy with it. Nothing is charged to your card — you'd pay this to {who} directly along with the rest, and VANO takes no fee on it.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void respondExtraTime(true)}
+                  disabled={extraBusy}
+                  className="flex-1 h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center hover:bg-sage-dark disabled:opacity-50 active:scale-[0.98] transition-[background-color,transform] duration-150"
+                >
+                  {extraBusy ? <Loader2 size={16} className="animate-spin" /> : `Approve · €${(pending.cents / 100).toFixed(2)}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void respondExtraTime(false)}
+                  disabled={extraBusy}
+                  className="h-12 px-5 rounded-full border border-border bg-white font-semibold text-[15px] text-foreground/70 disabled:opacity-50 active:scale-[0.98] transition-transform"
+                >
+                  Not today
+                </button>
+              </div>
+            </motion.div>
+          );
+        })()}
+
         {/* Direct-pay: the "pay your helper" moment. Appears once the work is
             underway/done and flips to a paid tick when the helper confirms.
             Vano never holds this money — it goes straight to the student.
@@ -2256,7 +2371,12 @@ const TrackBooking = () => {
             `/${amountStr}` suffix below (one-line revert). */}
         {booking.booking_data?.direct_pay === true && booking.booking_data?.card_pay !== true && ['in_progress', 'completed'].includes(booking.status) && !isCancelled && (() => {
           const bd = booking.booking_data ?? {};
-          const owed = booking.price_estimate_cents ?? bd.job_price_cents ?? 0;
+          // Booked price + any extra time the customer approved mid-job. One
+          // number to pay, because two numbers at a doorstep is how people end
+          // up short-paying a student. price_estimate_cents itself is never
+          // rewritten (it's what was quoted, and what the fee was taken on).
+          const extraCents = approvedExtraCents(bd as ExtraTimeState);
+          const owed = (booking.price_estimate_cents ?? bd.job_price_cents ?? 0) + extraCents;
           const name = helperName || bd.helper_first_name || 'your helper';
           const tag = revolutTag(bd.helper_payment_handle);
           const amountStr = (owed / 100).toFixed(2).replace(/\.00$/, '');
@@ -2289,6 +2409,9 @@ const TrackBooking = () => {
                     €{(owed / 100).toFixed(2)}
                   </p>
                   <p className="mt-2 text-[13px] text-foreground/70 leading-relaxed">
+                    {extraCents > 0 && (
+                      <>€{(((booking.price_estimate_cents ?? 0)) / 100).toFixed(2)} booked + €{(extraCents / 100).toFixed(2)} extra time you approved.{' '}</>
+                    )}
                     Straight to {name} — they keep 100%.{' '}
                     {revolutHref
                       ? 'One tap opens Revolut with everything filled in.'
