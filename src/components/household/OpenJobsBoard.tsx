@@ -18,7 +18,8 @@ import { Loader2, RefreshCw, Zap } from 'lucide-react';
 interface OpenJob {
   id: string;
   category: string | null;
-  city: string | null;
+  /** Neighbourhood label from the server — never the exact address. */
+  area: string | null;
   size_label: string | null;
   extra_label: string | null;
   earn_cents: number | null;
@@ -128,7 +129,7 @@ export function OpenJobsBoard({ helperId, accountToken, idVerified, onVerify }: 
                       {label}{j.size_label ? ` · ${j.size_label}` : ''}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {j.city ?? 'Galway'} · {whenLabel(j)} · posted {agoLabel(j.created_at)}
+                      {j.area ?? 'Galway area'} · {whenLabel(j)} · posted {agoLabel(j.created_at)}
                       {repLine ? <> · <span className="text-sage-dark font-medium">{repLine}</span></> : null}
                     </p>
                   </div>

@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { hasAccountAccess } from "../_shared/accountToken.ts";
 import { signAcceptToken } from "../_shared/acceptToken.ts";
+// Neighbourhood label — the board shows WHERE ROUGHLY, never the address
+// (owner call 2026-07-30: "not the exact house").
+import { approxAreaLabel } from "../_shared/serviceAreas.ts";
 
 // ── The open-jobs board (2026-07-30) ──────────────────────────────────────
 // Dispatch pings every eligible helper ONCE per round (SMS/WhatsApp/push) —
@@ -48,7 +51,9 @@ function isOriginAllowed(req: Request) { return !req.headers.get('Origin') || ma
 interface OpenJob {
   id: string;
   category: string | null;
-  city: string | null;
+  /** Neighbourhood-grained ("Salthill"), never street-level. The exact
+   *  address unlocks only after this helper claims the job. */
+  area: string | null;
   size_label: string | null;
   /** Short job label from the sheet (builder "+2" labels, custom job names,
    *  dog answers) — task words, never customer words. */
@@ -89,7 +94,7 @@ serve(async (req) => {
     const horizon = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
     const { data: rows, error: qErr } = await supabase
       .from('household_bookings')
-      .select('id, category, city, price_estimate_cents, created_at, scheduled_at, booking_data, student_id, status')
+      .select('id, category, city, customer_lat, customer_lng, customer_address, price_estimate_cents, created_at, scheduled_at, booking_data, student_id, status')
       .eq('status', 'pending')
       .is('student_id', null)
       .gte('created_at', cutoff)
@@ -104,7 +109,14 @@ serve(async (req) => {
       return {
         id: r.id as string,
         category: (r.category as string | null) ?? null,
-        city: (r.city as string | null) ?? null,
+        // NEVER r.customer_address — approxAreaLabel can only ever return a
+        // name from the fixed area table, the city, or a safe generic.
+        area: approxAreaLabel({
+          lat: (r.customer_lat as number | null) ?? null,
+          lng: (r.customer_lng as number | null) ?? null,
+          address: (r.customer_address as string | null) ?? null,
+          city: (r.city as string | null) ?? null,
+        }),
         size_label: typeof bd.size_label === 'string' ? bd.size_label : null,
         extra_label: typeof bd.extra_label === 'string' ? (bd.extra_label as string).slice(0, 80) : null,
         earn_cents: (r.price_estimate_cents as number | null) ?? null,

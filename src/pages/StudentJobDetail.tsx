@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
 import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound, ShieldCheck, Camera, ClipboardList, Check, Star } from 'lucide-react';
 import { uploadJobPhoto } from '@/lib/jobPhotos';
+import { approxAreaLabel } from '@/lib/serviceAreas';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -887,16 +888,37 @@ const StudentJobDetail = () => {
             )}
           </div>
           <div className="space-y-2 pt-3 border-t border-border/40">
-            {/* Address — tappable to open Google Maps */}
-            <a
-              href={googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
-            >
-              <MapPin size={14} className="text-muted-foreground flex-shrink-0" />
-              <span className="underline underline-offset-2">{booking.customer_address}</span>
-            </a>
+            {/* WHERE — the exact address is the ASSIGNED helper's to see, and
+                nobody else's (owner call 2026-07-30). Before a claim, every
+                helper who opens this link gets the rough AREA only: enough to
+                judge the trip, never enough to identify the house of a
+                customer who hasn't agreed to have them come. This used to
+                render the full address unguarded while the phone number below
+                was correctly gated — same rule now applies to both. */}
+            {mine ? (
+              <a
+                href={googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
+              >
+                <MapPin size={14} className="text-muted-foreground flex-shrink-0" />
+                <span className="underline underline-offset-2">{booking.customer_address}</span>
+              </a>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-foreground">
+                <MapPin size={14} className="text-muted-foreground flex-shrink-0" />
+                <span>
+                  {approxAreaLabel({
+                    lat: booking.customer_lat,
+                    lng: booking.customer_lng,
+                    address: booking.customer_address,
+                    city: null,
+                  })}
+                  <span className="text-muted-foreground"> · full address when you accept</span>
+                </span>
+              </div>
+            )}
             {booking.student_id === userId && (
               <div className="flex items-center gap-2 text-sm text-foreground">
                 <Phone size={14} className="text-muted-foreground flex-shrink-0" />
