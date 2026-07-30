@@ -41,14 +41,22 @@ export interface ExternalReview {
 }
 
 /** Real profile numbers only — shown on the platform cards once set.
- *  Google has live reviews (below) but the PROFILE's displayed rating +
- *  total count haven't been confirmed by the owner yet — paste them here
- *  (e.g. { rating: 4.3, count: 3 }) exactly as Google shows them and the
- *  doors upgrade automatically. Never derive or guess the number. */
+ *  `rating` is optional: set it ONLY when the platform's DISPLAYED score is
+ *  worth showing — count-only renders "N reviews" on the door with no
+ *  number. Google has live reviews (below) but the PROFILE's displayed
+ *  rating + total count haven't been confirmed by the owner yet. Never
+ *  derive or guess a rating.
+ *
+ *  Trustpilot 2026-07-30: 1 live review (Tony, 4★) — but Trustpilot's
+ *  DISPLAYED TrustScore is 3.6 (their Bayesian weighting drags a lone 4★
+ *  down), so the door shows the count only. Add `rating` here once the
+ *  TrustScore is a number worth boasting, exactly as the page shows it. */
 export const PLATFORM_STATS: {
-  google?: { rating: number; count: number };
-  trustpilot?: { rating: number; count: number };
-} = {};
+  google?: { rating?: number; count: number };
+  trustpilot?: { rating?: number; count: number };
+} = {
+  trustpilot: { count: 1 },
+};
 
 // Real Google reviews, supplied by the owner from the live profile
 // (screenshots, 2026-07-29) and copied verbatim — lowercase and all; the
@@ -56,6 +64,14 @@ export const PLATFORM_STATS: {
 // profile card ("View full review"), so it's trimmed at the end of its
 // first sentence rather than guessed.
 export const EXTERNAL_REVIEWS: ExternalReview[] = [
+  // First Trustpilot review (owner screenshot 2026-07-30, verbatim).
+  {
+    source: 'trustpilot',
+    name: 'Tony Agbor',
+    rating: 4,
+    text: "I'm always at work, i love hiring a cleaner of Vano it makes my life easier, and the works always done before i come back from work.",
+    when: 'July 2026',
+  },
   {
     source: 'google',
     name: 'Armaan',

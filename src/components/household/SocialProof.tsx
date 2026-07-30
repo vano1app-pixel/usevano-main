@@ -161,19 +161,24 @@ export const SocialProof: React.FC = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={
-                  stats
+                  stats?.rating
                     ? `${name}: rated ${stats.rating} out of 5 from ${stats.count} reviews — opens in a new tab`
-                    : `Read our reviews on ${name} — opens in a new tab`
+                    : stats
+                      ? `${name}: ${stats.count} review${stats.count === 1 ? '' : 's'} — opens in a new tab`
+                      : `Read our reviews on ${name} — opens in a new tab`
                 }
                 className="tile-float group flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white border border-border/40 px-3.5 py-3.5 sm:px-5 sm:py-4 transition-transform duration-200 hover:-translate-y-1 active:scale-[0.98]"
               >
                 <Star className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" style={{ color: brand, fill: brand }} aria-hidden="true" />
                 <span className="min-w-0 flex-1 text-left">
+                  {/* rating renders ONLY when the platform's displayed score
+                      is pasted in — count-only stats show "N reviews" with
+                      no number (see PLATFORM_STATS honesty note). */}
                   <span className="block text-sm font-bold text-foreground leading-tight truncate">
-                    {stats ? `${stats.rating.toFixed(1)} on ${name}` : name}
+                    {stats?.rating ? `${stats.rating.toFixed(1)} on ${name}` : name}
                   </span>
                   <span className="block text-[11px] sm:text-xs text-muted-foreground mt-0.5 truncate">
-                    {stats ? `${stats.count} review${stats.count === 1 ? '' : 's'}` : 'Read our reviews'}
+                    {stats ? `${stats.count} review${stats.count === 1 ? '' : 's'} — read ${stats.count === 1 ? 'it' : 'them'}` : 'Read our reviews'}
                   </span>
                 </span>
                 <ArrowUpRight className="hidden sm:block w-4 h-4 text-muted-foreground/60 group-hover:text-foreground transition-colors flex-shrink-0" aria-hidden="true" />
