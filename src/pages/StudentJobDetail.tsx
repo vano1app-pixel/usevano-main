@@ -13,6 +13,12 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { extractFnError } from '@/lib/fnError';
 import { microCelebrate } from '@/lib/celebrate';
 import { isTimedCategory, formatCountdown, helperPlaybook } from '@/lib/householdJob';
+import {
+  EXTRA_TIME_OPTIONS, approvedExtraCents, approvedExtraMinutes, canRequestExtraTime,
+  extraTimeCents, extraTimeRateCents, extraTimeText, pendingExtraTime,
+  type ExtraTimeRequest, type ExtraTimeState,
+} from '@/lib/extraTime';
+import { durationText } from '@/lib/jobBuilder';
 import { getCurrentPosition, watchPosition, clearWatch, isPermissionDenied, type WatchId } from '@/lib/native/geolocation';
 import { HelperSOS } from '@/components/household/HelperSOS';
 import logo from '@/assets/logo.png';
@@ -177,7 +183,9 @@ function jobDetailLines(category: string, d: Record<string, unknown>): { label: 
   if (lines.length === 0) {
     add('Job', d.extra_label);
     add('What they asked for', d.note);
-    add('Booked time', d.size_label);
+    // Quarter-hour labels are stored as decimals for the price parsers;
+    // the helper reads words. Non-duration labels pass through unchanged.
+    add('Booked time', typeof d.size_label === 'string' ? durationText(d.size_label) : d.size_label);
   }
   return lines;
 }
@@ -266,6 +274,7 @@ const StudentJobDetail = () => {
   // Timed-job countdown (display only — the customer marks the job done)
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
+  const [extraBusy, setExtraBusy] = useState(false);
   // Before/after job photos — which slot is mid-upload (fail-soft: an upload
   // error never blocks the job flow, it just toasts and lets them retry).
   const [photoUploading, setPhotoUploading] = useState<'arrival' | 'finish' | null>(null);
@@ -653,6 +662,51 @@ const StudentJobDetail = () => {
     }
   };
 
+  // "This job is bigger than it was booked for" — the helper ASKS for +30 min
+  // or +1 hr and the customer approves it on /track. Nothing is charged: the
+  // extra is paid straight to the helper at the end, with no Vano fee, so it
+  // never touches Stripe. The server re-checks the increment, the category
+  // and the running cap; this only mirrors that to keep the UI honest.
+  const requestExtraTime = async (minutes: number) => {
+    if (!bookingId || extraBusy) return;
+    const check = canRequestExtraTime(booking?.category ?? '', (booking?.booking_data ?? {}) as ExtraTimeState, minutes);
+    if (check.ok === false) { toast({ title: 'Not available', description: check.reason }); return; }
+    setExtraBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('household-arrival', {
+        body: { booking_id: bookingId, action: 'request_extra_time', minutes },
+      });
+      if (error) throw error;
+      const req = (data as { extra_time?: ExtraTimeRequest } | null)?.extra_time ?? null;
+      setBooking((b) => b ? { ...b, booking_data: { ...(b.booking_data ?? {}), extra_time: req } } : b);
+      toast({
+        title: `Asked for ${extraTimeText(minutes)} more`,
+        description: `${(booking?.customer_name ?? 'The customer').split(' ')[0]} has been messaged. Keep going — you'll see their answer here.`,
+      });
+    } catch (err) {
+      toast({ title: 'Could not send the request', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
+    } finally {
+      setExtraBusy(false);
+    }
+  };
+
+  // "Actually, I'll finish in time" — withdraws an unanswered request.
+  const cancelExtraTime = async () => {
+    if (!bookingId || extraBusy) return;
+    setExtraBusy(true);
+    try {
+      const { error } = await supabase.functions.invoke('household-arrival', {
+        body: { booking_id: bookingId, action: 'cancel_extra_time' },
+      });
+      if (error) throw error;
+      setBooking((b) => b ? { ...b, booking_data: { ...(b.booking_data ?? {}), extra_time: null } } : b);
+    } catch (err) {
+      toast({ title: 'Could not withdraw', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
+    } finally {
+      setExtraBusy(false);
+    }
+  };
+
   // "I've finished" — flags the job done and asks the customer to confirm.
   // Does NOT pay the helper; the customer still has to mark complete.
   const handleFinished = async () => {
@@ -831,6 +885,12 @@ const StudentJobDetail = () => {
     Number(bd.helper_pay_base_cents) || 0,
   );
   const earnCents = helperPayBase > 0 ? (directPay ? helperPayBase : Math.floor(helperPayBase * 0.85)) : null;
+  // Extra time the customer has APPROVED on this job. Always paid directly to
+  // the helper (both pay modes, no Vano fee), so it's added to what they
+  // collect at the door — never to the pre-accept "Earn €X" figure, which is
+  // the offer as booked.
+  const extraAgreedCents = approvedExtraCents(bd as ExtraTimeState);
+  const settleCents = earnCents != null ? earnCents + (settleDirect ? extraAgreedCents : 0) : null;
   // Customer reputation snapshot stamped at booking (checkout) — shown before
   // accepting so the helper knows who they're dealing with.
   const rep = (bd.customer_rep ?? null) as { paid_jobs?: number; unpaid_reports?: number; stars?: number } | null;
@@ -1454,6 +1514,72 @@ const StudentJobDetail = () => {
           </motion.div>
         )}
 
+        {/* "Bigger than it was booked for" (2026-07-30). The booked time always
+            covers what the customer ticked, but reality overruns — and before
+            this existed the only outcomes were the helper working an unpaid
+            hour or leaving the job half-done. The helper ASKS; the customer
+            approves on /track. The extra is paid straight to the helper at the
+            end with NO Vano fee, so nothing here touches Stripe. Lives right
+            under the countdown, where "time's up" is actually felt. */}
+        {mine && ['arrived', 'in_progress'].includes(booking.status) && !booking.helper_finished_at
+          && extraTimeRateCents(booking.category) != null && (() => {
+          const pending = pendingExtraTime(bd as ExtraTimeState);
+          const agreedMins = approvedExtraMinutes(bd as ExtraTimeState);
+          const agreedCents = approvedExtraCents(bd as ExtraTimeState);
+          return (
+            <div className="rounded-2xl border border-border bg-white p-4 mb-6">
+              {agreedMins > 0 && (
+                <p className="text-[13px] font-semibold text-sage-dark mb-2.5 flex items-center gap-1.5">
+                  <Check size={15} strokeWidth={3} />
+                  {extraTimeText(agreedMins)} extra agreed — €{(agreedCents / 100).toFixed(2)} on top, straight to you
+                </p>
+              )}
+              {pending ? (
+                <>
+                  <p className="text-sm font-semibold text-foreground">
+                    Waiting on {(booking.customer_name ?? 'the customer').split(' ')[0]}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    You asked for {extraTimeText(pending.minutes)} more (€{(pending.cents / 100).toFixed(2)}). They’ve been messaged — keep working, their answer lands here.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void cancelExtraTime()}
+                    disabled={extraBusy}
+                    className="mt-2.5 text-xs font-semibold text-muted-foreground underline underline-offset-2 disabled:opacity-50"
+                  >
+                    Never mind, I’ll finish in time
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-foreground">Job bigger than booked?</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 mb-3 leading-relaxed">
+                    Ask for more time instead of working for free. {(booking.customer_name ?? 'The customer').split(' ')[0]} approves it first — it’s paid directly to you, and VANO takes nothing on it.
+                  </p>
+                  <div className="flex gap-2">
+                    {EXTRA_TIME_OPTIONS.map((mins) => {
+                      const cents = extraTimeCents(booking.category, mins);
+                      const allowed = canRequestExtraTime(booking.category, bd as ExtraTimeState, mins).ok;
+                      return (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => void requestExtraTime(mins)}
+                          disabled={extraBusy || !allowed || cents == null}
+                          className="flex-1 h-11 rounded-full border border-sage/40 bg-sage-light text-sm font-semibold text-foreground hover:bg-sage/20 disabled:opacity-40 transition-colors"
+                        >
+                          {extraBusy ? <Loader2 size={15} className="animate-spin mx-auto" /> : <>+{extraTimeText(mins)} · €{((cents ?? 0) / 100).toFixed(2)}</>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Direct-pay: did the customer pay you? Confirm (optional stars for
             the customer) or report unpaid — a strike that alerts the owner
             and blocks repeat offenders from booking. */}
@@ -1467,9 +1593,14 @@ const StudentJobDetail = () => {
               </p>
             )}
             <p className="text-sm font-bold text-foreground mb-1">
-              Did {booking.customer_name && booking.customer_name !== 'Guest' ? booking.customer_name.split(' ')[0] : 'the customer'} pay you{earnCents ? ` €${(earnCents / 100).toFixed(2)}` : ''}?
+              Did {booking.customer_name && booking.customer_name !== 'Guest' ? booking.customer_name.split(' ')[0] : 'the customer'} pay you{settleCents ? ` €${(settleCents / 100).toFixed(2)}` : ''}?
             </p>
-            <p className="text-xs text-muted-foreground mb-3">Revolut or cash — you keep all of it. Confirming closes the job out properly.</p>
+            <p className="text-xs text-muted-foreground mb-3">
+              {extraAgreedCents > 0 && settleDirect
+                ? `€${((earnCents ?? 0) / 100).toFixed(2)} booked + €${(extraAgreedCents / 100).toFixed(2)} extra time they approved. `
+                : ''}
+              Revolut or cash — you keep all of it. Confirming closes the job out properly.
+            </p>
             {/* The delivery-photo moment: the after shot is worth the most
                 right here (job just finished, work still fresh). Optional and
                 fail-soft, same upload path as the photo card below. */}

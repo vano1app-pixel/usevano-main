@@ -172,7 +172,7 @@ async function sendWebPush(
   }
 }
 
-type PushStatus = 'accepted' | 'on_way' | 'arrived' | 'completed';
+type PushStatus = 'accepted' | 'on_way' | 'arrived' | 'extra_time' | 'completed';
 
 // Friendly, branded copy. Never include the arrival code.
 function buildMessage(status: PushStatus, helperName: string | null): { title: string; body: string } {
@@ -184,6 +184,10 @@ function buildMessage(status: PushStatus, helperName: string | null): { title: s
       return { title: `🚗 ${who} is on the way`, body: `Follow ${who} live on the map.` };
     case 'arrived':
       return { title: `📍 ${who} has arrived`, body: `Open the app to share your arrival code and get started.` };
+    // Not a status step — an ASK. The helper is standing in the customer's
+    // house waiting on this tap, so it gets the same pocket treatment.
+    case 'extra_time':
+      return { title: `⏱ ${who} needs a bit more time`, body: `Tap to see what they're asking for and approve or decline it.` };
     case 'completed':
       return { title: `✅ Job complete`, body: `Thanks for using VANO — tap to rate ${who}.` };
   }
@@ -214,7 +218,7 @@ Deno.serve(async (req: Request) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const validStatuses: PushStatus[] = ['accepted', 'on_way', 'arrived', 'completed'];
+    const validStatuses: PushStatus[] = ['accepted', 'on_way', 'arrived', 'extra_time', 'completed'];
     if (!validStatuses.includes(status)) {
       return new Response(JSON.stringify({ error: "invalid status" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },

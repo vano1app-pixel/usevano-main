@@ -220,6 +220,36 @@ sweep, and the unpaid-release sweep.
   time at €18/hr — the AI can never set a price. `custom` dispatches to ALL
   approved helpers.
 
+**Extra time — "what if it takes longer?" (2026-07-30, owner ask alongside
+the builder fix):** `_shared/extraTime.ts` + its frontend mirror
+`src/lib/extraTime.ts` (lock-stepped by `extraTime.test.ts` across every
+category × increment, same pattern as the price tables). The booked time
+always covers the ticked estimate, but reality overruns — before this the
+only outcomes were the student working an unpaid hour or leaving the job
+half-done. The shape, deliberately the simplest thing that can be true:
+- the HELPER asks on the job screen — `household-arrival`'s
+  `request_extra_time` / `cancel_extra_time` (assigned-helper JWT, status
+  must be `arrived`/`in_progress`), +30 min or +1 hr only, capped at 2 h
+  total, one live request at a time;
+- the CUSTOMER approves on /track — `respond-extra-time` (anonymous,
+  booking-UUID capability like `complete-household-job`). **There is no
+  auto-approval and no timeout that says yes.**
+- the extra is **paid DIRECTLY to the helper** (Revolut/cash) at the end in
+  BOTH pay modes, with **no Vano fee** — so nothing touches Stripe: no
+  second charge, no capture, no hold to reconcile. Legally it's the
+  customer paying the worker for extra work they agreed to.
+- **`price_estimate_cents` is NEVER rewritten** — it's what was quoted and,
+  under card-pay, what was charged; every fee/refund/capture path reads it.
+  The agreed extra accumulates beside it in
+  `booking_data.extra_time{,_minutes,_cents}`.
+Rate comes from the SAME price table the job was quoted from (never a
+second copy of €22). Offered only for HOURLY categories — laundry is per
+bag and a dog walk is per walk, so "+30 min" there would be inventing a
+rate on someone's doorstep. `handyman` is deliberately excluded: the two
+tables can't agree on its rate (the cross-check test is what found that).
+The booking sheet promises it BEFORE booking, so it's never a doorstep
+surprise.
+
 **Safety nets (don't duplicate — extend these):** `redispatch-stale-jobs`
 (expired offers, 3 rounds), `sweep-stalled-jobs` (paid job, helper ghosted:
 ping → release+redispatch → escalate), `no-helper-fallback` (unpaid stuck
@@ -844,17 +874,37 @@ watch the price build"):** cleaning / garden's wizard page 1 is now
 tick-the-tasks (`src/lib/jobBuilder.ts` + the builder branch in
 CategoryGrid's pick page; `BUILDER_TASKS.moving` exists but is unreachable
 since the moving tile was parked the same day). Each task carries an honest ~minutes estimate;
-ticks sum and round UP in **HALF-HOUR billing steps** (owner call
-2026-07-27: with whole-hour rounding, 2 ticks and 3 ticks kept costing the
-same — every tick must move the price; floor 1 hour, cap at the category
-max) to a computed size label ('1.5 hours'…) that BOTH price tables carry,
+ticks sum and round UP in **QUARTER-HOUR billing steps** (whole hours →
+half hours 2026-07-27 → quarter hours 2026-07-30; the step has moved twice
+for the same reason: two different tick sets landing on the same price.
+Half hours survived factor 1 but collapsed under the sizing answers — at
+cleaning's 0.75 the 5th and 6th ticks both booked 3h. A quarter-hour step
+makes it structurally impossible: the smallest tickable task at the
+smallest factor is 21 displayed minutes, and any addition ≥15 min must
+cross a step boundary. Floor 1 hour, cap at the category max) to a computed
+size label ('1.75 hours'…) that BOTH price tables carry,
 and checkout still receives only category + size — the server prices €18/hr
 exactly as before. The Change-panel duration chips inject a non-standard
-half-hour size so the selection stays visible. **The builder can never
+quarter-hour size so the selection stays visible. **The builder can never
 invent a price**: `jobBuilder.test.ts` locks every possible tick
-combination to a priceable half-hour label within the category cap and
-keeps the display-only "typical Galway rate" anchors above €18/hr so "you
-save ~€X" can never read negative. The ticked list rides
+combination to a priceable quarter-hour label within the category cap and
+keeps the display-only "typical Galway rate" anchors above €22/hr so "you
+save ~€X" can never read negative. Its **MONOTONIC-TICK INVARIANT**
+enumerates every subset × every next-tick × every sizing answer and fails
+unless the price strictly rises — the one allowed tie is when both sides
+still fit inside the 1-hour minimum (the 2026-07-27 test hand-picked three
+factor-1 cases and passed happily while the owner's small-home screen
+showed two ticks at the same €22).
+**The billed minutes now equal the per-row estimates on screen** — it sums
+`scaledTaskMinutes` rather than `round(total × factor)`, so a customer can
+add up the chips and get the number they're charged for. And **the 1-hour
+minimum is said out loud** in the build-up card ("your tick adds up to 35
+min · minimum booking is 1 hr, so you've ~25 min spare — tick more, it's
+included"): the collapse the owner reported was the minimum working
+silently, and silent is what made it look broken. Labels stay NUMERIC
+because every parser in the repo reads a leading decimal; `durationText`
+(mirrored in `_shared/householdJob.ts`) renders them as "1 hr 45 min" on
+every screen, SMS and offer. The ticked list rides
 note + extra_label (the SubService `carry` contract) so dispatch offers and
 the helper job screen name the real tasks, and the form header quotes them.
 `builder_continue` is the funnel event between tile tap and submit. Laundry

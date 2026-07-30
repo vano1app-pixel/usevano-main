@@ -4,7 +4,7 @@
 // push delivery. Awaiting it is optional (it resolves quickly), but most
 // callers `void` it.
 
-export type HouseholdPushStatus = 'accepted' | 'on_way' | 'arrived' | 'completed';
+export type HouseholdPushStatus = 'accepted' | 'on_way' | 'arrived' | 'extra_time' | 'completed';
 
 export async function sendHouseholdPush(
   bookingId: string,
