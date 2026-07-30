@@ -139,6 +139,13 @@ project_id = "puomfwjtpvqedwxjxogh"
   [functions.ops-copilot]
     verify_jwt = false
 
+  # The open-jobs board (missed-the-ping recovery on /student-account). The
+  # LIST is sanitised and public; the per-helper CLAIM links require the
+  # phone-gate account_token inside the body (hasAccountAccess) + approved +
+  # id_verified — the claim itself rides the existing accept-job flow.
+  [functions.open-jobs]
+    verify_jwt = false
+
   # House Autopilot helper matching. dispatch-autopilot-plan is called by
   # stripe-webhook with the service-role key (internal-only check inside);
   # accept-autopilot-plan is the helper's one-tap claim link (HMAC token in the
