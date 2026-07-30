@@ -16,7 +16,7 @@ import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES_ADDON_CENTS, travelTopupCents, CARD_PAY_OFFERED, HOURLY_RATE_CENTS } from '@/lib/householdPricing';
 import { COOLING_OFF_DAYS, IMMEDIATE_PERFORMANCE_CONSENT_TEXT } from '@/lib/legalEntity';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
-import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, minutesText, scaledTaskMinutes, hoursFromSizeLabel, bookedMinutes, durationText, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
+import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, minutesText, taskMinutes, hoursFromSizeLabel, bookedMinutes, durationText, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -1562,9 +1562,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                               to read the whole task they're ticking (375px
                               phones cut "Kitchen deep-cle…" with truncate). */}
                           <span className="flex-1 min-w-0 text-[15px] font-semibold text-foreground leading-snug">{t.label}</span>
-                          {/* Estimates scale with the sizing answer — a 4-bed
-                              hoover-through honestly takes longer than a 1-bed */}
-                          <span className="text-xs font-semibold text-muted-foreground tabular-nums flex-shrink-0">{minutesLabel(scaledTaskMinutes(t.minutes, sizingFactor))}</span>
+                          {/* Room-and-area jobs scale with the sizing answer —
+                              a 4-bed hoover-through honestly takes longer than
+                              a 1-bed — while fixed-scope ones (the kitchen, the
+                              oven) don't. taskMinutes is the SAME function the
+                              billed total goes through, so the chips on screen
+                              always add up to the price. */}
+                          <span className="text-xs font-semibold text-muted-foreground tabular-nums flex-shrink-0">{minutesLabel(taskMinutes(t, sizingFactor))}</span>
                         </button>
                       );
                     })}
