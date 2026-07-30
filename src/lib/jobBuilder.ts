@@ -20,19 +20,42 @@ export interface BuilderTask {
   key: string;
   emoji: string;
   label: string;
-  /** Rough honest estimate — sums then rounds UP to a bookable duration. */
+  /** Rough honest estimate — sums then rounds UP to a bookable duration.
+   *  Calibrated to the MIDDLE sizing answer (a 3-bed home, a 50–150 m²
+   *  garden), which is why that answer's factor is exactly 1. */
   minutes: number;
+  /**
+   * Does this job get bigger with the home/garden? Default YES.
+   *
+   * Set FALSE for fixed-scope work (owner call 2026-07-30). A 4-bed house
+   * does not have a bigger oven than a 3-bed, but the flat size factor was
+   * scaling every task alike — so ticking just "Kitchen + oven" cost €27
+   * in a 1–2 bed and €44.28 in a 4+ bed for cleaning the same single oven.
+   * A customer who price-checks that has caught us charging for bedrooms
+   * they didn't ask us to touch.
+   *
+   * Splitting the two lets the factors WIDEN honestly (cleaning 0.75–1.35 →
+   * 0.6–1.6, garden 0.7–1.5 → 0.55–1.7) so room-and-area work moves the way
+   * it really does, without dragging the fixed jobs along for the ride. It
+   * fixes the squeeze on students too: "Bedrooms & living areas" in a 4+ bed
+   * home used to book 60 minutes — four bedrooms and a sitting room in an
+   * hour — and now books 70.
+   */
+  scales?: boolean;
 }
 
 /** Categories that use the tick-box page instead of the sub-service picker.
  *  Laundry (flat price) and Pets (walk-length picker) keep the old page. */
 export const BUILDER_TASKS: Record<string, BuilderTask[]> = {
   cleaning: [
-    { key: 'kitchen',  emoji: '🍳', label: 'Kitchen deep-clean',       minutes: 45 },
+    // FIXED scope: one kitchen, one oven, one fridge — a bigger house doesn't
+    // grow them, so the size answer must not price them as if it did.
+    { key: 'kitchen',  emoji: '🍳', label: 'Kitchen deep-clean',       minutes: 45, scales: false },
+    // More bedrooms means more bathrooms, more floor and more glass.
     { key: 'bathroom', emoji: '🛁', label: 'Bathroom scrub',           minutes: 30 },
     { key: 'bedrooms', emoji: '🛏️', label: 'Bedrooms & living areas',  minutes: 45 },
     { key: 'floors',   emoji: '🧽', label: 'Floors throughout',        minutes: 30 },
-    { key: 'oven',     emoji: '🔥', label: 'Inside the oven & fridge', minutes: 30 },
+    { key: 'oven',     emoji: '🔥', label: 'Inside the oven & fridge', minutes: 30, scales: false },
     { key: 'windows',  emoji: '🪟', label: 'Windows (inside)',         minutes: 30 },
     // Condition tick (2026-07-27): size is only half the fairness question —
     // the other half is how the place is RIGHT NOW. Self-confessed, priced
@@ -44,7 +67,9 @@ export const BUILDER_TASKS: Record<string, BuilderTask[]> = {
     { key: 'mowing',   emoji: '🌱', label: 'Lawn mowing',              minutes: 45 },
     { key: 'weeding',  emoji: '🌿', label: 'Weeding & beds',           minutes: 45 },
     { key: 'hedges',   emoji: '✂️', label: 'Hedge trimming',           minutes: 30 },
-    { key: 'planting', emoji: '🪴', label: 'Planting',                 minutes: 30 },
+    // FIXED scope: planting is bounded by what the customer bought, not by
+    // how much lawn surrounds it.
+    { key: 'planting', emoji: '🪴', label: 'Planting',                 minutes: 30, scales: false },
     { key: 'power',    emoji: '💦', label: 'Power washing',            minutes: 60 },
     { key: 'leaves',   emoji: '🍂', label: 'Leaves & tidy-up',         minutes: 30 },
     // Condition tick — a jungle takes honestly longer than a kept lawn.
@@ -117,9 +142,9 @@ export const SIZING_QUESTIONS: Record<string, SizingQuestion> = {
     title: 'Roughly how big is your place?',
     why: 'One tap — it sizes the clean fairly for you and your helper',
     options: [
-      { key: 'small',   emoji: '🏢', label: '1–2 bedrooms', hint: 'Apartment or small house',        factor: 0.75, carry: '1–2 bed home' },
-      { key: 'typical', emoji: '🏠', label: '3 bedrooms',   hint: 'A typical semi-D',                factor: 1,    carry: '3-bed home' },
-      { key: 'large',   emoji: '🏡', label: '4+ bedrooms',  hint: 'More rooms, more ground to cover', factor: 1.35, carry: '4+ bed home' },
+      { key: 'small',   emoji: '🏢', label: '1–2 bedrooms', hint: 'Apartment or small house',        factor: 0.6, carry: '1–2 bed home' },
+      { key: 'typical', emoji: '🏠', label: '3 bedrooms',   hint: 'A typical semi-D',                factor: 1,   carry: '3-bed home' },
+      { key: 'large',   emoji: '🏡', label: '4+ bedrooms',  hint: 'More rooms, more ground to cover', factor: 1.6, carry: '4+ bed home' },
     ],
   },
   // Square-metre bands (owner call 2026-07-28): m² is the metric people
@@ -131,9 +156,9 @@ export const SIZING_QUESTIONS: Record<string, SizingQuestion> = {
     title: 'Roughly how big is the garden?',
     why: 'One tap — it sizes the job fairly for you and your helper',
     options: [
-      { key: 'small',   emoji: '🌱', label: 'Under 50 m²', hint: 'Patio or courtyard',       factor: 0.7, carry: 'Garden under 50 m²' },
-      { key: 'typical', emoji: '🌿', label: '50–150 m²',   hint: 'A typical back garden',    factor: 1,   carry: '50–150 m² garden' },
-      { key: 'large',   emoji: '🌳', label: 'Over 150 m²', hint: 'Big lawn, front and back', factor: 1.5, carry: '150 m²+ garden' },
+      { key: 'small',   emoji: '🌱', label: 'Under 50 m²', hint: 'Patio or courtyard',       factor: 0.55, carry: 'Garden under 50 m²' },
+      { key: 'typical', emoji: '🌿', label: '50–150 m²',   hint: 'A typical back garden',    factor: 1,    carry: '50–150 m² garden' },
+      { key: 'large',   emoji: '🌳', label: 'Over 150 m²', hint: 'Big lawn, front and back', factor: 1.7,  carry: '150 m²+ garden' },
     ],
   },
   // Priced carries (owner call 2026-07-27): the answer rides extra_label and
@@ -197,6 +222,19 @@ export interface EquipmentOption {
   carry: string;
   /** Cleaning only: helper brings the basics — server prices the flat add-on. */
   suppliesAddon?: boolean;
+  /**
+   * BUILDER_TASKS keys this answer makes impossible, each with the reason the
+   * customer sees on the greyed row.
+   *
+   * Without this the two questions contradicted each other: a customer could
+   * answer "no mower" and then tick "Lawn mowing ~45 min", and we'd dispatch a
+   * helper across town to a job that cannot be done — the exact doorstep
+   * failure the equipment question exists to prevent (found 2026-07-30 while
+   * re-reading the wizard). Blocked rows are shown greyed with the reason and
+   * tap back to the answer, rather than vanishing: a disappearing row reads as
+   * a bug, and the customer may want to change their answer instead.
+   */
+  blocks?: Record<string, string>;
 }
 
 export interface EquipmentQuestion {
@@ -221,8 +259,13 @@ export const EQUIPMENT_QUESTIONS: Record<string, EquipmentQuestion> = {
     why: 'So your helper arrives ready — no doorstep surprises',
     options: [
       { key: 'mower',    emoji: '🚜', label: 'Mower & tools', hint: 'All set for any garden job',            carry: 'Has mower + tools' },
-      { key: 'basic',    emoji: '🧤', label: 'Some tools, no mower', hint: 'Weeding, hedges & tidy-ups work great', carry: 'Tools but no mower — no mowing' },
-      { key: 'none',     emoji: '🤷', label: 'No tools', hint: 'Helper brings gloves & hand tools for light work', carry: 'No tools — helper brings gloves & hand tools' },
+      // A helper cannot bring a lawnmower on a bike. Ticking mowing after this
+      // answer would book a job that dies on the doorstep, so the row greys out.
+      { key: 'basic',    emoji: '🧤', label: 'Some tools, no mower', hint: 'Weeding, hedges & tidy-ups work great', carry: 'Tools but no mower — no mowing',
+        blocks: { mowing: 'needs a mower' } },
+      // Nor a power washer. Hand tools (shears, gloves, rake) they do bring.
+      { key: 'none',     emoji: '🤷', label: 'No tools', hint: 'Helper brings gloves & hand tools for light work', carry: 'No tools — helper brings gloves & hand tools',
+        blocks: { mowing: 'needs a mower', power: 'needs a power washer' } },
     ],
   },
   'dog-walk': {
@@ -251,8 +294,19 @@ const taskByKey = (slug: string, key: string): BuilderTask | undefined =>
 export function builderMinutes(slug: string, keys: string[], factor = 1): number {
   return keys.reduce((sum, k) => {
     const t = taskByKey(slug, k);
-    return t ? sum + scaledTaskMinutes(t.minutes, factor) : sum;
+    return t ? sum + taskMinutes(t, factor) : sum;
   }, 0);
+}
+
+/**
+ * A single task's minutes under the sizing answer — THE one function both the
+ * row's "~35 min" chip and the billed total go through, so the screen can
+ * never add up to something other than the price. Fixed-scope tasks
+ * (`scales: false`) ignore the factor entirely: a bigger house does not have
+ * a bigger oven.
+ */
+export function taskMinutes(task: BuilderTask, factor = 1): number {
+  return scaledTaskMinutes(task.minutes, task.scales === false ? 1 : factor);
 }
 
 /** Leading hour count from a size label ("2 hours", "1.5 hours", "4+ hours")
@@ -379,8 +433,10 @@ export function scaledTaskMinutes(minutes: number, factor: number): number {
   return Math.max(5, Math.round((minutes * factor) / 5) * 5);
 }
 
-/** "~45 min" / "~1 hr" chip text for a task row. */
+/** "~45 min" / "~1 hr" / "~1 hr 10 min" chip text for a task row. Speaks the
+ *  same words as the build-up card rather than a decimal — with the widened
+ *  size factors a big-home row lands on 70 minutes, and "~1.2 hr" is not a
+ *  thing anyone says. */
 export function minutesLabel(minutes: number): string {
-  if (minutes < 60) return `~${minutes} min`;
-  return minutes % 60 === 0 ? `~${minutes / 60} hr` : `~${Math.round((minutes / 60) * 10) / 10} hr`;
+  return `~${minutesText(minutes)}`;
 }

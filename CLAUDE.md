@@ -889,7 +889,13 @@ quarter-hour size so the selection stays visible. **The builder can never
 invent a price**: `jobBuilder.test.ts` locks every possible tick
 combination to a priceable quarter-hour label within the category cap and
 keeps the display-only "typical Galway rate" anchors above €22/hr so "you
-save ~€X" can never read negative. Its **MONOTONIC-TICK INVARIANT**
+save ~€X" can never read negative. **The savings line is measured ALL-IN**
+(job + supplies + VANO's booking fee) since 2026-07-30 — against the job
+price alone it claimed "save €6" on a one-hour clean where the customer
+pays €22 + €5 fee = €27 against a €28 agency hour, a €1 saving. It now says
+"all in" and stays silent below €2 rather than dressing a rounding
+difference up as a deal; the test asserts the anchor still beats the ALL-IN
+price at every duration. Its **MONOTONIC-TICK INVARIANT**
 enumerates every subset × every next-tick × every sizing answer and fails
 unless the price strictly rises — the one allowed tie is when both sides
 still fit inside the 1-hour minimum (the 2026-07-27 test hand-picked three
@@ -925,8 +931,22 @@ invent a price** (three shapes only, locked by jobBuilder.test.ts):
 - **Cleaning/Garden ask FIRST** ("Roughly how big is your place / the
   garden?"): the answer's `factor` scales the tick-task MINUTES (estimates
   are calibrated to the middle answer, factors ascend small→large), so the
-  total still rounds onto an EXISTING half-hour label and the server prices
-  it exactly as before — every tick-combo × factor is enumerated priceable
+  total still rounds onto an EXISTING quarter-hour label and the server
+  prices it exactly as before. **It scales only the tasks that actually GROW
+  with the place** (owner call 2026-07-30): `BuilderTask.scales === false`
+  marks fixed-scope work — cleaning's kitchen and oven/fridge, garden's
+  planting — which the answer can never re-price. Before the split, ticking
+  just "Kitchen + oven" cost €27 in a 1–2 bed and €44.28 in a 4+ bed for
+  cleaning the same single oven, and "Bedrooms & living areas" in a 4+ bed
+  booked 60 minutes for four bedrooms and a sitting room. Splitting them let
+  the factors widen honestly (cleaning 0.75–1.35 → **0.6/1/1.6**, garden
+  0.7–1.5 → **0.55/1/1.7**) without dragging the fixed jobs along.
+  `taskMinutes(task, factor)` is the ONE function both the row's "~45 min"
+  chip and the billed total go through — the screen always adds up to the
+  price. jobBuilder.test asserts fixed tasks are identical across every
+  answer and scaled ones strictly differ, and that no scaled row can fall
+  under the 15-minute billing step (which would let a tick not move the
+  price) — every tick-combo × factor is enumerated priceable
   in the test. The answer stays visible/changeable as a chip above the
   ticks (row estimates re-scale live) and LEADS the note
   ("4+ bed home · Kitchen deep-clean + …") so the helper reads the scope.

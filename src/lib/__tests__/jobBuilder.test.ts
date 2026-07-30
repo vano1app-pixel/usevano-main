@@ -13,12 +13,14 @@ import {
   builderShortLabel,
   builderSizeLabel,
   durationText,
+  minutesLabel,
   minutesText,
   scaledTaskMinutes,
+  taskMinutes,
 } from '../jobBuilder';
 import {
   DOG_UPCHARGE_CENTS, HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, getHouseholdPriceCents,
-  SUPPLIES_ADDON_CENTS, travelTopupCents,
+  SUPPLIES_ADDON_CENTS, travelTopupCents, computeVanoFeeCents,
   TRAVEL_TOPUP_NEAR_CENTS, TRAVEL_TOPUP_FAR_CENTS, GALWAY_CENTRE,
 } from '../householdPricing';
 // The REAL server table (pure TS, no Deno APIs) — the dog surcharge is priced
@@ -79,7 +81,7 @@ describe('jobBuilder — the builder can never invent a price', () => {
       for (const factor of factors) {
         for (const subset of allSubsets(tasks.map((t) => t.key))) {
           const onScreen = subset.reduce(
-            (sum, k) => sum + scaledTaskMinutes(tasks.find((t) => t.key === k)!.minutes, factor), 0);
+            (sum, k) => sum + taskMinutes(tasks.find((t) => t.key === k)!, factor), 0);
           expect(builderMinutes(slug, subset, factor), `${slug} ×${factor} ${subset.join('+')}`).toBe(onScreen);
         }
       }
@@ -96,8 +98,8 @@ describe('jobBuilder — the builder can never invent a price', () => {
     const allCleaning = BUILDER_TASKS.cleaning.map((t) => t.key);
     expect(builderSizeLabel(builderMinutes('cleaning', allCleaning), SHEET_SIZES.cleaning)).toBe('4 hours');
     // The biggest possible cleaning ask (4+ bed, everything, extra messy)
-    // books 5.5h — the cap exists but sits ABOVE every honest estimate.
-    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning, 1.35), SHEET_SIZES.cleaning)).toBe('5.5 hours');
+    // books 5.75h — the cap exists but sits ABOVE every honest estimate.
+    expect(builderSizeLabel(builderMinutes('cleaning', allCleaning, 1.6), SHEET_SIZES.cleaning)).toBe('5.75 hours');
   });
 
   it('SUITABLE-MONEY INVARIANT: the booked time always covers the estimated work (owner rule 2026-07-27)', () => {
@@ -181,21 +183,22 @@ describe('jobBuilder — the builder can never invent a price', () => {
   });
 
   it('the owner’s exact 2026-07-30 screen now prices differently for one tick vs two', () => {
-    // Small home (factor 0.75) — the case in the screenshot. Kitchen alone is
-    // 35 min and floors to the 1-hour minimum; adding the bathroom fills that
-    // hour exactly (60 min), so it is STILL the same hour — but the card now
-    // says "~25 min spare, tick more, it's included" instead of silently
-    // repeating €22. A third tick is where the price has to move, and does.
+    // Small home — the case in the screenshot. The kitchen is fixed-scope
+    // since the 2026-07-30 fairness split, so it no longer shrinks to 35 min
+    // for a small flat: one kitchen is 45 minutes of work wherever it is.
+    // Which means the owner's exact two ticks now MOVE the price outright
+    // (€22 → €27.50) rather than needing the minimum explained.
     const sizes = SHEET_SIZES.cleaning;
-    const est = (keys: string[]) => builderMinutes('cleaning', keys, 0.75);
+    const small = SIZING_QUESTIONS.cleaning.options[0].factor as number;
+    const est = (keys: string[]) => builderMinutes('cleaning', keys, small);
     const price = (keys: string[]) =>
       getHouseholdPriceCents('cleaning', builderSizeLabel(est(keys), sizes) as string);
-    expect(est(['kitchen'])).toBe(35);
-    expect(est(['kitchen', 'bathroom'])).toBe(60);            // exactly the hour they already bought
-    expect(est(['kitchen', 'bathroom', 'bedrooms'])).toBe(95);
-    expect(price(['kitchen'])).toBe(2200);
-    expect(price(['kitchen', 'bathroom'])).toBe(2200);        // same hour, and the card says why
-    expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(3850);   // 95 min → 1.75 h @ €22
+    expect(est(['kitchen'])).toBe(45);                        // fixed scope — the factor can't touch it
+    expect(est(['kitchen', 'bathroom'])).toBe(65);
+    expect(est(['kitchen', 'bathroom', 'bedrooms'])).toBe(90);
+    expect(price(['kitchen'])).toBe(2200);                    // 45 min → the 1-hour minimum
+    expect(price(['kitchen', 'bathroom'])).toBe(2750);        // 65 min → 1.25 h @ €22 — it moves
+    expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(3300);   // 90 min → 1.5 h @ €22
     // And the pair that used to collide ABOVE the floor (5 vs 6 ticks at the
     // small-home factor both booked 3 hours under half-hour steps).
     const five = ['kitchen', 'bathroom', 'bedrooms', 'floors', 'oven'];
@@ -276,17 +279,41 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
     }
   });
 
-  it('the home-size answer visibly moves the price for a typical cleaning tick set', () => {
-    // kitchen + bathroom = 75 base minutes: every answer lands on a different
-    // rung (€22 / €27.50 / €38.50) — the question genuinely re-prices, fairly.
-    const cents = SIZING_QUESTIONS.cleaning.options.map((o) =>
+  it('the home-size answer moves ROOM work — and only room work', () => {
+    const ladder = (keys: string[]) => SIZING_QUESTIONS.cleaning.options.map((o) =>
       getHouseholdPriceCents(
         'cleaning',
-        builderSizeLabel(builderMinutes('cleaning', ['kitchen', 'bathroom'], o.factor), SHEET_SIZES.cleaning) as string,
+        builderSizeLabel(builderMinutes('cleaning', keys, o.factor), SHEET_SIZES.cleaning) as string,
       ));
-    expect(cents).toEqual([2200, 2750, 3850]);
-    // …and never downwards: a bigger home can only cost the same or more.
-    expect([...cents].sort((a, b) => (a as number) - (b as number))).toEqual(cents);
+    // Room-and-area work climbs properly across the three answers.
+    const rooms = ladder(['bedrooms', 'floors']);
+    expect(rooms).toEqual([2200, 2750, 4400]);
+    expect([...rooms].sort((a, b) => (a as number) - (b as number))).toEqual(rooms);
+
+    // THE FAIRNESS FIX (owner call 2026-07-30). One kitchen, one oven, one
+    // fridge: physically identical work in a studio and in a 5-bed. It used
+    // to cost €22 / €27.50 / €38.50 — 75% more for the same oven, because
+    // the size factor scaled every task alike. Now the answer cannot touch it.
+    expect(ladder(['kitchen', 'oven'])).toEqual([2750, 2750, 2750]);
+    expect(ladder(['kitchen'])).toEqual([2200, 2200, 2200]);
+  });
+
+  it('every fixed-scope task ignores the sizing answer, every other task obeys it', () => {
+    for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
+      const factors = SIZING_QUESTIONS[slug]?.options.map((o) => o.factor as number) ?? [1];
+      for (const t of tasks) {
+        const across = factors.map((f) => taskMinutes(t, f));
+        if (t.scales === false) {
+          expect(new Set(across).size, `${slug}/${t.key} is fixed but moved: ${across}`).toBe(1);
+          expect(across[0]).toBe(t.minutes);
+        } else if (factors.length > 1) {
+          expect(across[0], `${slug}/${t.key} should shrink for the small answer`).toBeLessThan(across[factors.length - 1]);
+        }
+        // No scaled task may fall under the billing step, or adding it could
+        // fail to move the price (see the MONOTONIC-TICK invariant).
+        for (const m of across) expect(m, `${slug}/${t.key}`).toBeGreaterThanOrEqual(BILLING_STEP_MINUTES);
+      }
+    }
   });
 
   it('the dog ladder prices identically on BOTH tables and only ever climbs (owner call: bigger dog costs more)', () => {
@@ -344,6 +371,12 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
     expect(minutesText(60)).toBe('1 hr');
     expect(minutesText(95)).toBe('1 hr 35 min');
     expect(minutesText(0)).toBe('0 min');
+    // Row chips speak the same words — never "~1.2 hr", which is what the
+    // widened size factors started producing at 70 minutes.
+    expect(minutesLabel(45)).toBe('~45 min');
+    expect(minutesLabel(60)).toBe('~1 hr');
+    expect(minutesLabel(70)).toBe('~1 hr 10 min');
+    expect(minutesLabel(100)).toBe('~1 hr 40 min');
     // Every label the builder can compute renders as words, in both categories.
     for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
       const factors = SIZING_QUESTIONS[slug]?.options.map((o) => o.factor as number) ?? [1];
@@ -384,6 +417,56 @@ describe('equipment question — carries ride the note, add-ons stay in lock-ste
         expect(o.key.length, `${slug}/${o.key}`).toBeGreaterThan(0);
         expect(o.carry.trim().length, `${slug}/${o.key} carry`).toBeGreaterThan(0);
       }
+    }
+  });
+
+  // Found 2026-07-30 re-reading the wizard: the two questions contradicted
+  // each other. A customer could answer "no mower" and still tick "Lawn
+  // mowing", and we'd dispatch a helper across town to a job that cannot be
+  // done — the exact doorstep failure the equipment question exists to stop.
+  it('an answer that rules a task out names REAL tasks, with a reason', () => {
+    for (const [slug, q] of Object.entries(EQUIPMENT_QUESTIONS)) {
+      const keys = new Set((BUILDER_TASKS[slug] ?? []).map((t) => t.key));
+      for (const o of q.options) {
+        for (const [taskKey, why] of Object.entries(o.blocks ?? {})) {
+          expect(keys.has(taskKey), `${slug}/${o.key} blocks unknown task "${taskKey}"`).toBe(true);
+          expect(why.trim().length, `${slug}/${o.key}/${taskKey} needs a reason`).toBeGreaterThan(0);
+        }
+      }
+      // The all-equipped answer must never block anything — it's the "I have
+      // everything" door, and greying rows there would be nonsense.
+      expect(Object.keys(q.options[0].blocks ?? {}), `${slug}: first answer blocks nothing`).toEqual([]);
+    }
+    // The gear-gated garden jobs specifically: a bike cannot carry either.
+    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'basic')?.blocks).toHaveProperty('mowing');
+    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'none')?.blocks).toHaveProperty('mowing');
+    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'none')?.blocks).toHaveProperty('power');
+    // "No hoover" deliberately blocks NOTHING — the answer re-scopes floors to
+    // sweep & mop rather than making them impossible.
+    expect(EQUIPMENT_QUESTIONS.cleaning.options.find((o) => o.key === 'no-hoover')?.blocks).toBeUndefined();
+  });
+
+  // The market anchor must beat what the customer ACTUALLY PAYS, not the job
+  // price alone. Comparing a €22 job to a €28 agency hour and claiming "save
+  // €6" ignored our own €5 fee — the real saving is €1.
+  it('the "you save" anchor still wins once VANO’s own fee is counted in', () => {
+    const allIn = (slug: string, size: string) => {
+      const job = getHouseholdPriceCents(slug, size) as number;
+      return job + computeVanoFeeCents(job);
+    };
+    for (const [slug, rate] of Object.entries(BUILDER_MARKET_RATE_CENTS)) {
+      for (const hours of [1, 1.25, 2, 3, 4]) {
+        const size = hours === 1 ? '1 hour' : `${hours} hours`;
+        if (getHouseholdPriceCents(slug, size) == null) continue;
+        const market = builderMarketCents(slug, size) as number;
+        const paid = allIn(slug, size);
+        // It can be thin at the 1-hour minimum — that's why the card stays
+        // silent under €2 — but it must never be NEGATIVE, or the anchor is
+        // advertising a job that costs more than the agency it mocks.
+        expect(market, `${slug} ${size}: market €${market / 100} vs all-in €${paid / 100}`)
+          .toBeGreaterThanOrEqual(paid);
+      }
+      expect(rate).toBeGreaterThan(HOURLY_RATE_CENTS[slug]);
     }
   });
 
