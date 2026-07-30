@@ -70,6 +70,10 @@ interface Booking {
     /** Direct-pay model (July 2026): Vano charges only its fee; the customer
      *  pays the helper directly. */
     direct_pay?: boolean;
+    /** Card-pay option (2026-07-30): whole job on the card at accept —
+     *  helper still keeps 100% (VANO transfers it on completion). Every
+     *  settle-up-directly surface must hide when this is set. */
+    card_pay?: boolean;
     fee_due_cents?: number;
     cover_opted?: boolean;
     job_price_cents?: number;
@@ -900,7 +904,7 @@ const TrackBooking = () => {
       // the whole direct-pay model depends on. Only legacy escrow prepaid the
       // helper. (The persistent gold pay card below already carries the amount.)
       toast(
-        booking?.booking_data?.direct_pay === true
+        booking?.booking_data?.direct_pay === true && booking?.booking_data?.card_pay !== true
           ? { title: 'All done — thanks!', description: 'Now settle up with your helper directly — Revolut or cash (see the pay card below).' }
           : { title: 'All done — thanks!', description: 'Your helper has been paid.' },
       );
@@ -1407,18 +1411,23 @@ const TrackBooking = () => {
             </p>
             {(() => {
               const bd = booking.booking_data ?? {};
-              const direct = bd.direct_pay === true;
+              const cardPay = bd.direct_pay === true && bd.card_pay === true;
+              const direct = bd.direct_pay === true && !cardPay;
               const price = booking.price_estimate_cents ?? 0;
               const discount = bd.referral_discount_cents ?? 0;
               const due = direct
                 ? Math.max(0, bd.fee_due_cents ?? 0)
-                : Math.max(0, price + (bd.service_fee_cents ?? 0) - discount);
+                : cardPay
+                  ? Math.max(0, price + (bd.fee_due_cents ?? 0))
+                  : Math.max(0, price + (bd.service_fee_cents ?? 0) - discount);
               return (
                 <>
                   <p className="text-foreground/70 text-[13px] mt-1 leading-relaxed">
                     {direct
                       ? <>A small booking fee confirms {helperName ? helperName : 'your helper'}{bd.cover_opted ? ' (includes your €2 Vano Cover)' : ''}. The job itself — <span className="font-semibold text-foreground">€{(price / 100).toFixed(2)}</span> — is paid to {helperName ? helperName : 'them'} directly (Revolut or cash) when the work's done. They keep 100%.</>
-                      : <>Pay now to lock in your helper — your payment's protected until the job's confirmed done, money back if it's not right. No cash needed on the day.</>}
+                      : cardPay
+                        ? <>One card payment covers everything — <span className="font-semibold text-foreground">€{(price / 100).toFixed(2)}</span> goes to {helperName ? helperName : 'your helper'} (they keep 100%, paid out when the job's done){bd.cover_opted ? ', plus your €2 Vano Cover' : ''}. Nothing to pay on the day.</>
+                        : <>Pay now to lock in your helper — your payment's protected until the job's confirmed done, money back if it's not right. No cash needed on the day.</>}
                   </p>
                   {discount > 0 && (
                     <p className="flex items-center gap-1.5 text-xs font-semibold text-sage-dark mt-2">
@@ -1787,7 +1796,7 @@ const TrackBooking = () => {
                   gold Revolut card below). The "you've already paid / we pay
                   them" lines are ONLY true for legacy escrow bookings. */}
               <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
-                {booking.booking_data?.direct_pay === true
+                {booking.booking_data?.direct_pay === true && booking.booking_data?.card_pay !== true
                   ? booking.helper_finished_at
                     ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm it's done — then settle up with ${helperName ?? 'them'} directly (Revolut or cash) in the card below.`
                     : booking.job_ends_at
@@ -2245,7 +2254,7 @@ const TrackBooking = () => {
             copy chips are the backup. OWNER-VERIFY: tap one of these links
             against your own tag once; if the amount doesn't prefill, drop the
             `/${amountStr}` suffix below (one-line revert). */}
-        {booking.booking_data?.direct_pay === true && ['in_progress', 'completed'].includes(booking.status) && !isCancelled && (() => {
+        {booking.booking_data?.direct_pay === true && booking.booking_data?.card_pay !== true && ['in_progress', 'completed'].includes(booking.status) && !isCancelled && (() => {
           const bd = booking.booking_data ?? {};
           const owed = booking.price_estimate_cents ?? bd.job_price_cents ?? 0;
           const name = helperName || bd.helper_first_name || 'your helper';

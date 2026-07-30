@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { signBoostToken } from "../_shared/accountToken.ts";
 
 // Checks a 6-digit code against helper_email_otps and, on success, flips
 // household_helpers.student_email_verified. Pairs with send-student-email-otp.
@@ -105,7 +106,19 @@ serve(async (req) => {
       }).catch(() => {/* non-critical */});
     }
 
-    return json(200, { success: true, verified: true, ...(goingLive ? { went_live: true } : {}) });
+    // Boost session (2026-07-30): the inbox is proven, so mint the NARROW
+    // boost token that lets the "get more jobs" screen save availability +
+    // kit/languages extras via update-helper-profile — and nothing more
+    // (it is refused for phone/email/photo/payout edits). Fail-soft: a
+    // signing hiccup must never fail the verification itself.
+    let boostToken: string | null = null;
+    try { boostToken = await signBoostToken(helper_id); } catch { /* non-critical */ }
+
+    return json(200, {
+      success: true, verified: true,
+      ...(goingLive ? { went_live: true } : {}),
+      ...(boostToken ? { boost_token: boostToken } : {}),
+    });
   } catch (err) {
     console.error('[verify-student-email-otp] unhandled', err);
     return json(500, { error: 'Unexpected error' });

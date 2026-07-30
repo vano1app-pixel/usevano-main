@@ -260,6 +260,57 @@ export function computePriceCents(category: Category, sizeLabel: string, extraLa
   return null;
 }
 
+// ── Bring-the-basics supplies add-on (2026-07-30) ─────────────────────────
+// The equipment question's cleaning "no products" answer books the helper to
+// BRING sprays/cloths for a flat add-on. Charged only when the checkout body
+// carries an explicit `bring_supplies: true` for a cleaning booking — the
+// note text NEVER drives a price. The add-on is part of the JOB price (it's
+// the student's money — they buy the supplies), not Vano's fee; the fee is
+// computed on the BASE job price so the helper's expenses aren't taxed.
+// MUST mirror SUPPLIES_ADDON_CENTS in src/lib/householdPricing.ts —
+// jobBuilder.test.ts keeps the two in lock-step.
+export const SUPPLIES_ADDON_CENTS = 800;
+
+// ── Travel top-up (2026-07-30) ────────────────────────────────────────────
+// A €30 job with a 25-minute cycle each way is really ~€11/hr for the
+// student — the top-up keeps far-out jobs honestly worth taking. Flat ladder
+// keyed on straight-line distance from Eyre Square (helpers overwhelmingly
+// live in the city): inside ~8 km (all of the city, Salthill, Knocknacarra,
+// Barna edge) → nothing; 8–15 km (Oranmore, Claregalway) → €4; beyond
+// (Athenry, Gort…) → €8. 100% of it is the HELPER'S money (it rides the job
+// price, which Vano never touches under direct-pay); Vano's fee stays on the
+// base price. Fail-soft: no coordinates → no top-up, exactly the old price —
+// a booking can never 400 over geography. Thresholds are owner-tunable; keep
+// the two modules mirrored (jobBuilder.test.ts locks them in step).
+export const GALWAY_CENTRE = { lat: 53.2745, lng: -9.0491 }; // Eyre Square
+export const TRAVEL_TOPUP_NEAR_KM = 8;
+export const TRAVEL_TOPUP_FAR_KM = 15;
+export const TRAVEL_TOPUP_NEAR_CENTS = 400;
+export const TRAVEL_TOPUP_FAR_CENTS = 800;
+
+/** Straight-line km between two points (haversine). */
+export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Travel top-up for a job at the given coordinates, in cents (0 = none).
+ *  Anything non-finite → 0 (fail-soft — geography never blocks a booking). */
+export function travelTopupCents(lat: number | null | undefined, lng: number | null | undefined): number {
+  if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng)) return 0;
+  const km = distanceKm(lat, lng, GALWAY_CENTRE.lat, GALWAY_CENTRE.lng);
+  // Sanity ceiling: a badly-geocoded address (wrong county, wrong country)
+  // must not silently add a top-up to a booking that's probably in town.
+  if (km > 60) return 0;
+  if (km > TRAVEL_TOPUP_FAR_KM) return TRAVEL_TOPUP_FAR_CENTS;
+  if (km > TRAVEL_TOPUP_NEAR_KM) return TRAVEL_TOPUP_NEAR_CENTS;
+  return 0;
+}
+
 // Record<string, string> (not Record<Category, string>): retired slugs keep
 // their labels here so historical bookings still render everywhere.
 export const CATEGORY_LABELS: Record<string, string> = {

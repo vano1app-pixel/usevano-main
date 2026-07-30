@@ -105,6 +105,15 @@ serve(async (req) => {
     // function no longer moves money for those bookings, it's purely the
     // completion choke-point (status flip + rating token + notifications).
     const directPay = ((booking.booking_data as Record<string, unknown> | null)?.direct_pay) === true;
+    // Card-pay option (2026-07-30): the customer put the WHOLE job on their
+    // card at accept, so VANO holds the job money and must move it — a
+    // payout row for 100% of the job price + a Stripe Connect transfer,
+    // exactly the legacy machinery but with NO platform cut (the fee was
+    // charged to the customer on top; nothing is taken from the helper).
+    const cardPay = directPay && ((booking.booking_data as Record<string, unknown> | null)?.card_pay) === true;
+    // settleDirect = the customer pays the helper themselves — the only mode
+    // where this function moves no money.
+    const settleDirect = directPay && !cardPay;
 
     // The per-booking rating token lives in the service-role-only
     // household_booking_secrets table (never on the booking row — the assigned
@@ -136,8 +145,10 @@ serve(async (req) => {
     let holdUntil: string | null = null;
     let studentCents = priceCents; // direct-pay: the helper keeps 100%, paid directly
 
-    if (!directPay) {
-      // ── LEGACY escrow bookings (created before the direct-pay deploy) ────
+    if (!settleDirect) {
+      // ── LEGACY escrow bookings + CARD-PAY bookings ───────────────────────
+      // (Legacy: created before the direct-pay deploy. Card-pay: the customer
+      // chose to pay by card — helper keeps 100%.)
       // Idempotency: if payout already exists this job was already completed.
       const { count: existingPayout } = await supabase
         .from('household_payouts').select('id', { count:'exact', head:true }).eq('booking_id', bookingId);
@@ -161,7 +172,9 @@ serve(async (req) => {
         priceCents,
         Number((booking.booking_data as Record<string, unknown> | null)?.helper_pay_base_cents) || 0,
       );
-      studentCents = Math.floor(payBaseCents * (10000 - PLATFORM_FEE_BPS) / 10000);
+      // Card-pay: 100% to the helper — the promise the sheet makes ("they
+      // keep 100%") must be literally true. Legacy escrow keeps its 15% cut.
+      studentCents = cardPay ? payBaseCents : Math.floor(payBaseCents * (10000 - PLATFORM_FEE_BPS) / 10000);
 
       // Record the payout FIRST, and only flip the booking to 'completed' once
       // the helper's pay is durably on the books. UNIQUE(booking_id) makes a
@@ -295,7 +308,7 @@ serve(async (req) => {
       const rawHandle = String((booking.booking_data as Record<string, unknown> | null)?.helper_payment_handle ?? '').trim();
       const revTagMatch = rawHandle.match(/^(?:https?:\/\/)?(?:www\.)?revolut\.me\/@?([a-z0-9_]{3,16})\/?(?:[?#].*)?$/i) ?? rawHandle.match(/^@?([a-z0-9_]{3,16})$/i);
       const revAmount = (priceCents / 100).toFixed(2).replace(/\.00$/, '');
-      const revolutUrl = directPay && revTagMatch ? `https://revolut.me/${revTagMatch[1]}/${revAmount}` : null;
+      const revolutUrl = settleDirect && revTagMatch ? `https://revolut.me/${revTagMatch[1]}/${revAmount}` : null;
       // HTML-escaped forms for the email body (raw values feed the plain-text
       // body + subject below).
       const eCust = escapeHtml(custName);
@@ -309,7 +322,7 @@ serve(async (req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${eCust},</p>
     <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${eHelperFirst}</strong> has completed your <strong>${catLabel}</strong>. ${directPay
+      <strong>${eHelperFirst}</strong> has completed your <strong>${catLabel}</strong>. ${settleDirect
         ? `If you haven't already, settle up with ${eHelperFirst} directly — <strong>€${(priceCents / 100).toFixed(2)}</strong>${revolutUrl ? '' : (booking.booking_data as Record<string, unknown> | null)?.helper_payment_handle ? ` (Revolut <strong>${eHandleCap}</strong> or cash)` : ' (Revolut or cash)'} — they keep 100%.`
         : 'Payment was handled upfront — nothing more to do.'}
     </p>
@@ -336,13 +349,13 @@ serve(async (req) => {
           to:[custEmail],
           subject:`Your ${catLabel} is complete — how was ${helperFirst}?`,
           html,
-          text:`Hi ${custName}, ${helperFirst} has completed your ${catLabel}. ${directPay ? `If you haven't already, settle up with ${helperFirst} directly — €${(priceCents / 100).toFixed(2)}${revolutUrl ? ` (pay in Revolut, amount ready: ${revolutUrl} — or cash)` : ' (Revolut or cash)'}.` : 'Payment was handled upfront.'} How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
+          text:`Hi ${custName}, ${helperFirst} has completed your ${catLabel}. ${settleDirect ? `If you haven't already, settle up with ${helperFirst} directly — €${(priceCents / 100).toFixed(2)}${revolutUrl ? ` (pay in Revolut, amount ready: ${revolutUrl} — or cash)` : ' (Revolut or cash)'}.` : 'Payment was handled upfront.'} How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
         }),
       }).catch(()=>{});
     }
 
     const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
-    if (resendKey && adminEmail) fetch('https://api.resend.com/emails', { method:'POST', headers:{Authorization:`Bearer ${resendKey}`,'Content-Type':'application/json'}, body: JSON.stringify({ from, to:[adminEmail], subject:`✅ Job done — ${helperFirst} completed ${catLabel}`, text:`${helperFirst} completed a job.\nJob: ${catLabel}\nCustomer: ${custName}\n${directPay ? `Job money: €${(priceCents/100).toFixed(2)} paid to the student directly (100%)` : `Paid: €${(priceCents/100).toFixed(2)} (student earns €${(studentCents/100).toFixed(2)})`}\nRef: ${ref}\nTrack: ${trackUrl}` }) }).catch(()=>{});
+    if (resendKey && adminEmail) fetch('https://api.resend.com/emails', { method:'POST', headers:{Authorization:`Bearer ${resendKey}`,'Content-Type':'application/json'}, body: JSON.stringify({ from, to:[adminEmail], subject:`✅ Job done — ${helperFirst} completed ${catLabel}`, text:`${helperFirst} completed a job.\nJob: ${catLabel}\nCustomer: ${custName}\n${settleDirect ? `Job money: €${(priceCents/100).toFixed(2)} paid to the student directly (100%)` : cardPay ? `Card-pay: €${(priceCents/100).toFixed(2)} transferring to the student (100%)` : `Paid: €${(priceCents/100).toFixed(2)} (student earns €${(studentCents/100).toFixed(2)})`}\nRef: ${ref}\nTrack: ${trackUrl}` }) }).catch(()=>{});
 
     fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, { method:'POST', headers:{Authorization:`Bearer ${serviceKey}`,'Content-Type':'application/json'}, body: JSON.stringify({ type:'job_complete', helper_name:helperFirst, customer_name:custName, category:(booking as Record<string,unknown>).category, city:(booking as Record<string,unknown>).city, price_euros:(priceCents/100).toFixed(2), student_earns_euros:(studentCents/100).toFixed(2), booking_id:bookingId }) }).catch(()=>{});
 

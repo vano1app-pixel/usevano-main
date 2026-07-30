@@ -167,6 +167,74 @@ export const SIZING_QUESTIONS: Record<string, SizingQuestion> = {
   },
 };
 
+// ── The one-tap equipment question (2026-07-30, owner ask: "if the job
+// needs a tool, ask the customer if they have it — like cleaning, do you
+// have the products"). The #1 silent job failure is a helper cycling across
+// town to a garden with no mower or a clean with no hoover: the job dies on
+// the doorstep. One extra tap after the sizing question catches it at
+// booking time. Same invariants as everything else on page 1:
+//   carry  — ALWAYS rides the note so dispatch offers and the helper's job
+//            screen say the real setup ("Has hoover + products") BEFORE a
+//            helper accepts — that's the whole point;
+//   suppliesAddon — cleaning only: "no products" books the helper to BRING
+//            the basics for a flat add-on priced by the SERVER
+//            (SUPPLIES_ADDON_CENTS — the checkout reads an explicit
+//            bring_supplies boolean, never parses the note). The client
+//            only displays the mirrored number. No hoover is NOT an addon —
+//            a student can't carry a hoover on a bike, so that option
+//            honestly re-scopes to sweep + mop instead of failing the job.
+// No answer (WhatsApp door, memory rebooks, old links) = no carry, no addon
+// — fail-soft, exactly like the sizing question. Laundry deliberately has
+// no equipment question: the bag ladder already asked the only thing that
+// matters, and a detergent question would add friction for nothing.
+
+export interface EquipmentOption {
+  key: string;
+  emoji: string;
+  label: string;
+  hint?: string;
+  /** Rides into the booking note so the helper reads the setup up front. */
+  carry: string;
+  /** Cleaning only: helper brings the basics — server prices the flat add-on. */
+  suppliesAddon?: boolean;
+}
+
+export interface EquipmentQuestion {
+  title: string;
+  /** The honest why-we-ask line, shown under the title. */
+  why: string;
+  options: EquipmentOption[];
+}
+
+export const EQUIPMENT_QUESTIONS: Record<string, EquipmentQuestion> = {
+  cleaning: {
+    title: 'Do you have cleaning things at home?',
+    why: 'So your helper arrives ready — no doorstep surprises',
+    options: [
+      { key: 'all',        emoji: '✅', label: 'Hoover & products', hint: 'All set — helper just brings energy', carry: 'Has hoover + products' },
+      { key: 'no-products', emoji: '🧴', label: 'Hoover, no products', hint: 'Helper brings sprays & cloths', carry: 'Helper brings cleaning products', suppliesAddon: true },
+      { key: 'no-hoover',  emoji: '🧹', label: 'No hoover', hint: 'Helper will sweep & mop floors instead', carry: 'No hoover — sweep & mop floors' },
+    ],
+  },
+  garden: {
+    title: "What's in the shed?",
+    why: 'So your helper arrives ready — no doorstep surprises',
+    options: [
+      { key: 'mower',    emoji: '🚜', label: 'Mower & tools', hint: 'All set for any garden job',            carry: 'Has mower + tools' },
+      { key: 'basic',    emoji: '🧤', label: 'Some tools, no mower', hint: 'Weeding, hedges & tidy-ups work great', carry: 'Tools but no mower — no mowing' },
+      { key: 'none',     emoji: '🤷', label: 'No tools', hint: 'Helper brings gloves & hand tools for light work', carry: 'No tools — helper brings gloves & hand tools' },
+    ],
+  },
+  'dog-walk': {
+    title: 'Lead & bits ready to go?',
+    why: 'So the walk starts the minute your helper arrives',
+    options: [
+      { key: 'ready',  emoji: '🦴', label: 'Lead, harness & bags by the door', hint: 'Grab-and-go', carry: 'Lead, harness & bags by the door' },
+      { key: 'lead',   emoji: '🐕', label: 'Lead only', hint: 'Helper brings poop bags',            carry: 'Lead only — helper brings bags' },
+    ],
+  },
+};
+
 const taskByKey = (slug: string, key: string): BuilderTask | undefined =>
   BUILDER_TASKS[slug]?.find((t) => t.key === key);
 

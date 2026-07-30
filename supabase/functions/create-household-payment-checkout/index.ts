@@ -7,6 +7,8 @@ import {
   type Category,
   computePriceCents,
   CATEGORY_LABELS,
+  SUPPLIES_ADDON_CENTS,
+  travelTopupCents,
 } from "../_shared/householdPricing.ts";
 // Free-text safety screen — shared pure module so the blocked lines are
 // pinned by vitest (src/lib/__tests__/safetyScreen.test.ts).
@@ -119,7 +121,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw, cover } = body;
+    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw, cover, bring_supplies, card_pay } = body;
     // Optional Vano Cover add-on — customer-elected at booking, flat €2.
     const coverOpted = cover === true;
 
@@ -176,6 +178,27 @@ serve(async (req) => {
       return bad(400, `No price available for ${category} / ${sl}${el ? ' / ' + el : ''}`);
     }
     const isMonthlyPlan = cat.startsWith('airbnb-');
+
+    // Bring-the-basics supplies add-on (equipment question, 2026-07-30):
+    // an EXPLICIT boolean from the sheet — never inferred from the note —
+    // and cleaning-only. It's the STUDENT'S money (they buy the sprays/
+    // cloths), so it rides the job price; Vano's fee stays on the base
+    // price so the helper's expenses aren't taxed.
+    const suppliesCents = bring_supplies === true && cat === 'cleaning' ? SUPPLIES_ADDON_CENTS : 0;
+    // The full job total starts as table price + supplies; the travel top-up
+    // (needs the geocoded coordinates) is added after the geocode below.
+    let jobTotalCents = priceCents + suppliesCents;
+
+    // ── CARD-PAY OPTION (2026-07-30, owner test) ─────────────────────────
+    // A second way to PAY, not a second flow: the customer chooses at the
+    // sheet to put the WHOLE job on their card at accept (job price + fee,
+    // one Stripe Checkout) instead of settling with the helper directly.
+    // The helper still keeps 100% of the job price — capture-household-
+    // payment writes a full-price payout row + Stripe Connect transfer on
+    // completion for card_pay bookings. Direct pay stays the default; the
+    // WhatsApp door and old clients never send the flag (→ classic direct
+    // pay), and everything downstream branches on booking_data.card_pay.
+    const cardPay = card_pay === true && !isMonthlyPlan;
 
     // ── DIRECT-PAY MODEL (July 2026) ─────────────────────────────────────
     // The job price is the STUDENT'S money, paid to them directly by the
@@ -318,6 +341,10 @@ serve(async (req) => {
       !!stripeKeyForAuth &&
       feeDueCents >= 50 &&
       !isMonthlyPlan &&
+      // Card-pay bookings charge job + fee in ONE session at accept — a
+      // fee-only hold at booking would collide with that; they keep the
+      // classic pay-after-accept flow.
+      !cardPay &&
       !isFarFuture(scheduledAt, Date.now());
 
     // booking_data is built once and (only for welcome referrals) updated in
@@ -331,11 +358,16 @@ serve(async (req) => {
       source:        'task_showcase',
       // ── Direct-pay money picture ──
       direct_pay:        true,
-      job_price_cents:   priceCents,     // the student's money, paid directly
+      job_price_cents:   jobTotalCents,  // the student's money (incl. supplies; travel patched in below)
       vano_fee_cents:    vanoFeeCents,   // 15% min €4 — before discounts
-      fee_due_cents:     feeDueCents,    // what the card is charged at accept
+      fee_due_cents:     feeDueCents,    // what the card is charged at accept (fee side)
       cover_opted:       coverOpted,
       cover_cents:       coverCents,
+      ...(suppliesCents > 0 ? { bring_supplies: true, supplies_cents: suppliesCents } : {}),
+      // Card-pay: the accept-time card charge is job_price_cents +
+      // fee_due_cents in one session; the helper is paid 100% of the job
+      // price by Stripe Connect transfer on completion.
+      ...(cardPay ? { card_pay: true } : {}),
       // Customer reputation snapshot for the helper's accept decision
       // ("pays promptly ✓ · 3 jobs" / "New customer") — no PII beyond what
       // the assigned helper sees anyway.
@@ -374,6 +406,19 @@ serve(async (req) => {
           if (isFinite(lat) && isFinite(lng)) { custLat = lat; custLng = lng; }
         }
       } catch (e) { console.warn('[create-household-payment-checkout] geocode failed', e); }
+    }
+
+    // ── Travel top-up (2026-07-30) ───────────────────────────────────────
+    // Far-out jobs (Oranmore, Athenry…) carry a flat top-up so the trip is
+    // honestly worth a student's while — 100% of it is the helper's money
+    // (it rides the job price; Vano's fee stays on the base price). Ladder +
+    // thresholds live in _shared/householdPricing.ts, mirrored client-side
+    // for display. Fail-soft: no coordinates → no top-up.
+    const travelCents = isMonthlyPlan ? 0 : travelTopupCents(custLat, custLng);
+    if (travelCents > 0) {
+      jobTotalCents += travelCents;
+      bookingData.job_price_cents = jobTotalCents;
+      bookingData.travel_topup_cents = travelCents;
     }
 
     // Double-submit guard: a fast double-tap on Book (or a retry) can call this
@@ -451,7 +496,7 @@ serve(async (req) => {
         scheduled_date: when_label || 'flexible',
         time_slot: null,
         is_express: false,
-        price_estimate_cents: priceCents,
+        price_estimate_cents: jobTotalCents,
         // Auth path: born awaiting_payment — the auth webhook flips it live
         // (pending) once the card hold succeeds. Classic path: live
         // immediately, payment requested after a helper accepts.
@@ -629,7 +674,7 @@ serve(async (req) => {
           params.set(`line_items[${li}][price_data][unit_amount]`, String(feePartCents));
           params.set(`line_items[${li}][price_data][product_data][name]`, 'VANO booking fee');
           params.set(`line_items[${li}][price_data][product_data][description]`,
-            `Matching, ID verification & support for your ${catLabel}. Reserved now — only charged when a helper accepts. The job itself (€${(priceCents / 100).toFixed(2)}) is paid to your helper directly.`);
+            `Matching, ID verification & support for your ${catLabel}. Reserved now — only charged when a helper accepts. The job itself (€${(jobTotalCents / 100).toFixed(2)}) is paid to your helper directly.`);
           li += 1;
         }
         if (coverCents > 0) {
@@ -701,7 +746,7 @@ serve(async (req) => {
             record: {
               id: bookingId, status: 'pending', city: cityVal,
               category: cat, scheduled_date: when_label || 'flexible',
-              price_estimate_cents: priceCents,
+              price_estimate_cents: jobTotalCents,
             },
           }),
         });
@@ -720,7 +765,7 @@ serve(async (req) => {
     // Admin ping (WhatsApp + email) — used to fire from stripe-webhook on
     // payment, but payment now happens after acceptance, so notify here.
     const adminNotifyPromise = (async () => {
-      const priceStr = `€${(priceCents / 100).toFixed(2)} to helper + €${(feeDueCents / 100).toFixed(2)} fee`;
+      const priceStr = `€${(jobTotalCents / 100).toFixed(2)} to helper + €${(feeDueCents / 100).toFixed(2)} fee`;
       const ref = bookingId.slice(-8).toUpperCase();
       const catLabel = CATEGORY_LABELS[cat];
       try {
@@ -735,7 +780,7 @@ serve(async (req) => {
             category: cat,
             scheduled_date: when_label || 'flexible',
             city: cityVal,
-            price_euros: (priceCents / 100).toFixed(2),
+            price_euros: (jobTotalCents / 100).toFixed(2),
             booking_id: bookingId,
           }),
         });
@@ -762,7 +807,7 @@ serve(async (req) => {
               `Phone: ${customer_phone.trim()}`,
               `City: ${cityVal ?? '—'}`,
               `When: ${when_label || 'Flexible'}`,
-              `Helper gets (paid directly): €${(priceCents / 100).toFixed(2)}`,
+              `Helper gets ${cardPay ? '(paid by card via VANO)' : '(paid directly)'}: €${(jobTotalCents / 100).toFixed(2)}`,
               `Vano fee: €${(feeDueCents / 100).toFixed(2)}${coverOpted ? ' (incl. €2 Vano Cover)' : ''}${authActive ? ' — RESERVED at booking (card hold), captured on accept' : ' — charged on accept'}`,
               ...(unpaidStrikes > 0 ? [`⚠ Customer has ${unpaidStrikes} unpaid strike(s)`] : []),
               ...(referralDiscountCents > 0 ? [`Referral credit applied to fee: -€${(referralDiscountCents / 100).toFixed(2)}`] : []),
@@ -793,9 +838,9 @@ serve(async (req) => {
         track_url: trackUrl,
         checkout_url: authActive && authSessionUrl ? authSessionUrl : trackUrl,
         ...(authActive && authSessionUrl ? { auth_required: true } : {}),
-        price_cents: priceCents,
+        price_cents: jobTotalCents,
         fee_due_cents: feeDueCents,
-        total_cents: priceCents + feeDueCents,
+        total_cents: jobTotalCents + feeDueCents,
         ...(referralDiscountCents > 0 ? { referral_discount_cents: referralDiscountCents } : {}),
         pay_later: true,
       }),

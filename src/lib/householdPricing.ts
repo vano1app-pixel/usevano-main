@@ -90,6 +90,49 @@ export const DOG_UPCHARGE_CENTS: Record<string, number> = {
   'Two dogs':   500,
 };
 
+/**
+ * Bring-the-basics supplies add-on (2026-07-30): the equipment question's
+ * cleaning "no products" answer books the helper to bring sprays/cloths for
+ * this flat add-on. Display mirror of SUPPLIES_ADDON_CENTS in
+ * supabase/functions/_shared/householdPricing.ts — the SERVER charges it
+ * (from an explicit bring_supplies boolean, never the note text) and it's
+ * the STUDENT'S money (they buy the supplies); Vano's fee stays on the base
+ * job price. jobBuilder.test.ts keeps the two in lock-step.
+ */
+export const SUPPLIES_ADDON_CENTS = 800;
+
+/**
+ * Travel top-up (2026-07-30) — display mirror of the server ladder in
+ * supabase/functions/_shared/householdPricing.ts (which charges it
+ * authoritatively from the geocoded booking coordinates). Flat ladder on
+ * straight-line km from Eyre Square: ≤8 km → €0, 8–15 km → €4, beyond → €8.
+ * 100% goes to the helper (it rides the job price). Fail-soft: no coords →
+ * 0. jobBuilder.test.ts locks the two modules in step.
+ */
+export const GALWAY_CENTRE = { lat: 53.2745, lng: -9.0491 }; // Eyre Square
+export const TRAVEL_TOPUP_NEAR_KM = 8;
+export const TRAVEL_TOPUP_FAR_KM = 15;
+export const TRAVEL_TOPUP_NEAR_CENTS = 400;
+export const TRAVEL_TOPUP_FAR_CENTS = 800;
+
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export function travelTopupCents(lat: number | null | undefined, lng: number | null | undefined): number {
+  if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng)) return 0;
+  const km = distanceKm(lat, lng, GALWAY_CENTRE.lat, GALWAY_CENTRE.lng);
+  if (km > 60) return 0; // bad geocode sanity ceiling — mirrors the server
+  if (km > TRAVEL_TOPUP_FAR_KM) return TRAVEL_TOPUP_FAR_CENTS;
+  if (km > TRAVEL_TOPUP_NEAR_KM) return TRAVEL_TOPUP_NEAR_CENTS;
+  return 0;
+}
+
 export function getHouseholdPriceCents(slug: string, size: string, extraLabel?: string): number | null {
   if (slug === 'shopping') return LAUNDRY_BAG_CENTS[size] ?? FLAT_PRICE_CENTS.shopping;
   if (slug in FLAT_PRICE_CENTS) return FLAT_PRICE_CENTS[slug];
@@ -137,3 +180,14 @@ export function computeVanoFeeCents(jobPriceCents: number): number {
   if (!Number.isFinite(jobPriceCents) || jobPriceCents <= 0) return VANO_FEE_MIN_CENTS;
   return Math.max(VANO_FEE_MIN_CENTS, Math.round((jobPriceCents * VANO_FEE_BPS) / 10000));
 }
+
+// ── Card-pay option (2026-07-30, owner test) ─────────────────────────────
+// A second way to PAY, not a second flow: the customer can choose to put the
+// whole job on their card at accept (job price + fee, one tap, held by
+// Stripe) instead of paying the helper directly — the helper STILL keeps
+// 100% of the job price (VANO transfers it in full on completion via Stripe
+// Connect; only the same 15%/min-€4 fee is VANO's). Everything downstream
+// branches on booking_data.card_pay; direct pay stays the default. Flip this
+// to false to pull the option from the sheet without touching the server —
+// in-flight card-pay bookings still complete correctly (data-driven).
+export const CARD_PAY_OFFERED = true;

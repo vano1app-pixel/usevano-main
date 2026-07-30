@@ -13,9 +13,9 @@ import { AddressPicker } from '@/components/household/AddressPicker';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
-import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS } from '@/lib/householdPricing';
+import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES_ADDON_CENTS, travelTopupCents, CARD_PAY_OFFERED } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
-import { BUILDER_TASKS, SIZING_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, scaledTaskMinutes, hoursFromSizeLabel, type SizingOption } from '@/lib/jobBuilder';
+import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, scaledTaskMinutes, hoursFromSizeLabel, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -512,9 +512,18 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Rebooks + deep links with a size (`direct`/`initialSize`) never re-ask.
   const question = SIZING_QUESTIONS[entryCat.slug];
   const [sizing, setSizing] = useState<SizingOption | null>(null);
-  // Page-1 phase: 'ask' = the sizing question, 'main' = ticks (builders) or
-  // the sub-service list (everything else).
-  const [pickPhase, setPickPhase] = useState<'ask' | 'main'>(
+  // The one-tap equipment question (2026-07-30, owner ask: "if the job needs
+  // a tool, ask the customer if they have it"). Asked right after the sizing
+  // question — the answer rides the NOTE so dispatch offers + the helper's
+  // job screen read the setup ("Has hoover + products") before accepting.
+  // Cleaning's "no products" answer books the helper to bring the basics
+  // (+€8, priced by the SERVER from an explicit bring_supplies boolean).
+  // Rebooks + deep links with a size never see either question, as before.
+  const equipQuestion = EQUIPMENT_QUESTIONS[entryCat.slug];
+  const [equip, setEquip] = useState<EquipmentOption | null>(null);
+  // Page-1 phase: 'ask' = the sizing question, 'equip' = the equipment
+  // question, 'main' = ticks (builders) or the sub-service list.
+  const [pickPhase, setPickPhase] = useState<'ask' | 'equip' | 'main'>(
     startOnPick && question && builderTasks ? 'ask' : 'main',
   );
   const [active, setActive] = useState<{ cat: Category; note?: string; extraLabel?: string }>(
@@ -544,6 +553,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const [editDetails, setEditDetails] = useState(false);
   // Optional Vano Cover add-on — customer-elected at booking, flat €2.
   const [coverOpted, setCoverOpted] = useState(false);
+  // Card-pay option (2026-07-30, owner test): 'direct' = today's default
+  // (card pays only the VANO fee; the customer settles the job with the
+  // helper in person), 'card' = one card payment for everything at accept —
+  // the helper STILL keeps 100% of the job price (VANO transfers it on
+  // completion). Display-only here; the server stamps booking_data.card_pay.
+  const [payMode, setPayMode] = useState<'direct' | 'card'>('direct');
   // The open question the form never asked (2026-07-27): gate code, parking,
   // the dog's name. Collapsed to one quiet line — zero friction for everyone
   // who skips it; the text rides the booking note to dispatch offers and the
@@ -679,11 +694,33 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     if (opt.size) setSize(opt.size);
     navDir.current = 1;
     if (builderTasks) {
-      setPickPhase('main');
+      setPickPhase(equipQuestion ? 'equip' : 'main');
       return;
     }
     if (opt.carry) setActive((a) => ({ ...a, note: opt.carry, extraLabel: opt.carry }));
+    if (equipQuestion) {
+      // One more tap — "lead & bags by the door?" — before the form.
+      setPickPhase('equip');
+      return;
+    }
     setPickPhase('main'); // so "back" from the form lands on the sub list, not the question
+    setStep('form');
+  }
+
+  // One tap answers the equipment question. Builders move on to the ticks;
+  // Pets go straight to the form with the carry riding the NOTE only — the
+  // extraLabel must stay the PRICED dog answer (the server reads it).
+  function applyEquip(opt: EquipmentOption) {
+    haptic(10);
+    track('hero_equip_pick', { category: entryCat.slug, answer: opt.key });
+    setEquip(opt);
+    navDir.current = 1;
+    if (builderTasks) {
+      setPickPhase('main');
+      return;
+    }
+    setActive((a) => ({ ...a, note: [a.note, opt.carry].filter(Boolean).join(' · ') }));
+    setPickPhase('main');
     setStep('form');
   }
 
@@ -696,6 +733,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     ? builderSizeLabel(builderMinutes(entryCat.slug, ticked, sizingFactor), entryCat.sizes)
     : null;
   const builderPriceCents = builderSize ? getPriceCents(entryCat.slug, builderSize) : null;
+  // What the build-up card shows: labour + the bring-the-basics supplies
+  // add-on when the equipment answer picked it. The market "you save" anchor
+  // keeps comparing labour to labour (supplies aren't cleaning hours).
+  const builderEquipCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
+  const builderDisplayCents = builderPriceCents != null ? builderPriceCents + builderEquipCents : null;
   const builderMarket = builderSize ? builderMarketCents(entryCat.slug, builderSize) : null;
 
   // Page 1 (builder) → page 2: same contract as applyPick — the ticked list
@@ -714,7 +756,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     });
     setActive({
       cat: entryCat,
-      note: [sizing?.carry, builderNote(entryCat.slug, ticked)].filter(Boolean).join(' · '),
+      // Scope first, then the tasks, then the equipment answer — one string
+      // the helper reads top to bottom before saying yes.
+      note: [sizing?.carry, builderNote(entryCat.slug, ticked), equip?.carry].filter(Boolean).join(' · '),
       extraLabel: builderShortLabel(entryCat.slug, ticked) ?? undefined,
     });
     setSize(builderSize);
@@ -733,10 +777,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     business:   'What does your business need?',
   };
   const pickTitle = isDescribe ? 'What do you need done?' : (PICK_TITLES[entryCat.slug] ?? `What kind of ${entryCat.label.toLowerCase()}?`);
-  // The sizing question takes over page 1's header while it's being asked.
+  // The sizing/equipment questions take over page 1's header while asked.
   const asking = step === 'pick' && pickPhase === 'ask' && !!question;
-  const headerTitle = asking && question ? question.title : pickTitle;
-  const headerWhy = asking && question ? question.why : null;
+  const askingEquip = step === 'pick' && pickPhase === 'equip' && !!equipQuestion;
+  const headerTitle = asking && question ? question.title
+    : askingEquip && equipQuestion ? equipQuestion.title
+    : pickTitle;
+  const headerWhy = asking && question ? question.why
+    : askingEquip && equipQuestion ? equipQuestion.why
+    : null;
   // Answer rows carry the real resulting price — the single price source,
   // never hardcoded. Laundry rows price their bag label; dog rows price the
   // picked walk duration WITH that answer (€15/€15/€18/€20), so the
@@ -869,6 +918,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // server re-prices the same pair authoritatively at checkout.
   const priceCents = getPriceCents(cat.slug, size, extraLabel);
   const priceLabel = priceCents ? fmt(priceCents) : null;
+  // Bring-the-basics supplies (equipment question) + travel top-up (far-out
+  // addresses) — both the STUDENT'S money, both recomputed authoritatively
+  // by the server (bring_supplies boolean / geocoded coordinates); these are
+  // display mirrors so the sheet's total never surprises at accept time.
+  const suppliesCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
+  const travelCents = coords ? travelTopupCents(coords.lat, coords.lng) : 0;
+  const jobTotalCents = priceCents != null ? priceCents + suppliesCents + travelCents : null;
 
   // Live field validity — drives the small green ✓ next to each label as it's
   // filled. Quiet reassurance at the highest-friction step (a stranger typing
@@ -1035,6 +1091,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           size_label:       size,
           scheduled:        isScheduledAhead,
           cover:            coverOpted,
+          // Equipment answer: the helper brings the basics (+€8, cleaning
+          // only — the server validates and prices it).
+          ...(suppliesCents > 0 ? { bring_supplies: true } : {}),
+          // Card-pay option: one card payment for everything at accept.
+          ...(CARD_PAY_OFFERED && payMode === 'card' ? { card_pay: true } : {}),
           ...(computeScheduledAt(when) ? { scheduled_at: computeScheduledAt(when) } : {}),
           // Wizard scope first, then the customer's own words — one string
           // the helper reads top to bottom ("3-bed home · Kitchen … · Gate
@@ -1172,7 +1233,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               {/* Back — grows in from zero width so the title glides right
                   instead of being shoved when the button appears. */}
               <AnimatePresence initial={false}>
-                {startOnPick && (step === 'form' || (asking && !builderTasks)) && (
+                {startOnPick && (step === 'form' || (asking && !builderTasks) || askingEquip) && (
                   <motion.button
                     key="wizard-back"
                     type="button"
@@ -1182,6 +1243,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     onClick={() => {
                       navDir.current = -1;
                       if (step === 'form') setStep('pick');
+                      // Equipment question → back to the sizing question
+                      // (builders) or the sub list (pets).
+                      else if (pickPhase === 'equip') setPickPhase(builderTasks && question ? 'ask' : 'main');
                       else setPickPhase('main');
                     }}
                     aria-label={step === 'form' ? 'Back to job types' : 'Back to job list'}
@@ -1339,7 +1403,23 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   className="mb-3 w-full h-12 rounded-2xl border border-border bg-white px-4 text-base sm:text-[15px] text-foreground placeholder:text-foreground/45 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               )}
-              {question && pickPhase === 'ask' && !isDescribe ? (
+              {equipQuestion && pickPhase === 'equip' && !isDescribe ? (
+                /* ── The one-tap equipment question. Rows use the same
+                    grammar as the sizing question; the cleaning "helper
+                    brings products" row wears its honest +€8. */
+                <div className="space-y-2" role="group" aria-label={equipQuestion.title}>
+                  {equipQuestion.options.map((opt, i) =>
+                    renderSubRow(
+                      opt.key,
+                      opt.emoji,
+                      opt.label,
+                      opt.hint ?? null,
+                      (opt.key === equip?.key ? '✓ ' : '') + (opt.suppliesAddon ? `+${fmt(SUPPLIES_ADDON_CENTS)}` : ''),
+                      () => applyEquip(opt),
+                      i,
+                    ))}
+                </div>
+              ) : question && pickPhase === 'ask' && !isDescribe ? (
                 /* ── The one-tap sizing question (the speed wizard). Rows use
                     the same grammar as the sub-picker: emoji + label + honest
                     hint, price only where the answer IS a price (laundry
@@ -1374,6 +1454,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
                         <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{sizing.emoji}</span>
                         <span className="font-semibold truncate">{sizing.carry ?? sizing.label}</span>
+                      </span>
+                      <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">Change</span>
+                    </button>
+                  )}
+                  {/* The equipment answer stays visible + changeable too — it
+                      rides the note the helper reads, and cleaning's supplies
+                      answer moves the price. */}
+                  {equip && (
+                    <button
+                      type="button"
+                      onClick={() => { haptic(8); navDir.current = -1; setPickPhase('equip'); }}
+                      className="mb-2.5 flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-white px-3.5 py-2.5 text-left transition-colors hover:bg-secondary/40"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
+                        <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{equip.emoji}</span>
+                        <span className="font-semibold truncate">{equip.carry}{equip.suppliesAddon ? ` (+${fmt(SUPPLIES_ADDON_CENTS)})` : ''}</span>
                       </span>
                       <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">Change</span>
                     </button>
@@ -1439,8 +1535,8 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       <span className={cn('text-sm min-w-0', builderSize ? 'text-foreground/70' : 'text-muted-foreground')}>
                         {builderSize ? `About ${builderSize} · €18/hr` : 'Tick what needs doing'}
                       </span>
-                      {builderPriceCents != null
-                        ? <AnimatedPrice announce cents={builderPriceCents} className="text-2xl font-bold text-foreground flex-shrink-0" />
+                      {builderDisplayCents != null
+                        ? <AnimatedPrice announce cents={builderDisplayCents} className="text-2xl font-bold text-foreground flex-shrink-0" />
                         : <span className="text-2xl font-bold text-foreground/25 tabular-nums flex-shrink-0" aria-hidden="true">€0</span>}
                     </div>
                     {builderPriceCents != null && builderMarket != null && builderMarket > builderPriceCents && (
@@ -1454,7 +1550,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       onClick={applyBuilderPick}
                       className="mt-3 w-full h-12 rounded-full text-[15px] font-bold"
                     >
-                      {builderPriceCents != null ? `Continue · ${fmt(builderPriceCents)}` : 'Tick at least one job'}
+                      {builderDisplayCents != null ? `Continue · ${fmt(builderDisplayCents)}` : 'Tick at least one job'}
                     </Button>
                   </div>
                   </div>
@@ -1785,8 +1881,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   Written for the slowest reader in the room, on purpose. */}
               {priceCents && (
                 <p className="text-[13px] leading-relaxed text-muted-foreground text-center px-1">
-                  Like paying a babysitter — you pay your student directly once
-                  the job's done. The small VANO fee is what books them.
+                  {payMode === 'card'
+                    ? 'One card payment covers everything when a helper accepts — your student still keeps 100% of the job price.'
+                    : "Like paying a babysitter — you pay your student directly once the job's done. The small VANO fee is what books them."}
                 </p>
               )}
               {priceCents && (
@@ -1795,7 +1892,20 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     <span className="text-[15px] text-foreground/70 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'As soon as possible' : when}{size ? ` · ${size}` : ''}</span>
                     <AnimatedPrice cents={priceCents} className="text-xl font-bold text-foreground flex-shrink-0" />
                   </div>
-                  <p className="text-[13px] text-muted-foreground mt-1">Paid straight to your helper — they keep 100%</p>
+                  <p className="text-[13px] text-muted-foreground mt-1">{payMode === 'card' ? 'Goes to your helper — they keep 100%' : 'Paid straight to your helper — they keep 100%'}</p>
+
+                  {suppliesCents > 0 && (
+                    <div className="flex items-center justify-between gap-3 mt-2">
+                      <span className="text-sm text-foreground/70">Helper brings cleaning products</span>
+                      <span className="text-sm font-semibold text-foreground flex-shrink-0">+{fmt(suppliesCents)}</span>
+                    </div>
+                  )}
+                  {travelCents > 0 && (
+                    <div className="flex items-center justify-between gap-3 mt-2">
+                      <span className="text-sm text-foreground/70">Travel top-up — outside the city, goes to your helper</span>
+                      <span className="text-sm font-semibold text-foreground flex-shrink-0">+{fmt(travelCents)}</span>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between gap-3 mt-3 border-t border-foreground/10 pt-3">
                     <span className="text-sm text-foreground/70">VANO booking fee</span>
@@ -1822,13 +1932,41 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   {/* The only money that ever touches the card — rolls when the
                       duration or Cover changes it (the "price builds up" beat) */}
                   <div className="flex items-center justify-between gap-3 mt-3 border-t border-foreground/10 pt-3">
-                    <span className="text-[15px] font-bold text-foreground">You pay when a helper says yes</span>
+                    <span className="text-[15px] font-bold text-foreground">{payMode === 'card' ? 'Card total when a helper says yes' : 'You pay when a helper says yes'}</span>
                     <AnimatedPrice
                       announce
-                      cents={computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
+                      cents={(payMode === 'card' ? (jobTotalCents ?? 0) : 0) + computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
                       className="text-lg font-bold text-sage-dark flex-shrink-0"
                     />
                   </div>
+                </div>
+              )}
+
+              {/* How you'll pay the job (2026-07-30, owner test): direct
+                  settle-up stays the default; "everything by card" charges
+                  job + fee in one payment at accept — the helper still keeps
+                  100% (VANO transfers the job price on completion). */}
+              {CARD_PAY_OFFERED && priceCents && (
+                <div role="radiogroup" aria-label="How you'll pay the job" className="grid grid-cols-2 gap-2">
+                  {([
+                    { mode: 'direct' as const, label: 'Pay helper directly', hint: 'Revolut or cash on the day' },
+                    { mode: 'card' as const, label: 'Everything by card', hint: 'One payment · nothing on the day' },
+                  ]).map((o) => (
+                    <button
+                      key={o.mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={payMode === o.mode}
+                      onClick={() => { setPayMode(o.mode); haptic(8); }}
+                      className={cn(
+                        'rounded-2xl border px-3.5 py-3 text-left transition-colors duration-150',
+                        payMode === o.mode ? 'border-sage bg-sage-light' : 'border-border bg-white hover:bg-secondary/40',
+                      )}
+                    >
+                      <span className="block text-sm font-bold text-foreground">{o.label}</span>
+                      <span className="block text-[12px] text-muted-foreground mt-0.5 leading-snug">{o.hint}</span>
+                    </button>
+                  ))}
                 </div>
               )}
 
@@ -1917,7 +2055,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 footer. */}
             <motion.div variants={listItem} className="sm:max-w-lg sm:mx-auto space-y-2 pt-1">
               <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
-                Booking only reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job's done.
+                {payMode === 'card'
+                  ? 'Nothing is charged until a helper accepts — then one card payment covers the job and the small VANO fee. Your helper keeps 100% of the job price.'
+                  : 'Booking only reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job\'s done.'}
               </p>
               <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
                 By tapping Book you agree to VANO's{' '}

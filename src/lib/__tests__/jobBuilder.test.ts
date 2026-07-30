@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILDER_MARKET_RATE_CENTS,
   BUILDER_TASKS,
+  EQUIPMENT_QUESTIONS,
   SIZING_QUESTIONS,
   builderMarketCents,
   builderMinutes,
@@ -10,10 +11,19 @@ import {
   builderSizeLabel,
   scaledTaskMinutes,
 } from '../jobBuilder';
-import { DOG_UPCHARGE_CENTS, HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, getHouseholdPriceCents } from '../householdPricing';
+import {
+  DOG_UPCHARGE_CENTS, HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, getHouseholdPriceCents,
+  SUPPLIES_ADDON_CENTS, travelTopupCents,
+  TRAVEL_TOPUP_NEAR_CENTS, TRAVEL_TOPUP_FAR_CENTS, GALWAY_CENTRE,
+} from '../householdPricing';
 // The REAL server table (pure TS, no Deno APIs) — the dog surcharge is priced
 // server-side off extra_label, so the ladder is cross-checked on actual code.
-import { computePriceCents } from '../../../supabase/functions/_shared/householdPricing';
+import {
+  computePriceCents,
+  SUPPLIES_ADDON_CENTS as SERVER_SUPPLIES_ADDON_CENTS,
+  travelTopupCents as serverTravelTopupCents,
+  GALWAY_CENTRE as SERVER_GALWAY_CENTRE,
+} from '../../../supabase/functions/_shared/householdPricing';
 
 // The size chips each builder category offers in CategoryGrid. Kept in
 // lock-step by hand (the arrays live inside the component) — if the sheet's
@@ -230,5 +240,59 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
         expect(Number.isInteger(builderMinutes(slug, subset, 1.35))).toBe(true); // whole minutes only
       }
     }
+  });
+});
+
+// ── The equipment question + its money surfaces (2026-07-30) ──────────────
+describe('equipment question — carries ride the note, add-ons stay in lock-step', () => {
+  it('every option has a non-empty carry and key', () => {
+    for (const [slug, q] of Object.entries(EQUIPMENT_QUESTIONS)) {
+      expect(q.title.length, slug).toBeGreaterThan(0);
+      expect(q.options.length, slug).toBeGreaterThanOrEqual(2);
+      for (const o of q.options) {
+        expect(o.key.length, `${slug}/${o.key}`).toBeGreaterThan(0);
+        expect(o.carry.trim().length, `${slug}/${o.key} carry`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('the supplies add-on exists ONLY on cleaning, exactly once, and the two price tables agree', () => {
+    for (const [slug, q] of Object.entries(EQUIPMENT_QUESTIONS)) {
+      const addons = q.options.filter((o) => o.suppliesAddon);
+      expect(addons.length, slug).toBe(slug === 'cleaning' ? 1 : 0);
+    }
+    expect(SUPPLIES_ADDON_CENTS).toBe(SERVER_SUPPLIES_ADDON_CENTS);
+    expect(SUPPLIES_ADDON_CENTS).toBeGreaterThan(0);
+  });
+});
+
+// ── Travel top-up (2026-07-30) — display mirror ↔ server charge lock-step ──
+describe('travel top-up — the two modules can never disagree', () => {
+  const SAMPLES: Array<[number, number, string]> = [
+    [53.2745, -9.0491, 'Eyre Square'],
+    [53.2607, -9.0800, 'Salthill'],
+    [53.2836, -9.0453, 'Terryland'],
+    [53.2690, -8.9210, 'Oranmore'],
+    [53.3306, -8.9464, 'Claregalway'],
+    [53.3025, -8.7440, 'Athenry'],
+    [53.3498, -6.2603, 'Dublin (bad geocode, > sanity ceiling)'],
+  ];
+
+  it('client mirror and server charge produce the same cents everywhere', () => {
+    expect(GALWAY_CENTRE).toEqual(SERVER_GALWAY_CENTRE);
+    for (const [lat, lng, label] of SAMPLES) {
+      expect(travelTopupCents(lat, lng), label).toBe(serverTravelTopupCents(lat, lng));
+    }
+    // No coords / junk coords = no top-up — geography can never 400 a booking.
+    expect(serverTravelTopupCents(null, null)).toBe(0);
+    expect(serverTravelTopupCents(NaN, 1)).toBe(0);
+  });
+
+  it('the ladder shape holds: free in town, near-ring, far-ring, ceiling', () => {
+    expect(travelTopupCents(53.2745, -9.0491)).toBe(0); // Eyre Square
+    expect(travelTopupCents(53.2607, -9.0800)).toBe(0); // Salthill — in town, never surcharged
+    expect(travelTopupCents(53.2690, -8.9210)).toBe(TRAVEL_TOPUP_NEAR_CENTS); // Oranmore
+    expect(travelTopupCents(53.3025, -8.7440)).toBe(TRAVEL_TOPUP_FAR_CENTS);  // Athenry
+    expect(travelTopupCents(53.3498, -6.2603)).toBe(0); // Dublin = bad geocode → 0
   });
 });

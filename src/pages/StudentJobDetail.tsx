@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
 import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound, ShieldCheck, Camera, ClipboardList, Check, Star } from 'lucide-react';
@@ -818,6 +818,13 @@ const StudentJobDetail = () => {
   // directly (Revolut/cash) — the helper keeps 100%. Legacy escrow bookings
   // (pre-deploy, still in flight) keep the old 85% payout figure.
   const directPay = bd.direct_pay === true;
+  // Card-pay option (2026-07-30): the customer paid the whole job by card at
+  // accept — VANO transfers 100% of the job price on completion, so there is
+  // no doorstep settle-up and no "did you get paid?" step for these.
+  const cardPay = directPay && bd.card_pay === true;
+  // settleDirect = the customer hands this helper the money themselves —
+  // every Revolut/cash surface keys on THIS, not directPay.
+  const settleDirect = directPay && !cardPay;
   const helperPayBase = Math.max(
     booking.price_estimate_cents ?? 0,
     Number(bd.helper_pay_base_cents) || 0,
@@ -1069,12 +1076,19 @@ const StudentJobDetail = () => {
             <>
             <p className="font-bold text-foreground text-sm mb-3">✅ This job is yours — here's how it works</p>
             <ol className="space-y-2.5">
-              {(directPay
+              {(settleDirect
                 ? [
                     ['1', 'The customer is confirming the booking now (a small VANO fee locks it in).'],
                     ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
                     ['3', 'At the door, tap “I’ve reached”, ask the customer for their 4-digit code, and enter it to start.'],
                     ['4', `When the work's done, the customer pays YOU directly — €${earnCents ? (earnCents / 100).toFixed(2) : '…'} by Revolut or cash. You keep 100%. Then confirm you were paid here.`],
+                  ]
+                : cardPay
+                ? [
+                    ['1', 'The customer is paying by card now — the whole job, upfront. That locks the booking in.'],
+                    ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
+                    ['3', 'At the door, tap “I’ve reached”, ask the customer for their 4-digit code, and enter it to start.'],
+                    ['4', `When the customer confirms the job's done, VANO sends you €${earnCents ? (earnCents / 100).toFixed(2) : '…'} — 100% of the job price, straight to your bank. Nothing to collect at the door.`],
                   ]
                 : [
                     ['1', 'The customer is being asked to pay now — that locks the booking in.'],
@@ -1370,7 +1384,7 @@ const StudentJobDetail = () => {
             entirely to the gold "Did they pay you?" card below — two stacked
             cards both describing "you're finished" made the money step easy
             to miss. */}
-        {mine && booking.status === 'in_progress' && !(directPay && booking.helper_finished_at) && (
+        {mine && booking.status === 'in_progress' && !(settleDirect && booking.helper_finished_at) && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1382,7 +1396,7 @@ const StudentJobDetail = () => {
                 <CheckCircle2 size={24} className="text-sage mx-auto mb-1.5" strokeWidth={1.5} />
                 <p className="text-sm font-semibold text-foreground">Marked as finished</p>
                 <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  {directPay
+                  {settleDirect
                     ? 'Collect your money from the customer (Revolut or cash) and confirm it below. We’ve nudged them to wrap up too.'
                     : 'Waiting for the customer to confirm — you’re paid the moment they do. We’ve nudged them.'}
                 </p>
@@ -1421,7 +1435,7 @@ const StudentJobDetail = () => {
         {/* Direct-pay: did the customer pay you? Confirm (optional stars for
             the customer) or report unpaid — a strike that alerts the owner
             and blocks repeat offenders from booking. */}
-        {mine && directPay && (booking.helper_finished_at || isComplete) && !isCancelled && paidToHelper !== true && (
+        {mine && settleDirect && (booking.helper_finished_at || isComplete) && !isCancelled && paidToHelper !== true && (
           <div className="rounded-2xl border-2 border-gold/50 bg-amber-50/60 p-5 mb-6">
             {/* Absorbs the old separate "Marked as finished" card — one card
                 now owns the whole finish-and-get-paid moment. */}
@@ -1493,10 +1507,32 @@ const StudentJobDetail = () => {
             )}
           </div>
         )}
-        {mine && directPay && paidToHelper === true && (
+        {mine && settleDirect && paidToHelper === true && (
           <div className="rounded-2xl border border-sage/30 bg-sage-light px-4 py-3 mb-6 flex items-center gap-2.5">
             <CheckCircle2 size={18} className="text-sage flex-shrink-0" />
             <p className="text-sm font-semibold text-foreground">Payment confirmed — job wrapped up ✓</p>
+          </div>
+        )}
+        {/* Card-pay: no doorstep settle-up — VANO transfers 100% of the job
+            price once the customer confirms completion. The one thing the
+            helper might still need to do is payout onboarding (bank details);
+            the dashboard's payout card handles that, so point there. */}
+        {mine && cardPay && (booking.helper_finished_at || isComplete) && !isCancelled && (
+          <div className="rounded-2xl border-2 border-sage/40 bg-sage-light p-5 mb-6">
+            <p className="text-sm font-bold text-foreground mb-1">
+              {isComplete ? `Your €${earnCents ? (earnCents / 100).toFixed(2) : ''} is on its way 💶` : 'Nicely done — payment is handled'}
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {isComplete
+                ? 'The customer paid by card, so VANO sends you 100% of the job price — nothing to collect. It lands in your bank once payouts are set up (check your dashboard if you haven\'t yet).'
+                : 'The customer already paid the full job by card. Once they confirm it\'s done, VANO transfers you 100% of the job price — nothing to collect at the door.'}
+            </p>
+            <Link
+              to="/student-dashboard?tab=earnings"
+              className="mt-3 flex h-10 items-center justify-center rounded-full bg-sage text-white text-xs font-semibold hover:bg-sage-dark transition-colors"
+            >
+              View my earnings →
+            </Link>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { hasAccountAccess } from "../_shared/accountToken.ts";
+import { hasAccountAccess, hasBoostAccess } from "../_shared/accountToken.ts";
 
 // Helper self-service edits: bio, availability, categories, photo, the
 // study fields (college / course / study_year — customer-visible trust
@@ -65,6 +65,13 @@ serve(async (req) => {
 
     const formData = await req.formData();
     const phone        = (formData.get('phone')        as string | null)?.trim();
+    // Boost path (2026-07-30): the post-email-verify "get more jobs" screen
+    // doesn't know the helper's phone — it locates by helper_id, authorised
+    // by the NARROW boost token (below), and may only touch the low-stakes
+    // fields (availability / categories / extras).
+    const helperIdRaw  = (formData.get('helper_id')    as string | null)?.trim();
+    const boostToken   = (formData.get('boost_token')  as string | null) ?? undefined;
+    const extrasRaw    = (formData.get('extras')       as string | null);
     const bioRaw       = (formData.get('bio')          as string | null)?.trim();
     const availRaw     = (formData.get('availability') as string | null);
     const catsRaw      = (formData.get('categories')   as string | null);
@@ -76,24 +83,33 @@ serve(async (req) => {
     const studyYearRaw = (formData.get('study_year')   as string | null);
     const photo        = formData.get('photo') as File | null;
 
-    if (!phone) return bad('phone is required');
+    if (!phone && !(helperIdRaw && boostToken)) return bad('phone is required');
 
     // Verify helper exists by phone — tolerate country-code formatting
-    // differences, falling back to a digits-only comparison.
-    let { data: helper, error: lookupErr } = await supabase
-      .from('household_helpers')
-      .select('id, photo_url, email, user_id')
-      .in('phone', phoneVariants(phone))
-      .neq('status', 'suspended')
-      .limit(1)
-      .maybeSingle();
+    // differences, falling back to a digits-only comparison. Boost path:
+    // locate by id (the token below must match exactly this id).
+    let { data: helper, error: lookupErr } = phone
+      ? await supabase
+          .from('household_helpers')
+          .select('id, photo_url, email, user_id, application_data')
+          .in('phone', phoneVariants(phone))
+          .neq('status', 'suspended')
+          .limit(1)
+          .maybeSingle()
+      : await supabase
+          .from('household_helpers')
+          .select('id, photo_url, email, user_id, application_data')
+          .eq('id', helperIdRaw!)
+          .neq('status', 'suspended')
+          .limit(1)
+          .maybeSingle();
 
-    if (!helper && !lookupErr) {
+    if (!helper && !lookupErr && phone) {
       const last9 = phone.replace(/\D/g, '').slice(-9);
       if (last9.length === 9) {
         const { data: rows, error: listErr } = await supabase
           .from('household_helpers')
-          .select('id, phone, photo_url, email, user_id')
+          .select('id, phone, photo_url, email, user_id, application_data')
           .neq('status', 'suspended');
         if (listErr) {
           lookupErr = listErr;
@@ -121,7 +137,20 @@ serve(async (req) => {
         authorized = !!uid && uid === (helper as { user_id?: string | null }).user_id;
       }
     }
+    // Boost token (2026-07-30): email-OTP proof, NARROWER than the two above
+    // — it may only save availability / categories / extras. Any sensitive
+    // field on a boost-only request is refused outright rather than silently
+    // dropped, so a compromised student inbox can never move the phone,
+    // email, payout handle or photo.
+    let boostOnly = false;
+    if (!authorized && (await hasBoostAccess(boostToken, helper.id))) {
+      authorized = true;
+      boostOnly = true;
+    }
     if (!authorized) return bad('Your secure session expired — verify your number again on the account page.', 401);
+    if (boostOnly && (newPhoneRaw || newEmailRaw || handleRaw !== null || photo || bioRaw || collegeRaw !== null || courseRaw !== null || studyYearRaw !== null)) {
+      return bad('That field needs the phone-verified account page.', 403);
+    }
 
     const updates: Record<string, unknown> = {};
 
@@ -209,6 +238,27 @@ serve(async (req) => {
 
       const { data: { publicUrl } } = supabase.storage.from('helper-photos').getPublicUrl(path);
       updates.photo_url = publicUrl;
+    }
+
+    // Extras (2026-07-30): whitelisted keys merged into application_data —
+    // the "get more jobs" facts dispatch can weight on later. Read-modify-
+    // write on the row we already loaded; unknown keys are dropped.
+    if (extrasRaw !== null) {
+      let extras: Record<string, unknown> = {};
+      try { extras = JSON.parse(extrasRaw) as Record<string, unknown>; } catch { extras = {}; }
+      const cleanStrArr = (v: unknown, max: number): string[] =>
+        Array.isArray(v)
+          ? v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0 && x.length <= 40).slice(0, max)
+          : [];
+      const patch: Record<string, unknown> = {};
+      if ('own_kit' in extras) patch.own_kit = cleanStrArr(extras.own_kit, 8);
+      if ('languages' in extras) patch.languages = cleanStrArr(extras.languages, 8);
+      if ('transport' in extras) patch.transport = cleanStrArr(extras.transport, 6);
+      if ('garda_vetting_ok' in extras) patch.garda_vetting_ok = extras.garda_vetting_ok === true;
+      if (Object.keys(patch).length > 0) {
+        const appData = ((helper as { application_data?: Record<string, unknown> | null }).application_data ?? {}) as Record<string, unknown>;
+        updates.application_data = { ...appData, ...patch };
+      }
     }
 
     if (Object.keys(updates).length === 0) return bad('Nothing to update');
