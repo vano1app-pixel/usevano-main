@@ -250,6 +250,40 @@ tables can't agree on its rate (the cross-check test is what found that).
 The booking sheet promises it BEFORE booking, so it's never a doorstep
 surprise.
 
+**Kit — "we'll bring the mower" (2026-07-30, owner ask: "they have to bring
+their own equipment but we still need to be an obvious buy"):**
+`_shared/kit.ts` + mirror `src/lib/kit.ts` (lock-stepped by `kit.test.ts`).
+Both halves of this already existed and had NEVER been connected: the
+post-verify boost screen asked helpers what gear they own and wrote
+`household_helpers.own_kit`, and nothing in the repo ever read that column —
+while the booking sheet answered "no mower" by GREYING OUT lawn mowing,
+refusing the sale to exactly the household that most needs a gardener.
+- `HELPER_KIT_OPTIONS` is the ONE list a helper ticks (join boost screen +
+  `/student-account`); the slugs are a stored data contract, so renaming one
+  silently stops every existing helper matching. `KIT_HIRE_CENTS` is the
+  short CHARGEABLE subset — **lawn-mower €10, power-washer €12** — gear big
+  enough that hauling it is real work. Hand tools, hoover and sprays are
+  deliberately free (a hoover-less clean still re-scopes to sweep & mop for
+  nothing; "no cleaning products" stays on the €8 supplies add-on).
+- **Customer side:** `BuilderTask.needsKit` + `EquipmentOption.lacks`. A task
+  whose required gear the household lacks isn't dead — the row reads
+  "+€10 we bring it", the fee rides the JOB price (the student's money:
+  fuel, wear, hauling it) and VANO's fee stays on the base. Changing the
+  equipment answer re-prices the ticks rather than dropping them.
+- **Server:** checkout prices it from the EXPLICIT `kit` array (never the
+  note), `normalizeKit` drops anything unrecognised so a stale client can
+  never 400 a booking over gear, and stamps `booking_data.kit_required`.
+- **Dispatch:** a HARD `own_kit` filter on both the city and platform-wide
+  queries — promising a mower and sending someone empty-handed is worse than
+  never offering it, so a NULL own_kit does not match. Offers carry
+  "Bring your lawn mower — the customer has none."
+- **Supply follows demand:** a thin kit job nudges same-city helpers who do
+  the category but haven't ticked the gear, quoting the money the customer
+  already agreed to pay, linking `/student-account?kit=<slug>` (pre-tick
+  only, same rule as `?add=`). `/student-account` gained the kit editor and
+  `find-helper-by-phone` now returns `own_kit` — before this a helper who
+  bought a mower had no way to tell us and no way to earn from it.
+
 **Safety nets (don't duplicate — extend these):** `redispatch-stale-jobs`
 (expired offers, 3 rounds), `sweep-stalled-jobs` (paid job, helper ghosted:
 ping → release+redispatch → escalate), `no-helper-fallback` (unpaid stuck

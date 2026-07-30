@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Mail, ShieldCheck, CheckCircle2, Loader2, ArrowRight, Lock, MessageCircle, Phone, BadgeCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { HELPER_KIT_OPTIONS, KIT_HIRE_CENTS } from '@/lib/kit';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
@@ -551,15 +552,27 @@ const VerifyHelper: React.FC = () => {
                       <p className="text-sm font-bold text-foreground">30 seconds to get more jobs</p>
                       <p className="text-xs text-muted-foreground mt-0.5 mb-3">All optional — every tap helps us send you the right jobs first.</p>
 
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Gear you own</p>
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {[['hoover', '🧹 Hoover'], ['cleaning-products', '🧴 Cleaning products'], ['lawn-mower', '🚜 Lawn mower'], ['garden-tools', '🧤 Garden tools']].map(([v, label]) => (
-                          <button key={v} type="button" aria-pressed={boostKit.includes(v)} onClick={() => toggleIn(setBoostKit, v)}
-                            className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', boostKit.includes(v) ? 'border-sage bg-sage text-white' : 'border-border bg-white text-foreground/80')}>
-                            {label}
-                          </button>
-                        ))}
+                      {/* The shared HELPER_KIT_OPTIONS list — never a local
+                          copy: these slugs are what dispatch matches on, so a
+                          typo here silently costs a helper jobs. The
+                          chargeable ones show what they're WORTH, because
+                          "gear you own" is a chore and "+€10 a job" is a
+                          reason. */}
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Gear you can bring</p>
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {HELPER_KIT_OPTIONS.map(({ slug, emoji, label }) => {
+                          const worth = KIT_HIRE_CENTS[slug];
+                          return (
+                            <button key={slug} type="button" aria-pressed={boostKit.includes(slug)} onClick={() => toggleIn(setBoostKit, slug)}
+                              className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', boostKit.includes(slug) ? 'border-sage bg-sage text-white' : 'border-border bg-white text-foreground/80')}>
+                              {emoji} {label}{worth > 0 ? ` · +€${(worth / 100).toFixed(0)}` : ''}
+                            </button>
+                          );
+                        })}
                       </div>
+                      <p className="text-[11px] text-muted-foreground mb-3">
+                        Customers with no mower of their own pay extra for a helper who brings one — and only helpers who tick it get those jobs.
+                      </p>
 
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">When you're usually free</p>
                       <div className="flex flex-wrap gap-1.5 mb-3">

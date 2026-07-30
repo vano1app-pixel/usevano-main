@@ -23,6 +23,7 @@ import {
   SUPPLIES_ADDON_CENTS, travelTopupCents, computeVanoFeeCents,
   TRAVEL_TOPUP_NEAR_CENTS, TRAVEL_TOPUP_FAR_CENTS, GALWAY_CENTRE,
 } from '../householdPricing';
+import { HIREABLE_KIT, KIT_HIRE_CENTS } from '../kit';
 // The REAL server table (pure TS, no Deno APIs) — the dog surcharge is priced
 // server-side off extra_label, so the ladder is cross-checked on actual code.
 import {
@@ -423,27 +424,37 @@ describe('equipment question — carries ride the note, add-ons stay in lock-ste
   // Found 2026-07-30 re-reading the wizard: the two questions contradicted
   // each other. A customer could answer "no mower" and still tick "Lawn
   // mowing", and we'd dispatch a helper across town to a job that cannot be
-  // done — the exact doorstep failure the equipment question exists to stop.
-  it('an answer that rules a task out names REAL tasks, with a reason', () => {
+  // done. The first fix greyed the row out — which refused the sale to
+  // exactly the household that most needs a gardener. Now the answer names
+  // the gear it LACKS, and the job is sold with a helper who brings it.
+  it('an answer names real kit slugs, and every gear-gated task is hireable', () => {
     for (const [slug, q] of Object.entries(EQUIPMENT_QUESTIONS)) {
-      const keys = new Set((BUILDER_TASKS[slug] ?? []).map((t) => t.key));
       for (const o of q.options) {
-        for (const [taskKey, why] of Object.entries(o.blocks ?? {})) {
-          expect(keys.has(taskKey), `${slug}/${o.key} blocks unknown task "${taskKey}"`).toBe(true);
-          expect(why.trim().length, `${slug}/${o.key}/${taskKey} needs a reason`).toBeGreaterThan(0);
+        for (const kitSlug of o.lacks ?? []) {
+          expect(HIREABLE_KIT, `${slug}/${o.key} lacks unknown/unhireable "${kitSlug}"`).toContain(kitSlug);
         }
       }
-      // The all-equipped answer must never block anything — it's the "I have
-      // everything" door, and greying rows there would be nonsense.
-      expect(Object.keys(q.options[0].blocks ?? {}), `${slug}: first answer blocks nothing`).toEqual([]);
+      // The all-equipped answer must lack nothing — it's the "I have
+      // everything" door, and charging hire there would be nonsense.
+      expect(q.options[0].lacks ?? [], `${slug}: first answer lacks nothing`).toEqual([]);
     }
-    // The gear-gated garden jobs specifically: a bike cannot carry either.
-    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'basic')?.blocks).toHaveProperty('mowing');
-    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'none')?.blocks).toHaveProperty('mowing');
-    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'none')?.blocks).toHaveProperty('power');
-    // "No hoover" deliberately blocks NOTHING — the answer re-scopes floors to
-    // sweep & mop rather than making them impossible.
-    expect(EQUIPMENT_QUESTIONS.cleaning.options.find((o) => o.key === 'no-hoover')?.blocks).toBeUndefined();
+    // Every task that declares required gear must be gear we can actually
+    // price, or the row would offer "+€0 we bring it".
+    for (const [slug, tasks] of Object.entries(BUILDER_TASKS)) {
+      for (const t of tasks) {
+        if (!t.needsKit) continue;
+        expect(HIREABLE_KIT, `${slug}/${t.key}`).toContain(t.needsKit);
+        expect(KIT_HIRE_CENTS[t.needsKit], `${slug}/${t.key}`).toBeGreaterThan(0);
+      }
+    }
+    // The two gear-gated garden jobs: a bike carries neither.
+    const lacksOf = (k: string) => EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === k)?.lacks ?? [];
+    expect(lacksOf('basic')).toContain('lawn-mower');
+    expect(lacksOf('none')).toContain('lawn-mower');
+    expect(lacksOf('none')).toContain('power-washer');
+    // "No hoover" lacks nothing chargeable — the answer re-scopes floors to
+    // sweep & mop, which stays free. Don't turn a free path into a paid one.
+    expect(EQUIPMENT_QUESTIONS.cleaning.options.find((o) => o.key === 'no-hoover')?.lacks ?? []).toEqual([]);
   });
 
   // The market anchor must beat what the customer ACTUALLY PAYS, not the job

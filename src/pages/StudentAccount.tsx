@@ -14,6 +14,7 @@ import { ReferralEntryCard } from '@/components/household/ReferralEntryCard';
 import OpenJobsBoard from '@/components/household/OpenJobsBoard';
 import { useToast } from '@/hooks/use-toast';
 import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { HELPER_KIT_OPTIONS, KIT_HIRE_CENTS } from '@/lib/kit';
 import { COLLEGES, STUDY_YEARS } from '@/lib/colleges';
 import { prepareJoinPhoto } from '@/lib/safeImage';
 import { assessPhotoQuality } from '@/lib/photoQuality';
@@ -55,6 +56,7 @@ interface HelperRow {
   stripe_payouts_enabled: boolean | null;
   /** How customers pay the helper directly (Revolut tag etc — direct-pay model). */
   payment_handle?: string | null;
+  own_kit?: string[] | null;
   /** Optional — only present once find-helper-by-phone returns them. */
   student_email_verified?: boolean | null;
   id_verified?: boolean | null;
@@ -174,6 +176,7 @@ const StudentAccount = () => {
   const [studyYear,    setStudyYear]    = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [avail,        setAvail]        = useState<string[]>([]);
+  const [ownKit,       setOwnKit]       = useState<string[]>([]);
   const [photoFile,    setPhotoFile]    = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   // Soft quality note — the photo IS staged; this just nudges toward a better one.
@@ -207,6 +210,17 @@ const StudentAccount = () => {
     try {
       const v = new URLSearchParams(window.location.search).get('add');
       return v && v !== 'other' && SKILL_GROUPS.some(g => g.id === v) ? v : null;
+    } catch { return null; }
+  });
+
+  // "?kit=<slug>" deep link from the dispatch kit gap-nudge ("a mowing job
+  // paying €10 extra skipped you"): pre-ticks that piece of gear once the
+  // phone gate opens. Same rule as ?add= — pre-tick only, never a silent
+  // write, and only slugs we actually recognise.
+  const [pendingKit] = useState<string | null>(() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('kit');
+      return v && HELPER_KIT_OPTIONS.some((k) => k.slug === v) ? v : null;
     } catch { return null; }
   });
 
@@ -393,6 +407,16 @@ const StudentAccount = () => {
       setSelectedCats(cats);
     }
     setAvail(data.availability ?? []);
+    const kitNow = data.own_kit ?? [];
+    if (pendingKit && !kitNow.includes(pendingKit)) {
+      setOwnKit([...kitNow, pendingKit]);
+      toast({
+        title: `${HELPER_KIT_OPTIONS.find((k) => k.slug === pendingKit)?.label ?? 'Kit'} ticked for you`,
+        description: 'Tap Save changes below and jobs needing it will start reaching you.',
+      });
+    } else {
+      setOwnKit(kitNow);
+    }
     setPhotoPreview(data.photo_url);
     setPhoneInput(data.phone ?? '');
     setPhoneVerified(true);
@@ -527,6 +551,7 @@ const StudentAccount = () => {
       fd.append('study_year',     studyYear.trim());
       fd.append('availability',   JSON.stringify(avail));
       fd.append('categories',     JSON.stringify(selectedCats));
+      fd.append('extras',         JSON.stringify({ own_kit: ownKit }));
       fd.append('account_token',  accountTokenRef.current);
       if (photoFile) fd.append('photo', photoFile);
 
@@ -545,7 +570,7 @@ const StudentAccount = () => {
       const photoUrl = json.photo_url ?? helper.photo_url;
       setPhotoFile(null);
       setHelper(h => h
-        ? { ...h, bio: bio.trim() || null, payment_handle: payHandle.trim() || null, categories: selectedCats, availability: avail, photo_url: photoUrl }
+        ? { ...h, bio: bio.trim() || null, payment_handle: payHandle.trim() || null, categories: selectedCats, availability: avail, own_kit: ownKit, photo_url: photoUrl }
         : h,
       );
       setSaved(true);
@@ -1336,6 +1361,47 @@ const StudentAccount = () => {
             <p className="text-xs text-muted-foreground mt-1.5">
               Customers pay you directly when the job's done — you keep 100%. Add your Revolut tag so they can send it in one tap (cash works too).
             </p>
+          </section>
+
+          {/* Kit I own — the supply half of the "we'll bring the mower" loop
+              (2026-07-30). Households with no mower pay a hire fee for a
+              helper who has one, and dispatch matches on THIS list, so the
+              chargeable items lead and say what they're worth. Until now
+              own_kit could only ever be set once, on the optional post-verify
+              screen: a helper who bought a mower afterwards had no way to
+              tell us, and no way to earn from it. */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Kit I can bring</p>
+            <p className="text-xs text-muted-foreground mb-3">
+              Jobs where the customer has none of their own pay extra — and only helpers who tick these get offered them.
+            </p>
+            <div className="space-y-2">
+              {HELPER_KIT_OPTIONS.map(({ slug, emoji, label, hint }) => {
+                const active = ownKit.includes(slug);
+                const worth = KIT_HIRE_CENTS[slug];
+                return (
+                  <button
+                    key={slug}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setOwnKit(prev => prev.includes(slug) ? prev.filter(k => k !== slug) : [...prev, slug])}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors',
+                      active ? 'border-sage bg-sage-light' : 'border-border bg-background hover:border-sage/60',
+                    )}
+                  >
+                    <span aria-hidden="true" className="text-xl leading-none flex-shrink-0">{emoji}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-foreground">{label}</span>
+                      {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
+                    </span>
+                    {worth > 0 && (
+                      <span className="flex-shrink-0 text-xs font-bold text-sage-dark whitespace-nowrap">+€{(worth / 100).toFixed(0)}/job</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </section>
 
           {/* Availability */}
