@@ -55,7 +55,7 @@ describe('server price table (shared module) matches the frontend canonical tabl
         expect(getHouseholdPriceCents(slug, size)).not.toBeNull();
       }
     }
-    expect(getHouseholdPriceCents('cleaning', '1.5 hours')).toBe(2700); // €18/hr × 1.5
+    expect(getHouseholdPriceCents('cleaning', '1.5 hours')).toBe(3300); // €22/hr × 1.5
   });
 
   it('prices the flat and short-visit combinations identically', () => {
@@ -76,15 +76,15 @@ describe('server price table (shared module) matches the frontend canonical tabl
 });
 
 describe('WhatsApp quote = the same DIRECT-PAY fee checkout charges', () => {
-  it('quotes 2h cleaning as €36 to the helper + the €5.40 VANO fee on the card', () => {
+  it('quotes 2h cleaning as €44 to the helper + the €6.60 VANO fee on the card', () => {
     const q = quoteDraft('cleaning', '2 hours')!;
-    expect(q.priceCents).toBe(3600);
-    // Card charge = the VANO booking fee only (15% min €4), not the old 7.5%.
-    expect(q.feeCents).toBe(computeVanoFeeCents(3600)); // 540
-    expect(q.feeCents).toBe(540);
+    expect(q.priceCents).toBe(4400);
+    // Card charge = the VANO booking fee only (15% min €5), not the old 7.5%.
+    expect(q.feeCents).toBe(computeVanoFeeCents(4400)); // 660
+    expect(q.feeCents).toBe(660);
     // totalCents stays price + fee so book()'s discount check still fires.
-    expect(q.totalCents).toBe(4140);
-    expect(q.line).toBe('€36 to your helper directly (they keep 100%) + €5.40 VANO booking fee on your card');
+    expect(q.totalCents).toBe(5060);
+    expect(q.line).toBe('€44 to your helper directly (they keep 100%) + €6.60 VANO booking fee on your card');
   });
 
   it('quotes flat laundry with no size answer', () => {

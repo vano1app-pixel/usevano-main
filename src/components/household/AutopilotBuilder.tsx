@@ -55,8 +55,8 @@ interface Service {
 //     bins, plants. Sized for a SMALL weekly job (~10–45 min); if a job
 //     balloons it's a separate one-off booking, not this plan.
 // Monthly is ~10% cheaper per week, so it's the binding case — e.g.
-// cleaning €119/mo = €27.46/wk ÷ 1.5h = €18.31/hr; the small job-based
-// tasks net ~€18–24/hr at their typical times.
+// cleaning €119/mo = €27.46/wk ÷ 1.5h = €22.31/hr; the small job-based
+// tasks net ~€22–28/hr at their typical times.
 const SERVICES: Service[] = [
   { key: 'cleaning', emoji: '🧽', label: 'Cleaning',          mins: 90, monthlyCents: 11900, weeklyCents: 3000 },
   { key: 'laundry',  emoji: '🧺', label: 'Laundry & ironing', mins: 45, monthlyCents: 5900,  weeklyCents: 1500 },

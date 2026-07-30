@@ -124,10 +124,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     slug: "net-pay",
     term: "Net pay (take-home)",
     short:
-      "What a helper actually keeps — 100% of the job price, €18/hr on time-based jobs.",
+      "What a helper actually keeps — 100% of the job price, €22/hr on time-based jobs.",
     category: "Payments",
     bodyHtml: `
-<p><strong>Net pay</strong> is the number that matters: what you actually take home. On Vano it's simple — the customer pays you the full job price directly and you keep <strong>100%</strong>. On time-based jobs — cleaning, garden, moving, online tutoring — that's <strong>€18 an hour</strong>; Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not you.</p>
+<p><strong>Net pay</strong> is the number that matters: what you actually take home. On Vano it's simple — the customer pays you the full job price directly and you keep <strong>100%</strong>. On time-based jobs — cleaning, garden, moving, online tutoring — that's <strong>€22 an hour</strong>; Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not you.</p>
 <p>That comfortably clears Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15. You're paid straight after each job — Revolut or cash — and you confirm it in the app. See how students stack it up in the <a href="/blog/atu-students-earning-with-vano">ATU earnings guide</a>.</p>
 `,
     related: ["platform-fee", "minimum-wage-ireland", "stripe-connect-payout"],
@@ -140,7 +140,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Money",
     bodyHtml: `
 <p>The <strong>national minimum wage</strong> in Ireland is the lowest hourly rate an employer can legally pay. For 2026 it's <strong>€14.15 an hour</strong>.</p>
-<p>Vano treats that as a floor to beat, not a target to hit. Every time-based job is priced at €18/hr and the helper keeps <a href="/glossary/net-pay">100% of it</a> — Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer instead. There's even an automated test in our codebase that blocks any rate from shipping below the legal floor. More in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
+<p>Vano treats that as a floor to beat, not a target to hit. Every time-based job is priced at €22/hr and the helper keeps <a href="/glossary/net-pay">100% of it</a> — Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer instead. There's even an automated test in our codebase that blocks any rate from shipping below the legal floor. More in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
 `,
     related: ["net-pay", "platform-fee", "flexible-work"],
   },
@@ -164,7 +164,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Work",
     bodyHtml: `
 <p><strong>Flexible work</strong> means there's no set rota and no boss assigning you shifts. You decide when you're available and accept jobs that fit — perfect for a student whose timetable changes every semester.</p>
-<p>On Vano, flexible doesn't mean badly paid: time-based jobs pay €18/hr and you keep <a href="/glossary/net-pay">100%</a> — well clear of the <a href="/glossary/minimum-wage-ireland">minimum wage</a>. That combination — your schedule, fair pay — is the whole pitch. Read <a href="/blog/part-time-jobs-students-galway">why flexible beats a fixed rota</a>.</p>
+<p>On Vano, flexible doesn't mean badly paid: time-based jobs pay €22/hr and you keep <a href="/glossary/net-pay">100%</a> — well clear of the <a href="/glossary/minimum-wage-ireland">minimum wage</a>. That combination — your schedule, fair pay — is the whole pitch. Read <a href="/blog/part-time-jobs-students-galway">why flexible beats a fixed rota</a>.</p>
 `,
     related: ["net-pay", "vano-helper", "same-day-home-help"],
   },
@@ -212,7 +212,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Cleaning",
     bodyHtml: `
 <p>A <strong>deep clean</strong> goes beyond the usual once-over: skirting boards, inside cupboards, behind furniture, limescale on taps and tiles, the grime a quick weekly wipe never reaches. Most homes want one every few months, before guests, or after a busy stretch when the house "got away" a bit.</p>
-<p>On Vano a deep clean is priced by time at <strong>€18/hr</strong> — most homes book 3–4 hours — and your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% of that. Not sure which you need? Read <a href="/blog/deep-clean-vs-standard-clean">deep clean vs standard clean</a> or see <a href="/cleaning-galway">cleaning in Galway</a>.</p>
+<p>On Vano a deep clean is priced by time at <strong>€22/hr</strong> — most homes book 3–4 hours — and your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% of that. Not sure which you need? Read <a href="/blog/deep-clean-vs-standard-clean">deep clean vs standard clean</a> or see <a href="/cleaning-galway">cleaning in Galway</a>.</p>
 `,
     related: ["spring-clean", "end-of-tenancy-clean", "student-cleaner"],
   },
@@ -224,7 +224,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Cleaning",
     bodyHtml: `
 <p>A <strong>spring clean</strong> is the big seasonal reset: windows opened, every room aired, surfaces scrubbed, clutter cleared and the whole house given a fresh start. Traditionally done in spring, but honestly — any time the house needs a reset counts.</p>
-<p>It's essentially a <a href="/glossary/deep-clean">deep clean</a> with some tidying and organising mixed in. On Vano it's booked by the hour (<strong>€18/hr</strong>, helper keeps 100%) so you decide how big to go — two hours for the kitchen and bathroom, or a half-day for the works. Book it on the <a href="/cleaning-galway">cleaning page</a>.</p>
+<p>It's essentially a <a href="/glossary/deep-clean">deep clean</a> with some tidying and organising mixed in. On Vano it's booked by the hour (<strong>€22/hr</strong>, helper keeps 100%) so you decide how big to go — two hours for the kitchen and bathroom, or a half-day for the works. Book it on the <a href="/cleaning-galway">cleaning page</a>.</p>
 `,
     related: ["deep-clean", "oven-clean", "same-day-home-help"],
   },
@@ -236,7 +236,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Cleaning",
     bodyHtml: `
 <p>An <strong>end-of-tenancy clean</strong> (also called a move-out clean) is the thorough clean a rental needs before you hand back the keys: oven degreased, bathroom descaled, floors, skirting, inside the fridge and cupboards — the standard a landlord or agent checks against before releasing your deposit.</p>
-<p>In a student city like Galway it's one of the most-booked cleans every summer. On Vano it's priced by time at <strong>€18/hr</strong> (most one-bed flats take 3–4 hours) and you can often get it done <a href="/glossary/same-day-home-help">same-day</a>. There's a full room-by-room checklist in our <a href="/blog/end-of-tenancy-cleaning-galway">end-of-tenancy guide</a>.</p>
+<p>In a student city like Galway it's one of the most-booked cleans every summer. On Vano it's priced by time at <strong>€22/hr</strong> (most one-bed flats take 3–4 hours) and you can often get it done <a href="/glossary/same-day-home-help">same-day</a>. There's a full room-by-room checklist in our <a href="/blog/end-of-tenancy-cleaning-galway">end-of-tenancy guide</a>.</p>
 `,
     related: ["deep-clean", "oven-clean", "student-cleaner"],
   },
@@ -248,7 +248,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Cleaning",
     bodyHtml: `
 <p>An <strong>oven clean</strong> is exactly what it sounds like — racks out and soaked, burnt-on grease lifted, glass door brought back to see-through. It's the single most put-off job in most kitchens, and one of the first things a landlord looks at in an <a href="/glossary/end-of-tenancy-clean">end-of-tenancy clean</a>.</p>
-<p>On Vano, book "Oven &amp; kitchen clean" from the <a href="/cleaning-galway">cleaning menu</a> — priced by time at <strong>€18/hr</strong>, and an hour or two usually does it. Your helper keeps 100% of the job price.</p>
+<p>On Vano, book "Oven &amp; kitchen clean" from the <a href="/cleaning-galway">cleaning menu</a> — priced by time at <strong>€22/hr</strong>, and an hour or two usually does it. Your helper keeps 100% of the job price.</p>
 `,
     related: ["deep-clean", "end-of-tenancy-clean", "spring-clean"],
   },
@@ -260,7 +260,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Home services",
     bodyHtml: `
 <p>An <strong>ironing service</strong> means a helper works through your ironing pile — shirts, uniforms, bedding — so you don't spend your Sunday evening on it. It pairs naturally with Vano's <a href="/laundry-service-galway">laundry service</a> (€30, collected, washed and returned folded) or can be booked on its own as a custom job.</p>
-<p>Like all time-based Vano jobs it's <strong>€18/hr</strong>, your helper keeps 100%, and you pay them directly when it's done — <a href="/glossary/pay-after-accept">nothing is charged until a helper says yes</a>.</p>
+<p>Like all time-based Vano jobs it's <strong>€22/hr</strong>, your helper keeps 100%, and you pay them directly when it's done — <a href="/glossary/pay-after-accept">nothing is charged until a helper says yes</a>.</p>
 `,
     related: ["same-day-home-help", "pay-after-accept", "vano-helper"],
   },
@@ -272,7 +272,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "Home services",
     bodyHtml: `
 <p><strong>Flat-pack assembly</strong> is building boxed furniture — bed frames, wardrobes, desks, bookshelves — from the instruction leaflet, properly and without the domestic argument that famously comes with it.</p>
-<p>On Vano it's a classic "<a href="/glossary/same-day-home-help">Anything else</a>" booking: describe the job (say, "assemble an IKEA wardrobe"), book the time, and a nearby student turns up with patience and an Allen key. Priced by time at <strong>€18/hr</strong> — short jobs can book 30 minutes from €12. It also pairs well with a hand carrying a few boxes when you're setting up a new place.</p>
+<p>On Vano it's a classic "<a href="/glossary/same-day-home-help">Anything else</a>" booking: describe the job (say, "assemble an IKEA wardrobe"), book the time, and a nearby student turns up with patience and an Allen key. Priced by time at <strong>€22/hr</strong> — short jobs can book 30 minutes from €14. It also pairs well with a hand carrying a few boxes when you're setting up a new place.</p>
 `,
     related: ["same-day-home-help", "vano-helper", "pay-after-accept"],
   },
@@ -320,7 +320,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "People",
     bodyHtml: `
 <p>A <strong>student cleaner</strong> is a local university student — in Galway, usually from <a href="/glossary/atu">ATU</a> or the University of Galway — earning around lectures by taking cleaning jobs. On Vano every one is <a href="/glossary/id-verified-helper">ID-verified</a> before their first job, rated after every job, and paid the full job price directly by the customer.</p>
-<p>Why book a student rather than an agency? Same-day availability, straightforward hourly pricing (<strong>€18/hr</strong>, no call-out fees or contracts), and your money goes to a local student rather than an agency margin. See <a href="/cleaning-galway">cleaning in Galway</a> or the full <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
+<p>Why book a student rather than an agency? Same-day availability, straightforward hourly pricing (<strong>€22/hr</strong>, no call-out fees or contracts), and your money goes to a local student rather than an agency margin. See <a href="/cleaning-galway">cleaning in Galway</a> or the full <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
 `,
     related: ["vano-helper", "id-verified-helper", "deep-clean"],
   },

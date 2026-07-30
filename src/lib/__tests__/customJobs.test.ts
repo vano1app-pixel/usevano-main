@@ -132,9 +132,9 @@ describe('safety cull — helpers are ID-verified students, not tradespeople', (
 });
 
 describe('custom job catalogue integrity', () => {
-  it('every job prices at the €18/hr time-based rate for its typical duration', () => {
+  it('every job prices at the €22/hr time-based rate for its typical duration', () => {
     for (const job of CUSTOM_JOBS) {
-      expect(getHouseholdPriceCents('custom', `${job.typicalHours} hours`)).toBe(1800 * job.typicalHours);
+      expect(getHouseholdPriceCents('custom', `${job.typicalHours} hours`)).toBe(2200 * job.typicalHours);
     }
   });
 
@@ -145,9 +145,9 @@ describe('custom job catalogue integrity', () => {
     expect(customJobByKey(null).key).toBe('other');
   });
 
-  it('every market comparison rate is strictly above VANO €18/hr, so the saving is real', () => {
+  it('every market comparison rate is strictly above VANO €22/hr, so the saving is real', () => {
     for (const job of CUSTOM_JOBS) {
-      expect(job.marketHourlyCents).toBeGreaterThan(1800);
+      expect(job.marketHourlyCents).toBeGreaterThan(2200);
     }
   });
 

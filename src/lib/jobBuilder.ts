@@ -14,7 +14,7 @@
 // rates, never charged, never sent to the server.
 // jobBuilder.test.ts locks all of this: every possible tick combination
 // must round to a size label the category actually offers, and every
-// anchor rate must sit above €18/hr so "you save" can never read negative.
+// anchor rate must sit above €22/hr so "you save" can never read negative.
 
 export interface BuilderTask {
   key: string;

@@ -66,7 +66,7 @@ const CATEGORIES: Category[] = [
     // Renamed "Dog walk" → "Pets" (July 2026): the sub-service step underneath
     // exposes the vetted pet jobs (wash & brush, sitting/feeding, puppy visits,
     // small pets & hens). The slug stays 'dog-walk' — walks book this category
-    // at its flat prices; the other pet jobs book as 'custom' at €18/hr.
+    // at its flat prices; the other pet jobs book as 'custom' at €22/hr.
     emoji: '🐾', label: 'Pets',  slug: 'dog-walk',
     hint: 'Walks, washes, sitting & feeding',
     description: 'Dog walks (collected & returned safely), washes, and pet sitting visits.',
@@ -111,11 +111,11 @@ const CATEGORIES: Category[] = [
 // The "Anything else ✨" tile opens the same sheet on a describe-it page —
 // popular jobs tappable, typing only for the long tail. Every step is tracked
 // (hero_tile_tap / hero_sub_pick / hero_search_open / hero_usual_tap).
-// Custom picks still price through the canonical €18/hr rate.
+// Custom picks still price through the canonical €22/hr rate.
 
 // How long the job takes — drives the hourly price for custom sub-services.
 const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
-// Short visit jobs (dog walk, bins, key-drop…) can be booked sub-hour, from €12.
+// Short visit jobs (dog walk, bins, key-drop…) can be booked sub-hour, from €14.
 const SHORT_DURATIONS = ['30 min', '45 min', '1 hour', '2 hours'];
 
 // The "Anything else" tile's entry — opened the sheet on the describe-it
@@ -131,7 +131,7 @@ const CUSTOM_TILE: Category = {
 // ─── Sub-services (wizard page 1) ─────────────────────────────────────────
 // Each tile's "What kind of …?" options. kind:'core' books the tile's own
 // category (flat/dog-walk/cleaning prices + its dispatch pool); kind:'custom'
-// books the named catalogue job as a 'custom' booking (€18/hr, dispatches to
+// books the named catalogue job as a 'custom' booking (€22/hr, dispatches to
 // all approved helpers) with the job label riding through note + extra_label —
 // that's the "better info" win: dispatch texts and the helper's job screen
 // show exactly what was asked for. jobKeys MUST exist in customJobs.ts — the
@@ -789,7 +789,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     : null;
   // Answer rows carry the real resulting price — the single price source,
   // never hardcoded. Laundry rows price their bag label; dog rows price the
-  // picked walk duration WITH that answer (€15/€15/€18/€20), so the
+  // picked walk duration WITH that answer (€15/€15/€18/€20 for 30 min), so the
   // surcharge is visible BEFORE the tap, never after. Builder answers scale
   // the ticks, so there's no price to show yet.
   const sizingPriceLabel = (opt: SizingOption): string => {
@@ -805,12 +805,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     ? [...subServices.featured, ...(showMoreSubs ? subServices.more : [])]
     : [];
   // Row price: core rows use the category's real table (flat €15 laundry,
-  // €15/€20 walks, "from €18" hourly); custom rows are the flat truth — €18/hr
-  // (short-visit jobs can book 30 min from €12).
+  // €15/€20 walks, "from €22" hourly); custom rows are the flat truth — €22/hr
+  // (short-visit jobs can book 30 min from €14).
   const subPriceLabel = (s: SubService): string => {
-    if (s.kind === 'custom') return isShortVisit(s.jobKey) ? 'from €12' : '€18/hr';
+    if (s.kind === 'custom') return isShortVisit(s.jobKey) ? 'from €14' : '€22/hr';
     const cents = getPriceCents(entryCat.slug, s.size ?? entryCat.sizes?.[0] ?? '');
-    if (!cents) return '€18/hr';
+    if (!cents) return '€22/hr';
     // Walk rows read "from €15": the dog question after this pick can raise
     // the price (big dog / two dogs), so an exact figure here would lie.
     if (entryCat.slug === 'dog-walk' && s.size) return `from ${fmt(cents)}`;
@@ -1540,7 +1540,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   <div className="surface-float rounded-2xl border border-border bg-white px-4 pt-3.5 pb-4">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className={cn('text-sm min-w-0', builderSize ? 'text-foreground/70' : 'text-muted-foreground')}>
-                        {builderSize ? `About ${builderSize} · €18/hr` : 'Tick what needs doing'}
+                        {builderSize ? `About ${builderSize} · €22/hr` : 'Tick what needs doing'}
                       </span>
                       {builderDisplayCents != null
                         ? <AnimatedPrice announce cents={builderDisplayCents} className="text-2xl font-bold text-foreground flex-shrink-0" />
@@ -1572,7 +1572,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         row.emoji,
                         row.label,
                         row.key === 'other' ? 'Tell us exactly what you need' : row.group,
-                        isShortVisit(row.key) ? 'from €12' : '€18/hr',
+                        isShortVisit(row.key) ? 'from €14' : '€22/hr',
                         () => applyPick({ kind: 'custom', jobKey: row.key }),
                         // Cascade only the opening "popular jobs" list — live
                         // search results should update instantly, not animate.
@@ -2358,7 +2358,7 @@ export const CategoryGrid: React.FC = () => {
               day (owner call: liability triage — heavy items + no
               goods-in-transit/injury cover is the same class of risk that
               retired 'midnight-lift' and 'plumbing'; small carries still
-              book via the custom catalogue at €18/hr). Machinery for both
+              book via the custom catalogue at €22/hr). Machinery for both
               stays in CATEGORIES for old deep links + in-flight bookings. */}
           {CATEGORIES.filter((c) => c.slug !== 'business' && c.slug !== 'moving').map((c) => {
             return (

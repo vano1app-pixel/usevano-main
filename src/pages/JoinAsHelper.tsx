@@ -26,9 +26,9 @@ const STATS = [
   { value: '€15–€65', label: 'per job' },
   { value: 'Flexible', label: 'your hours' },
   // Hourly anchor — the clearest student value prop. Direct-pay: customers
-  // pay helpers the full job price (€18/hr on hourly jobs), Vano's fee is
+  // pay helpers the full job price (€22/hr on hourly jobs), Vano's fee is
   // charged to the customer — so 100% is honest, not marketing.
-  { value: '€18/hr', label: 'you keep 100%' },
+  { value: '€22/hr', label: 'you keep 100%' },
 ];
 
 const REQUIREMENTS = [

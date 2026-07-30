@@ -92,7 +92,7 @@ export const BLOG_POSTS: BlogPost[] = [
 </ul>
 <p>Most of it is local, walkable or cyclable, and finished inside an hour or two — the kind of thing you can slot between a morning lecture and an afternoon seminar.</p>
 <h2>Does the pay actually stack up?</h2>
-<p>This is where flexible work earns its keep. The problem with a lot of student jobs is the rate. On Vano, time-based jobs pay <strong>€18 an hour and you keep 100% of it</strong> — comfortably above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a>. Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not carved out of your pay. We explain exactly how that maths works in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
+<p>This is where flexible work earns its keep. The problem with a lot of student jobs is the rate. On Vano, time-based jobs pay <strong>€22 an hour and you keep 100% of it</strong> — comfortably above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a>. Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not carved out of your pay. We explain exactly how that maths works in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
 <p>Payment is simple too: the customer pays you <strong>directly</strong> when the job's done — Revolut or cash — and you confirm it in the app. Customers who don't pay get blocked from booking again, so the app has your back.</p>
 <h2>Getting started</h2>
 <p>If you're an <a href="/glossary/atu">ATU</a> or University of Galway student, you can sign up, verify your ID, and start seeing nearby jobs the same week. We walk through the whole thing — verification, getting paid, your first job — in <a href="/blog/how-to-become-a-vano-helper">how to become a Vano helper</a>.</p>
@@ -102,18 +102,18 @@ export const BLOG_POSTS: BlogPost[] = [
     faqs: [
       { q: "What are the best part-time jobs for students in Galway?", a: "Flexible, local jobs you can do around lectures — dog walks, cleaning, garden help, errands and online tutoring — without committing to a fixed weekly rota." },
       { q: "How many hours do I have to work?", a: "None are required. There's no rota and no minimum: you accept jobs only when you're free, and pause completely during exams." },
-      { q: "Do part-time student jobs in Galway pay well?", a: "On Vano, time-based jobs pay €18 an hour and you keep 100% — well above Ireland's 2026 minimum wage of €14.15. Customers pay you directly after each job." },
+      { q: "Do part-time student jobs in Galway pay well?", a: "On Vano, time-based jobs pay €22 an hour and you keep 100% — well above Ireland's 2026 minimum wage of €14.15. Customers pay you directly after each job." },
       { q: "Can I really work around my college timetable?", a: "Yes. You pick up same-day jobs in the gaps between classes, so the work fits your week instead of the other way around." },
     ],
   },
 
   {
     slug: "atu-students-earning-with-vano",
-    title: "How ATU Students Are Earning €18/hr With Vano Between Lectures",
+    title: "How ATU Students Are Earning €22/hr With Vano Between Lectures",
     summary:
-      "ATU students earn €18 an hour — and keep 100% of it — doing short jobs near campus: dog walks, cleaning, garden help, picked up whenever they have a gap between lectures. Customers pay them directly after each job.",
+      "ATU students earn €22 an hour — and keep 100% of it — doing short jobs near campus: dog walks, cleaning, garden help, picked up whenever they have a gap between lectures. Customers pay them directly after each job.",
     description:
-      "ATU Galway students are picking up same-day jobs around campus and keeping 100% of €18/hr. Here's how the money works and why students like it.",
+      "ATU Galway students are picking up same-day jobs around campus and keeping 100% of €22/hr. Here's how the money works and why students like it.",
     keywords:
       "ATU student jobs, ATU Galway jobs, student income Galway, earn money between lectures, student jobs near ATU, part-time work ATU students",
     eyebrow: "For students",
@@ -127,8 +127,8 @@ export const BLOG_POSTS: BlogPost[] = [
     tags: ["ATU", "Student income", "Galway"],
     bodyHtml: `
 <p><a href="/glossary/atu">ATU</a> — Atlantic Technological University — sits right in the middle of Vano's home turf in Galway, which makes its students some of our most active <a href="/glossary/vano-helper">helpers</a>. The pitch is simple: real money, earned around your timetable, on jobs a short walk or cycle from campus.</p>
-<h2>The number that matters: €18/hr, and it's all yours</h2>
-<p>Most student jobs quote you a gross hourly rate and let the reality sink in later. We do it the other way around. On every <strong>time-based</strong> job — cleaning, garden work, online tutoring — the customer pays you <strong>€18 an hour and you keep 100%</strong>. Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not to you. That's well above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15, and it's a rule we built into the pricing on purpose.</p>
+<h2>The number that matters: €22/hr, and it's all yours</h2>
+<p>Most student jobs quote you a gross hourly rate and let the reality sink in later. We do it the other way around. On every <strong>time-based</strong> job — cleaning, garden work, online tutoring — the customer pays you <strong>€22 an hour and you keep 100%</strong>. Vano's <a href="/glossary/platform-fee">booking fee</a> is charged to the customer, not to you. That's well above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15, and it's a rule we built into the pricing on purpose.</p>
 <p>Job-based tasks (a bag of laundry, a bin run, a quick errand) are priced for the task rather than the hour, but the same principle holds: the rate has to be worth your time or students simply won't accept it.</p>
 <h2>How a typical week looks</h2>
 <p>There's no rota. You open the app when you've got a gap, see what's nearby, and take what fits:</p>
@@ -148,7 +148,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["how-to-become-a-vano-helper", "part-time-jobs-students-galway", "why-now-galway-student-cost-of-living"],
     faqs: [
-      { q: "How much can ATU students earn with Vano?", a: "€18 an hour on time-based jobs like cleaning, garden and online tutoring — and you keep 100% of it, well above the 2026 minimum wage. Job-based tasks are priced for the task." },
+      { q: "How much can ATU students earn with Vano?", a: "€22 an hour on time-based jobs like cleaning, garden and online tutoring — and you keep 100% of it, well above the 2026 minimum wage. Job-based tasks are priced for the task." },
       { q: "Are the jobs near the ATU Galway campus?", a: "Often, yes — many jobs are a short walk or cycle from campus around the city." },
       { q: "Do I have to be an ATU student to join?", a: "No. University of Galway students and other locals join too; ATU students are simply a large share of helpers." },
       { q: "When and how do I get paid?", a: "The customer pays you directly the moment the job's done — Revolut or cash, whichever suits — and you keep 100% of the job price." },
@@ -184,7 +184,7 @@ export const BLOG_POSTS: BlogPost[] = [
 </ul>
 <h2>Why flexible work is the realistic answer</h2>
 <p>You can't add hours to the day, but you <em>can</em> turn the gaps you already have into income. A free Wednesday afternoon, an hour before a late lecture, a quiet Sunday — these are dead time on a fixed rota but live earning time on a <a href="/glossary/flexible-work">flexible</a> platform. You accept a <a href="/glossary/same-day-home-help">same-day</a> job only when it suits you, and skip everything during deadline week.</p>
-<p>The catch with most "flexible" gig work is that the pay is thin once fees come out. We deliberately don't do that — on Vano there are <em>no</em> fees on your side: time-based jobs pay €18/hr and you keep 100%, well clear of Ireland's <a href="/glossary/minimum-wage-ireland">minimum wage</a>. The <a href="/blog/atu-students-earning-with-vano">ATU earnings breakdown</a> shows exactly how.</p>
+<p>The catch with most "flexible" gig work is that the pay is thin once fees come out. We deliberately don't do that — on Vano there are <em>no</em> fees on your side: time-based jobs pay €22/hr and you keep 100%, well clear of Ireland's <a href="/glossary/minimum-wage-ireland">minimum wage</a>. The <a href="/blog/atu-students-earning-with-vano">ATU earnings breakdown</a> shows exactly how.</p>
 <h2>Earning without wrecking your degree</h2>
 <p>The whole point is that the work bends around study, not the reverse. Short, local jobs — a dog walk, an hour of cleaning, a hand with a move — finish quickly and leave your evenings for the library. Because there's no rota, there's nothing to "call in sick" for during exams; you just stop accepting until you've got time again.</p>
 <p>If that sounds like the kind of work you've been looking for, here's <a href="/blog/part-time-jobs-students-galway">why flexible beats a fixed rota</a>, and <a href="/blog/how-to-become-a-vano-helper">how to get started</a>.</p>
@@ -202,7 +202,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "why-vano-fair-pay-same-day",
     title: "Why Vano: Fair Pay Above Minimum Wage, Same-Day, No Awkward Boss",
     summary:
-      "Vano is built on three things: pay that clears Ireland's minimum wage by design (€18/hr, you keep 100%), same-day jobs you can do today, and no boss or rota — you choose what to accept. Every helper is ID-verified and paid directly by the customer after each job.",
+      "Vano is built on three things: pay that clears Ireland's minimum wage by design (€22/hr, you keep 100%), same-day jobs you can do today, and no boss or rota — you choose what to accept. Every helper is ID-verified and paid directly by the customer after each job.",
     description:
       "Why choose Vano over other student work? Pay that clears minimum wage by design, same-day jobs, and no fixed boss or rota. Here's exactly how it works.",
     keywords:
@@ -219,8 +219,8 @@ export const BLOG_POSTS: BlogPost[] = [
     bodyHtml: `
 <p>There's no shortage of ways for a student to earn a bit of money. So <em>why Vano</em>? It comes down to three things we've built in on purpose: pay that actually clears minimum wage, work you can do today, and no boss standing over a rota.</p>
 <h2>1. Pay that clears minimum wage — by design</h2>
-<p>This is the one we're proudest of. A lot of gig platforms advertise a headline rate, then quietly shave it with fees until your real take-home dips below what the law guarantees. We refuse to do that. On Vano, <strong>you keep 100% of the job price</strong>: your <a href="/glossary/net-pay">take-home</a> on time-based jobs is the full <strong>€18 an hour</strong> — far above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15.</p>
-<p>Here's the actual maths, no hand-waving: cleaning, garden and online tutoring are all quoted at €18/hr to the customer, and the customer pays you that directly when the job's done. Vano's <a href="/glossary/platform-fee">booking fee</a> (15% of the job price, minimum €4) is charged to the customer's card — none of it comes out of your pocket. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
+<p>This is the one we're proudest of. A lot of gig platforms advertise a headline rate, then quietly shave it with fees until your real take-home dips below what the law guarantees. We refuse to do that. On Vano, <strong>you keep 100% of the job price</strong>: your <a href="/glossary/net-pay">take-home</a> on time-based jobs is the full <strong>€22 an hour</strong> — far above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15.</p>
+<p>Here's the actual maths, no hand-waving: cleaning, garden and online tutoring are all quoted at €22/hr to the customer, and the customer pays you that directly when the job's done. Vano's <a href="/glossary/platform-fee">booking fee</a> (15% of the job price, minimum €4) is charged to the customer's card — none of it comes out of your pocket. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
 <h2>2. Same-day, not "sometime next week"</h2>
 <p>Vano is built for <a href="/glossary/same-day-home-help">same-day</a> help. A customer books, the job is <a href="/glossary/job-dispatch">dispatched</a> to nearby helpers by SMS and push, and whoever accepts first gets it. For you that means you can earn <em>today</em> — open the app on a free afternoon and there may already be a job two streets away.</p>
 <h2>3. No awkward boss, no rota</h2>
@@ -232,7 +232,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["how-to-become-a-vano-helper", "what-vano-helpers-do", "atu-students-earning-with-vano"],
     faqs: [
-      { q: "How much do Vano helpers take home?", a: "The full job price — 100%. Time-based jobs pay €18 an hour, well above Ireland's €14.15 minimum wage; Vano's booking fee is charged to the customer instead." },
+      { q: "How much do Vano helpers take home?", a: "The full job price — 100%. Time-based jobs pay €22 an hour, well above Ireland's €14.15 minimum wage; Vano's booking fee is charged to the customer instead." },
       { q: "Is Vano safe to work through?", a: "Yes. Every helper is ID-verified, customers commit with a card fee before you set off, and you confirm your payment in the app — unpaid jobs get the customer's number blocked." },
       { q: "Do I get a boss or a fixed schedule?", a: "Neither. You choose which jobs to accept and when — there's no manager and no rota." },
       { q: "When does the customer pay?", a: "They pay Vano's booking fee by card when you accept — committing to the job — then pay you the full job price directly (Revolut or cash) when the job's done." },
@@ -327,7 +327,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <h2>Step 4 — Accept your first job</h2>
 <p>Now you're live. When a nearby job is <a href="/glossary/job-dispatch">dispatched</a>, you'll get an SMS and a push notification. Open it, check the details and the pay, and accept if it suits. The moment you accept, <a href="/glossary/pay-after-accept">the customer pays Vano's booking fee</a> by card — real money committed to the booking before you set off.</p>
 <h2>Step 5 — Do the job, get paid</h2>
-<p>Find the address from the <a href="/glossary/eircode">Eircode</a>, do a good job, and tap "I've finished" in the app. The customer pays you the full job price on the spot — <a href="/glossary/net-pay">€18/hr on time-based work</a>, well above the <a href="/glossary/minimum-wage-ireland">minimum wage</a> — and you confirm you've been paid. If anyone ever doesn't pay, one tap reports it and their number is blocked.</p>
+<p>Find the address from the <a href="/glossary/eircode">Eircode</a>, do a good job, and tap "I've finished" in the app. The customer pays you the full job price on the spot — <a href="/glossary/net-pay">€22/hr on time-based work</a>, well above the <a href="/glossary/minimum-wage-ireland">minimum wage</a> — and you confirm you've been paid. If anyone ever doesn't pay, one tap reports it and their number is blocked.</p>
 <h2>That's it</h2>
 <p>No interview, no rota, no commitment. Do one job a month or one a day — it's entirely up to you. If you want the bigger picture first, read <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a> or <a href="/blog/part-time-jobs-students-galway">why flexible work beats a fixed rota</a>.</p>
 <p><a href="/join"><strong>Create your helper account →</strong></a></p>
@@ -367,7 +367,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <h2>Why we built Vano</h2>
 <p>Two problems, one platform:</p>
 <ul>
-<li><strong>For students:</strong> proper pay. Time-based jobs pay <strong>€18/hr and helpers keep 100%</strong> — far above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a> — with no fixed rota. The full breakdown is in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</li>
+<li><strong>For students:</strong> proper pay. Time-based jobs pay <strong>€22/hr and helpers keep 100%</strong> — far above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a> — with no fixed rota. The full breakdown is in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</li>
 <li><strong>For households:</strong> <a href="/glossary/same-day-home-help">same-day help</a> from an <a href="/glossary/id-verified-helper">ID-verified</a> local student — cleaning, dog walks, garden, errands and more — without the hassle.</li>
 </ul>
 <figure><img src="/blog/team-podcast.jpg" alt="Vano's founders recording a podcast about building a student-run startup in Galway" class="rounded-2xl" loading="lazy" /><figcaption>Telling the story — building Vano in the open.</figcaption></figure>
@@ -388,9 +388,9 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "cleaner-cost-galway",
     title: "How Much Does a Cleaner Cost in Galway? (2026 Prices)",
     summary:
-      "A cleaner in Galway costs €18 an hour on Vano — a typical 2-hour clean is €36 plus a small booking fee (15%, min €4). No contracts, no call-out charges, and you can usually book same-day.",
+      "A cleaner in Galway costs €22 an hour on Vano — a typical 2-hour clean is €36 plus a small booking fee (15%, min €4). No contracts, no call-out charges, and you can usually book same-day.",
     description:
-      "Real 2026 cleaner prices in Galway: €18/hr with no contracts or call-out fees. What a 2, 3 or 4-hour clean costs, what's included, and how to book same-day.",
+      "Real 2026 cleaner prices in Galway: €22/hr with no contracts or call-out fees. What a 2, 3 or 4-hour clean costs, what's included, and how to book same-day.",
     keywords:
       "cleaner cost Galway, house cleaning prices Galway, cleaner Galway, how much does a cleaner cost Ireland, hourly rate cleaner Galway, same day cleaner Galway",
     eyebrow: "Price guide",
@@ -402,13 +402,13 @@ export const BLOG_POSTS: BlogPost[] = [
     heroAlt: "A student cleaner wiping down a kitchen counter in a Galway home",
     tags: ["Cleaning", "Prices", "Galway"],
     bodyHtml: `
-<p>Short answer: on Vano, a cleaner in Galway costs <strong>€18 an hour</strong>, and you book exactly the hours you want. No contracts, no minimum weekly commitment, no call-out charge. Here's what that actually comes to, what's included, and how it compares.</p>
+<p>Short answer: on Vano, a cleaner in Galway costs <strong>€22 an hour</strong>, and you book exactly the hours you want. No contracts, no minimum weekly commitment, no call-out charge. Here's what that actually comes to, what's included, and how it compares.</p>
 <h2>Galway cleaning prices at a glance (2026)</h2>
 <ul>
 <li><strong>2-hour clean</strong> (kitchen + bathroom + floors) — €36</li>
 <li><strong>3-hour clean</strong> (whole small home) — €54</li>
 <li><strong>4-hour <a href="/glossary/deep-clean">deep clean</a></strong> — €72</li>
-<li><strong>Oven &amp; kitchen clean</strong> — €18–€36 (1–2 hours usually does it)</li>
+<li><strong>Oven &amp; kitchen clean</strong> — €22–€44 (1–2 hours usually does it)</li>
 <li><strong><a href="/glossary/end-of-tenancy-clean">End-of-tenancy clean</a></strong> — €54–€72 for most flats (3–4 hours)</li>
 </ul>
 <p>On top of the job price there's one small <strong>booking fee</strong> — 15% of the job price, minimum €4 — charged to your card only <a href="/glossary/pay-after-accept">when a helper says yes</a>. So a 2-hour clean is €36 + €5.40 = <strong>€41.40 all-in</strong>. The €36 goes straight to your cleaner (Revolut or cash when the job's done — they keep 100%), and the price is agreed upfront, so there are no surprises after.</p>
@@ -417,14 +417,14 @@ export const BLOG_POSTS: BlogPost[] = [
 <h2>Who does the cleaning?</h2>
 <p>Local <a href="/glossary/student-cleaner">student cleaners</a> — real students at ATU and the University of Galway, every one <a href="/glossary/id-verified-helper">ID-verified before their first job</a> and rated after every job. You see their name, photo and rating before they arrive, follow them on a live map on the way, and they can only start with the <a href="/glossary/arrival-code">4-digit code</a> shown on your screen.</p>
 <h2>How Galway cleaner prices compare</h2>
-<p>Agency cleans in Ireland commonly run €20–€30+ an hour once fees are counted, often with minimum visits or contracts. Independent cleaners can be cheaper but are hard to find at short notice and rarely vetted. Vano sits in the honest middle: <strong>€18/hr flat</strong>, bookable <a href="/glossary/same-day-home-help">same-day</a>, with verification built in — and because your cleaner keeps 100% of the job price, the low price doesn't come out of their pocket.</p>
+<p>Agency cleans in Ireland commonly run €20–€30+ an hour once fees are counted, often with minimum visits or contracts. Independent cleaners can be cheaper but are hard to find at short notice and rarely vetted. Vano sits in the honest middle: <strong>€22/hr flat</strong>, bookable <a href="/glossary/same-day-home-help">same-day</a>, with verification built in — and because your cleaner keeps 100% of the job price, the low price doesn't come out of their pocket.</p>
 <h2>How to book a cleaner in Galway</h2>
 <p>Tap <strong>Cleaning</strong> on <a href="/">vanojobs.com</a>, pick the kind of clean and how many hours, add your phone number and address, and that's it — most jobs are confirmed within a few hours. You can add optional <a href="/glossary/vano-cover">Vano Cover</a> (€2, accidental damage up to €250) when booking. If anything's not right, tell us within 24 hours and we'll re-do it or refund you.</p>
 <p><a href="/#book"><strong>Book a cleaner in Galway →</strong></a></p>
 `,
     related: ["deep-clean-vs-standard-clean", "end-of-tenancy-cleaning-galway", "laundry-service-galway-cost"],
     faqs: [
-      { q: "How much does a cleaner cost per hour in Galway?", a: "€18 an hour on Vano, with no contracts or call-out fees. A typical 2-hour clean costs €36 plus a small booking fee (15%, minimum €4)." },
+      { q: "How much does a cleaner cost per hour in Galway?", a: "€22 an hour on Vano, with no contracts or call-out fees. A typical 2-hour clean costs €36 plus a small booking fee (15%, minimum €4)." },
       { q: "Is there a minimum number of hours?", a: "Cleaning is booked by the hour — most people book 2 hours for a kitchen-bathroom-floors clean, and 3–4 hours for a whole home or deep clean." },
       { q: "Do I pay upfront?", a: "No. Booking is free — the small booking fee is only charged when a helper says yes, and you pay the cleaner the job price directly (Revolut or cash) once the work is done." },
       { q: "Are Vano cleaners vetted?", a: "Every cleaner is ID-verified before their first job, rated after every job, and can only start the job using the 4-digit code shown on your screen." },
@@ -435,9 +435,9 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "end-of-tenancy-cleaning-galway",
     title: "End-of-Tenancy Cleaning in Galway: Checklist & Cost (2026)",
     summary:
-      "An end-of-tenancy clean in Galway costs €54–€72 for most flats on Vano (3–4 hours at €18/hr). Here's the room-by-room checklist landlords actually check — and how to get it done same-day before handover.",
+      "An end-of-tenancy clean in Galway costs €54–€72 for most flats on Vano (3–4 hours at €22/hr). Here's the room-by-room checklist landlords actually check — and how to get it done same-day before handover.",
     description:
-      "Moving out in Galway? End-of-tenancy cleaning costs €54–€72 for most flats (€18/hr). The room-by-room deposit checklist plus how to book a same-day move-out clean.",
+      "Moving out in Galway? End-of-tenancy cleaning costs €54–€72 for most flats (€22/hr). The room-by-room deposit checklist plus how to book a same-day move-out clean.",
     keywords:
       "end of tenancy cleaning Galway, move out cleaning Galway, deposit cleaning checklist Ireland, end of lease clean cost, student accommodation cleaning Galway",
     eyebrow: "Moving out",
@@ -451,7 +451,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bodyHtml: `
 <p>Handing back the keys is the one clean you can't skip — it's the difference between your full deposit and a deduction. In a student city like Galway, <a href="/glossary/end-of-tenancy-clean">end-of-tenancy cleans</a> are our most-booked job every summer. Here's what landlords actually check, what it costs, and how to get it done fast.</p>
 <h2>What does an end-of-tenancy clean cost in Galway?</h2>
-<p>On Vano it's priced simply by time at <strong>€18/hr</strong>:</p>
+<p>On Vano it's priced simply by time at <strong>€22/hr</strong>:</p>
 <ul>
 <li><strong>Studio or one-bed flat</strong> — 3 hours, €54</li>
 <li><strong>Two-bed house or apartment</strong> — 4 hours, €72</li>
@@ -487,7 +487,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["cleaner-cost-galway", "deep-clean-vs-standard-clean"],
     faqs: [
-      { q: "How much is an end-of-tenancy clean in Galway?", a: "€54–€72 for most flats on Vano (3–4 hours at €18/hr), plus a small booking fee. Dedicated end-of-tenancy firms commonly charge €150–€300 for the same size of home." },
+      { q: "How much is an end-of-tenancy clean in Galway?", a: "€54–€72 for most flats on Vano (3–4 hours at €22/hr), plus a small booking fee. Dedicated end-of-tenancy firms commonly charge €150–€300 for the same size of home." },
       { q: "How long does a move-out clean take?", a: "About 3 hours for a studio or one-bed, 4 hours for a two-bed — longer if the oven or bathroom needs serious work." },
       { q: "Can I get an end-of-tenancy clean same-day in Galway?", a: "Usually yes — most Vano jobs are confirmed within a few hours, so you can book the morning of your final inspection if needed." },
       { q: "Does the clean include the oven?", a: "Ask for it in your booking note and book enough time — the oven is the single most-checked item at handover and usually adds about an hour." },
@@ -575,14 +575,14 @@ export const BLOG_POSTS: BlogPost[] = [
 <h2>Compared with the alternatives</h2>
 <p>A launderette service wash in Ireland typically runs €12–€20 <em>plus</em> the two trips to drop off and collect. Big laundry apps charge by the kilo with delivery fees on top and mostly serve Dublin. Vano's €30-a-bag is fully door-to-door — collection and return included, none of your time — and the money goes to a local student, not a logistics chain.</p>
 <h2>Want ironing too?</h2>
-<p>Ironing is its own job — see the <a href="/glossary/ironing-service">ironing service</a> explainer, or book it as an "Anything else" job at €18/hr alongside your wash.</p>
+<p>Ironing is its own job — see the <a href="/glossary/ironing-service">ironing service</a> explainer, or book it as an "Anything else" job at €22/hr alongside your wash.</p>
 <p><a href="/#book"><strong>Book laundry collection in Galway →</strong></a></p>
 `,
     related: ["cleaner-cost-galway", "dog-walker-galway-cost", "why-vano-fair-pay-same-day"],
     faqs: [
       { q: "How much is the laundry service in Galway?", a: "€30 for a standard bag — collected, washed, dried and returned folded — plus a €4.50 booking fee when a helper says yes: €34.50 all-in. Bigger loads book as 2 bags (€50) or 3 bags (€65). No per-kilo charges." },
       { q: "How fast does laundry come back?", a: "Usually same-day or next-day, depending on when you book and drying time. The helper agrees timing with you at collection." },
-      { q: "Is ironing included?", a: "No — the €30 covers wash, dry and fold. Ironing can be booked as its own job at €18/hr." },
+      { q: "Is ironing included?", a: "No — the €30 covers wash, dry and fold. Ironing can be booked as its own job at €22/hr." },
       { q: "Who collects my laundry?", a: "A local ID-verified student — you see their name, photo and rating before they call, and the same helper returns it folded." },
     ],
   },
@@ -593,7 +593,7 @@ export const BLOG_POSTS: BlogPost[] = [
     summary:
       "A standard clean (about 2 hours, €36) keeps a home ticking over; a deep clean (3–4 hours, €54–€72) gets into the corners a weekly tidy skips. Here's how to tell which your home needs — and when.",
     description:
-      "Deep clean or standard clean? What each includes, what they cost in Galway (€36 vs €54–€72 at €18/hr), and a simple rule for choosing the right one.",
+      "Deep clean or standard clean? What each includes, what they cost in Galway (€36 vs €54–€72 at €22/hr), and a simple rule for choosing the right one.",
     keywords:
       "deep clean vs regular clean, what is a deep clean, deep cleaning checklist Ireland, standard clean includes, deep clean cost Galway, spring clean",
     eyebrow: "Cleaning guide",
@@ -630,14 +630,14 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Moving out?</strong> That's its own beast — the <a href="/glossary/end-of-tenancy-clean">end-of-tenancy clean</a> — with a landlord checklist attached. See the <a href="/blog/end-of-tenancy-cleaning-galway">full guide</a>.</li>
 </ul>
 <h2>Pricing is the same simple maths</h2>
-<p>On Vano both are the same honest rate — <strong>€18/hr</strong>, your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% — you're just booking more hours for a deep clean. One small booking fee (15%, min €4) is charged <a href="/glossary/pay-after-accept">when a helper says yes</a>, and optional <a href="/glossary/vano-cover">Vano Cover</a> (€2) covers accidental damage up to €250. Full price rundown in the <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
+<p>On Vano both are the same honest rate — <strong>€22/hr</strong>, your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% — you're just booking more hours for a deep clean. One small booking fee (15%, min €4) is charged <a href="/glossary/pay-after-accept">when a helper says yes</a>, and optional <a href="/glossary/vano-cover">Vano Cover</a> (€2) covers accidental damage up to €250. Full price rundown in the <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
 <p><a href="/#book"><strong>Book a clean that fits →</strong></a></p>
 `,
     related: ["cleaner-cost-galway", "end-of-tenancy-cleaning-galway", "laundry-service-galway-cost"],
     faqs: [
       { q: "What's the difference between a deep clean and a standard clean?", a: "A standard clean covers surfaces, bathroom, floors and tidying. A deep clean adds the hidden work: inside cupboards and appliances, limescale, skirting boards, and under furniture." },
       { q: "How often should I book a deep clean?", a: "Every 2–3 months for most homes, with standard cleans keeping things ticking over in between — or whenever cupboards and corners have quietly gotten away from you." },
-      { q: "How much does each cost in Galway?", a: "At €18/hr: a standard clean is about €36 (2 hours), a deep clean €54–€72 (3–4 hours), plus a small booking fee (15%, min €4)." },
+      { q: "How much does each cost in Galway?", a: "At €22/hr: a standard clean is about €36 (2 hours), a deep clean €54–€72 (3–4 hours), plus a small booking fee (15%, min €4)." },
     ],
   },
 ];
@@ -651,9 +651,9 @@ const PARKED_BLOG_POSTS: BlogPost[] = [
     slug: "moving-help-galway",
     title: "Moving in Galway: What Help Costs & a Stress-Free Checklist",
     summary:
-      "Student moving help in Galway costs €18 an hour per helper on Vano — you arrange the van, they bring the muscle. Here's what a typical move costs and the checklist that keeps moving day calm.",
+      "Student moving help in Galway costs €22 an hour per helper on Vano — you arrange the van, they bring the muscle. Here's what a typical move costs and the checklist that keeps moving day calm.",
     description:
-      "Help moving house in Galway: €18/hr per helper for lifting, loading and carrying. What a typical flat move costs in 2026, plus a stress-free moving day checklist.",
+      "Help moving house in Galway: €22/hr per helper for lifting, loading and carrying. What a typical flat move costs in 2026, plus a stress-free moving day checklist.",
     keywords:
       "moving help Galway, man with a van Galway alternative, help moving house Ireland cost, furniture moving Galway, student movers Galway, moving day checklist",
     eyebrow: "Moving",
@@ -665,9 +665,9 @@ const PARKED_BLOG_POSTS: BlogPost[] = [
     heroAlt: "Students carrying moving boxes into a house in Galway on moving day",
     tags: ["Moving", "Prices", "Galway"],
     bodyHtml: `
-<p>The hardest part of moving isn't the van — it's the fourth trip up the stairs with a couch. On Vano, <strong>moving help costs €18 an hour per helper</strong>: strong, careful lifting and carrying, booked for exactly the hours you need.</p>
+<p>The hardest part of moving isn't the van — it's the fourth trip up the stairs with a couch. On Vano, <strong>moving help costs €22 an hour per helper</strong>: strong, careful lifting and carrying, booked for exactly the hours you need.</p>
 <h2>How it works (and what you arrange)</h2>
-<p>One honest thing upfront: <strong>you arrange the van</strong> (or use your own car for a small move). Vano helpers are the labour — they load, carry, and unload, but they never drive your belongings. That split keeps it simple and cheap: van hire in Galway runs roughly €40–€80 for a half day, and the muscle is €18/hr on top.</p>
+<p>One honest thing upfront: <strong>you arrange the van</strong> (or use your own car for a small move). Vano helpers are the labour — they load, carry, and unload, but they never drive your belongings. That split keeps it simple and cheap: van hire in Galway runs roughly €40–€80 for a half day, and the muscle is €22/hr on top.</p>
 <h2>What a typical Galway move costs</h2>
 <ul>
 <li><strong>Student room move</strong> (boxes + a few bags, 2 hours, one helper) — €36</li>
@@ -678,7 +678,7 @@ const PARKED_BLOG_POSTS: BlogPost[] = [
 <h2>The stress-free moving day checklist</h2>
 <ul>
 <li><strong>Book the van first, helpers second</strong> — match the helper hours to the van window.</li>
-<li><strong>Box everything before they arrive</strong> — €18/hr is for carrying, not bubble-wrapping mugs.</li>
+<li><strong>Box everything before they arrive</strong> — €22/hr is for carrying, not bubble-wrapping mugs.</li>
 <li><strong>Heaviest furniture measured</strong> — check the couch actually fits the new stairwell.</li>
 <li><strong>Park close</strong> — five metres to the door beats fifty.</li>
 <li><strong>Keep kettle, chargers and keys in one "open me first" box.</strong></li>
@@ -689,13 +689,13 @@ const PARKED_BLOG_POSTS: BlogPost[] = [
 `,
     related: ["end-of-tenancy-cleaning-galway", "cleaner-cost-galway", "what-vano-helpers-do"],
     faqs: [
-      { q: "How much does moving help cost in Galway?", a: "€18 an hour per helper on Vano. A typical student room move is about €36 (2 hours); a one-bed flat about €54 (3 hours) — plus van hire, which you arrange." },
+      { q: "How much does moving help cost in Galway?", a: "€22 an hour per helper on Vano. A typical student room move is about €36 (2 hours); a one-bed flat about €54 (3 hours) — plus van hire, which you arrange." },
       { q: "Do Vano helpers drive the van?", a: "No — helpers load, carry and unload, but never drive your belongings or passengers. You arrange the van or use your own car; that split is what keeps the price low." },
       { q: "Can two helpers work the same move?", a: "Yes — book two moving jobs for the same time slot and note they're for the same move. Two sets of hands roughly halves the carrying time." },
       { q: "How far in advance should I book?", a: "Same-day is often possible, but for a moving day with a hired van, booking a day or two ahead is safest so the van and the muscle line up." },
     ],
     howTo: [
-      { name: "Sort the van before the muscle", text: "Book your van (or borrow a car) first, then book Vano helpers for the same window at €18/hr each." },
+      { name: "Sort the van before the muscle", text: "Book your van (or borrow a car) first, then book Vano helpers for the same window at €22/hr each." },
       { name: "Pack completely before helpers arrive", text: "Everything boxed, sealed and labelled — helper hours should go on carrying, not packing." },
       { name: "Load heavy and awkward items first", text: "Couch, mattress, wardrobe into the van first; boxes fill the gaps around them." },
       { name: "Book the end-of-tenancy clean for after", text: "Once furniture is out, a 3–4 hour move-out clean gets the deposit back — book it as a separate cleaning job." },

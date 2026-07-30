@@ -39,10 +39,10 @@ const allSubsets = <T,>(items: T[]): T[][] =>
   items.reduce<T[][]>((acc, item) => [...acc, ...acc.map((s) => [...s, item])], [[]]);
 
 describe('jobBuilder — the builder can never invent a price', () => {
-  it('covers exactly the hourly categories the sheet prices at €18/hr', () => {
+  it('covers exactly the hourly categories the sheet prices at €22/hr', () => {
     for (const slug of Object.keys(BUILDER_TASKS)) {
       expect(SHEET_SIZES[slug], `${slug} needs a SHEET_SIZES entry`).toBeDefined();
-      expect(HOURLY_RATE_CENTS[slug]).toBe(1800);
+      expect(HOURLY_RATE_CENTS[slug]).toBe(2200);
     }
   });
 
@@ -81,7 +81,7 @@ describe('jobBuilder — the builder can never invent a price', () => {
 
   it('SUITABLE-MONEY INVARIANT: the booked time always covers the estimated work (owner rule 2026-07-27)', () => {
     // A student must never be booked for less time than the ticks add up to
-    // — €18/hr only nets €18/hr if the hours are real. Rounding UP grows the
+    // — the hourly rate only nets that rate if the hours are real. Rounding UP grows the
     // booking; the only way to violate this is a category cap below the
     // biggest honest estimate (exactly the old cleaning-3h bug). Enumerates
     // every subset × every sizing factor (and factor 1 for wizard-less cats).
@@ -104,12 +104,12 @@ describe('jobBuilder — the builder can never invent a price', () => {
     const sizes = SHEET_SIZES.cleaning;
     const price = (keys: string[]) =>
       getHouseholdPriceCents('cleaning', builderSizeLabel(builderMinutes('cleaning', keys), sizes) as string);
-    expect(price(['kitchen', 'bathroom'])).toBe(2700);                        // 75 min → 1.5h
-    expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(3600);            // 120 min → 2h
-    expect(price(['kitchen', 'bathroom', 'bedrooms', 'floors'])).toBe(4500);  // 150 min → 2.5h
+    expect(price(['kitchen', 'bathroom'])).toBe(3300);                        // 75 min → 1.5h @ €22
+    expect(price(['kitchen', 'bathroom', 'bedrooms'])).toBe(4400);            // 120 min → 2h @ €22
+    expect(price(['kitchen', 'bathroom', 'bedrooms', 'floors'])).toBe(5500);  // 150 min → 2.5h @ €22
   });
 
-  it('market anchors stay display-only, conservative, and above the €18/hr rate', () => {
+  it('market anchors stay display-only, conservative, and above the €22/hr rate', () => {
     for (const [slug, rate] of Object.entries(BUILDER_MARKET_RATE_CENTS)) {
       expect(rate).toBeGreaterThan(HOURLY_RATE_CENTS[slug]); // "you save" can never go negative
       const market = builderMarketCents(slug, '2 hours');
@@ -185,13 +185,13 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
 
   it('the home-size answer visibly moves the price for a typical cleaning tick set', () => {
     // kitchen + bathroom = 75 base minutes: every answer lands on a different
-    // rung (€18 / €27 / €36) — the question genuinely re-prices, fairly.
+    // rung (€22 / €33 / €44) — the question genuinely re-prices, fairly.
     const cents = SIZING_QUESTIONS.cleaning.options.map((o) =>
       getHouseholdPriceCents(
         'cleaning',
         builderSizeLabel(builderMinutes('cleaning', ['kitchen', 'bathroom'], o.factor), SHEET_SIZES.cleaning) as string,
       ));
-    expect(cents).toEqual([1800, 2700, 3600]);
+    expect(cents).toEqual([2200, 3300, 4400]);
   });
 
   it('the dog ladder prices identically on BOTH tables and only ever climbs (owner call: bigger dog costs more)', () => {
@@ -216,10 +216,10 @@ describe('sizing questions — the one-tap speed wizard can never invent a price
     // The exact sheet ladder (owner call 2026-07-27): base / base / +€3 / +€5.
     const ladder = (dur: string) => opts.map((o) => getHouseholdPriceCents('dog-walk', dur, o.carry));
     expect(ladder('30 min')).toEqual([1500, 1500, 1800, 2000]);
-    expect(ladder('1 hour')).toEqual([2000, 2000, 2300, 2500]);
+    expect(ladder('1 hour')).toEqual([2400, 2400, 2700, 2900]); // base €24 since 2026-07-30
     // Small/Medium ARE the old base prices — the ladder never discounts.
     expect(getHouseholdPriceCents('dog-walk', '30 min')).toBe(1500);
-    expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
+    expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2400);
   });
 
   it('laundry answers are the real bag ladder, in ladder order, on the canonical labels', () => {

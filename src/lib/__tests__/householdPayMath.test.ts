@@ -21,12 +21,12 @@ import {
 //
 // The job price is the STUDENT'S money: the customer pays it to them
 // directly (Revolut / cash) and the student keeps 100%. Vano's only charge
-// is the BOOKING FEE — 15% of the job price with a €4 floor — plus the
+// is the BOOKING FEE — 15% of the job price with a €5 floor — plus the
 // optional €2 Vano Cover, both charged to the CUSTOMER's card at accept
 // (create-household-payment-checkout → notify-household-accepted).
 //
 // These tests lock three contracts:
-//   1. the fee maths (15% min €4) and its src/ ↔ supabase/ mirror
+//   1. the fee maths (15% min €5) and its src/ ↔ supabase/ mirror
 //   2. the wage floor — trivial at 100%, but still guarded so a rate cut
 //      below €14.15/hr can never ship (the regression that once shipped
 //      €16/hr cleaning under the OLD 85% model)
@@ -38,20 +38,23 @@ const MIN_WAGE_CENTS_PER_HOUR = 1415; // Ireland NMW, 20+, from 2026-01-01
 // Job-based flat prices (laundry, bins, errands, size/distance tiers) are
 // deliberately excluded — they price the task, not the hour.
 const TIME_BASED_HOURLY_RATES: Record<string, number> = {
-  cleaning: 1800,
-  tutoring: 1800,
-  garden:   1800,
-  moving:   1800,
-  custom:   1800, // "name any job" — same hourly floor, so it can't go sub-wage
+  // €22/hr since 2026-07-30 (owner call) — under direct-pay this IS the
+  // student's wage, and €18 was too close to a supermarket shift to hold
+  // supply. Still far above the €14.15/hr minimum-wage floor asserted below.
+  cleaning: 2200,
+  tutoring: 2200,
+  garden:   2200,
+  moving:   2200,
+  custom:   2200, // "name any job" — same hourly floor, so it can't go sub-wage
   business: 2200, // temp staff (flyers/sampling/shop cover) — premium tier
   handyman: 2500,
   // 'plumbing' retired July 2026 (liability triage) — see retiredCategories.test.ts
 };
 
-describe('vano booking fee — 15% of the job price, €4 minimum', () => {
-  it('constants are 15% / €4 floor / €2 cover', () => {
+describe('vano booking fee — 15% of the job price, €5 minimum', () => {
+  it('constants are 15% / €5 floor / €2 cover', () => {
     expect(VANO_FEE_BPS).toBe(1500);
-    expect(VANO_FEE_MIN_CENTS).toBe(400);
+    expect(VANO_FEE_MIN_CENTS).toBe(500);
     expect(VANO_COVER_CENTS).toBe(200);
   });
 
@@ -65,17 +68,17 @@ describe('vano booking fee — 15% of the job price, €4 minimum', () => {
   });
 
   it('charges 15% once the job is big enough', () => {
-    expect(computeVanoFeeCents(3600)).toBe(540);   // 2h clean €36 → €5.40
-    expect(computeVanoFeeCents(5400)).toBe(810);   // 3h €54 → €8.10
-    expect(computeVanoFeeCents(14400)).toBe(2160); // 8h €144 → €21.60
+    expect(computeVanoFeeCents(4400)).toBe(660);   // 2h clean €44 → €6.60
+    expect(computeVanoFeeCents(6600)).toBe(990);   // 3h €66 → €9.90
+    expect(computeVanoFeeCents(17600)).toBe(2640); // 8h €176 → €26.40
   });
 
-  it('floors at €4 on small jobs (15% would be less)', () => {
-    expect(computeVanoFeeCents(1200)).toBe(400); // €12 min booking → 15% = €1.80 → €4
-    expect(computeVanoFeeCents(1500)).toBe(400); // €15 walk → 15% = €2.25 → €4
-    expect(computeVanoFeeCents(2000)).toBe(400); // €20 walk → 15% = €3 → €4
-    expect(computeVanoFeeCents(2600)).toBe(400); // €26.66 is the last €4 price point
-    expect(computeVanoFeeCents(2700)).toBe(405); // …from €27 the 15% takes over
+  it('floors at €5 on small jobs (15% would be less)', () => {
+    expect(computeVanoFeeCents(1400)).toBe(500); // €14 min booking → 15% = €2.10 → €5
+    expect(computeVanoFeeCents(1500)).toBe(500); // €15 walk → 15% = €2.25 → €5
+    expect(computeVanoFeeCents(2400)).toBe(500); // €24 walk → 15% = €3.60 → €5
+    expect(computeVanoFeeCents(3300)).toBe(500); // €33.33 is the last €5 price point
+    expect(computeVanoFeeCents(3400)).toBe(510); // …from €34 the 15% takes over
   });
 
   it('degrades safely on nonsense input (never a negative or NaN fee)', () => {
@@ -111,9 +114,9 @@ describe('household time-based rates pay above minimum wage', () => {
 // can't import the Deno function, so these expected values ARE the contract —
 // if the server changes a price, change it here too and this test stays green.
 describe('shared price source matches the server', () => {
-  it('all time-based labour rates (incl. custom) are €18/hr', () => {
+  it('all time-based labour rates (incl. custom) are €22/hr', () => {
     for (const slug of ['garden', 'moving', 'cleaning', 'tutoring', 'custom']) {
-      expect(HOURLY_RATE_CENTS[slug]).toBe(1800);
+      expect(HOURLY_RATE_CENTS[slug]).toBe(2200);
     }
   });
 
@@ -123,22 +126,24 @@ describe('shared price source matches the server', () => {
     expect(getHouseholdPriceCents('shopping', '2 bags')).toBe(5000);
     expect(getHouseholdPriceCents('shopping', '3 bags')).toBe(6500);
     expect(getHouseholdPriceCents('dog-walk', '30 min')).toBe(1500);
-    expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
-    expect(getHouseholdPriceCents('cleaning', '2 hours')).toBe(3600);
-    expect(getHouseholdPriceCents('tutoring', '1 hour')).toBe(1800);
-    expect(getHouseholdPriceCents('garden', '8 hours')).toBe(14400);
-    expect(getHouseholdPriceCents('moving', '4+ hours')).toBe(7200); // client now matches server
-    // Custom "name any job" — €18/hr × N, matching the server's hour map
-    expect(getHouseholdPriceCents('custom', '1 hour')).toBe(1800);
-    expect(getHouseholdPriceCents('custom', '3 hours')).toBe(5400);
-    expect(getHouseholdPriceCents('custom', '8 hours')).toBe(14400);
-    // Short custom visits — €12 booking minimum (floored), matching the server
-    expect(getHouseholdPriceCents('custom', '30 min')).toBe(1200);
-    expect(getHouseholdPriceCents('custom', '45 min')).toBe(1350);
-    // Business temp staff — €22/hr premium, 2-hour minimum shift
-    expect(getHouseholdPriceCents('business', '2 hours')).toBe(4400);
-    expect(getHouseholdPriceCents('business', '4 hours')).toBe(8800);
-    expect(getHouseholdPriceCents('business', '8 hours')).toBe(17600);
+    expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2400); // €20 → €24 (2026-07-30: was under the €22/hr labour rate)
+    expect(getHouseholdPriceCents('cleaning', '2 hours')).toBe(4400);
+    expect(getHouseholdPriceCents('tutoring', '1 hour')).toBe(2200);
+    expect(getHouseholdPriceCents('garden', '8 hours')).toBe(17600);
+    expect(getHouseholdPriceCents('moving', '4+ hours')).toBe(8800); // client matches server (€22/hr × 4)
+    // Custom "name any job" — €22/hr × N, matching the server's hour map
+    expect(getHouseholdPriceCents('custom', '1 hour')).toBe(2200);
+    expect(getHouseholdPriceCents('custom', '3 hours')).toBe(6600);
+    expect(getHouseholdPriceCents('custom', '8 hours')).toBe(17600);
+    // Short custom visits — €14 booking minimum (floored), matching the server
+    expect(getHouseholdPriceCents('custom', '30 min')).toBe(1400);
+    expect(getHouseholdPriceCents('custom', '45 min')).toBe(1650); // €22/hr × 0.75
+    // Business temp staff — €28/hr premium (moved up from €22 on 2026-07-30
+    // when households rose to €22, so the tier stays genuinely premium),
+    // 2-hour minimum shift
+    expect(getHouseholdPriceCents('business', '2 hours')).toBe(5600);
+    expect(getHouseholdPriceCents('business', '4 hours')).toBe(11200);
+    expect(getHouseholdPriceCents('business', '8 hours')).toBe(22400);
   });
 
   it('returns null for an unpriceable combination', () => {
