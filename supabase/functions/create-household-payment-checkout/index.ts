@@ -121,7 +121,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw, cover, bring_supplies, card_pay } = body;
+    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw, cover, bring_supplies, card_pay, immediate_performance_consent } = body;
     // Optional Vano Cover add-on — customer-elected at booking, flat €2.
     const coverOpted = cover === true;
 
@@ -368,6 +368,18 @@ serve(async (req) => {
       // fee_due_cents in one session; the helper is paid 100% of the job
       // price by Stripe Connect transfer on completion.
       ...(cardPay ? { card_pay: true } : {}),
+      // ── Distance-selling evidence (SI 484/2013) ──────────────────────
+      // The 14-day right to cancel an online booking is only extinguished
+      // where the consumer expressly requested immediate performance AND
+      // acknowledged losing the right once the service is fully performed.
+      // The sheet shows that sentence above the Book button and sends this
+      // flag; we stamp it WITH A TIMESTAMP so, if it is ever disputed, the
+      // booking row itself carries when the acknowledgement was given.
+      // Absent flag (WhatsApp door, old clients) ⇒ nothing recorded, and the
+      // customer simply keeps the full 14-day right — never assume consent.
+      ...(immediate_performance_consent === true
+        ? { immediate_performance_consent: true, immediate_performance_consent_at: new Date().toISOString() }
+        : {}),
       // Customer reputation snapshot for the helper's accept decision
       // ("pays promptly ✓ · 3 jobs" / "New customer") — no PII beyond what
       // the assigned helper sees anyway.

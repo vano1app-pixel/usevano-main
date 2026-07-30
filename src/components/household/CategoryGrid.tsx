@@ -14,6 +14,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES_ADDON_CENTS, travelTopupCents, CARD_PAY_OFFERED } from '@/lib/householdPricing';
+import { COOLING_OFF_DAYS, IMMEDIATE_PERFORMANCE_CONSENT_TEXT } from '@/lib/legalEntity';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
 import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, scaledTaskMinutes, hoursFromSizeLabel, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
@@ -1098,6 +1099,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           ...(suppliesCents > 0 ? { bring_supplies: true } : {}),
           // Card-pay option: one card payment for everything at accept.
           ...(CARD_PAY_OFFERED && payMode === 'card' ? { card_pay: true } : {}),
+          // Distance-selling evidence: the customer expressly asked for
+          // immediate performance and acknowledged the 14-day right ends once
+          // the job is done (the sentence shown above the Book button).
+          immediate_performance_consent: true,
           ...(computeScheduledAt(when) ? { scheduled_at: computeScheduledAt(when) } : {}),
           // Wizard scope first, then the customer's own words — one string
           // the helper reads top to bottom ("3-bed home · Kitchen … · Gate
@@ -2067,6 +2072,21 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 {' '}— your helper is an independent person you pay directly, and{' '}
                 <a href="/cover" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
                 {' '}is there if you add it.
+              </p>
+              {/* The {COOLING_OFF_DAYS}-day distance-selling right (SI 484/2013). Same-day
+                  help is "fully performed" long before it expires, but the right
+                  is only extinguished where the customer EXPRESSLY asked for
+                  immediate performance AND acknowledged losing it. Tapping Book
+                  is that express request; this sentence is the acknowledgement,
+                  and checkout stamps it onto the booking as evidence. Plain
+                  words on purpose — a right buried in legalese isn't informed
+                  consent, and the free-cancel-before-they-start half is
+                  genuinely good news worth reading. */}
+              <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
+                {IMMEDIATE_PERFORMANCE_CONSENT_TEXT}{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">
+                  Your {COOLING_OFF_DAYS}-day right
+                </a>
               </p>
             </motion.div>
           </motion.form>

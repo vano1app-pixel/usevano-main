@@ -10,8 +10,13 @@ import {
   TEAM_INSTAGRAM_URL,
   TEAM_INSTAGRAM_HANDLE,
 } from '@/lib/contact';
+import {
+  COOLING_OFF_DAYS,
+  hasTraderIdentity,
+  traderIdentityRows,
+} from '@/lib/legalEntity';
 
-const LAST_UPDATED = '14 July 2026';
+const LAST_UPDATED = '30 July 2026';
 
 const Terms = () => (
   <div className="min-h-screen bg-cream pb-16 md:pb-0">
@@ -45,6 +50,28 @@ const Terms = () => (
             apply both to people booking help (&quot;Customers&quot;) and to people providing help
             through the Platform (&quot;Helpers&quot;).
           </p>
+          {/* Trader identity — SI 68/2003 (eCommerce) + SI 484/2013 (consumer
+              information) both require a consumer to be able to identify who
+              they are contracting with. Renders only once the details are
+              genuinely configured (see src/lib/legalEntity.ts): an invented
+              name or registration number would be a misrepresentation, so
+              unconfigured falls back to the honest short line above. */}
+          {hasTraderIdentity() && (
+            <div className="mt-4 rounded-xl border border-border bg-secondary/30 p-4">
+              <p className="mb-2 text-sm font-semibold text-foreground">Who you are contracting with</p>
+              <dl className="space-y-1 text-sm">
+                {traderIdentityRows().map((row) => (
+                  <div key={row.label} className="flex flex-wrap gap-x-2">
+                    <dt className="text-muted-foreground">{row.label}:</dt>
+                    <dd className="font-medium text-foreground">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Contact details are in section 20 below.
+              </p>
+            </div>
+          )}
         </section>
 
         <section>
@@ -184,8 +211,52 @@ const Terms = () => (
           </ul>
         </section>
 
+        {/* The distance-contract right to cancel (SI 484/2013). Same-day help
+            is almost always "fully performed" inside the 14 days, so the
+            booking sheet captures the express request + acknowledgement at the
+            point of sale and checkout stamps it onto the booking as evidence
+            (booking_data.immediate_performance_consent). Stated plainly here
+            because a right the customer can't find is a right they don't have. */}
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">8. Cancellations, refunds and our guarantee</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">
+            8. Your {COOLING_OFF_DAYS}-day right to cancel
+          </h2>
+          <p>
+            Because you book online without meeting us, Irish and EU consumer law normally gives
+            you <strong>{COOLING_OFF_DAYS} days</strong> to change your mind about a booking and
+            cancel it, without giving a reason.
+          </p>
+          <p className="mt-3">
+            VANO is same-day help, so most jobs happen long before those {COOLING_OFF_DAYS} days are
+            up. When you book, you are <strong>asking us to arrange your help straight away</strong>.
+            That has two consequences the law requires us to spell out:
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 mt-3">
+            <li>
+              <strong>Once the job has been fully carried out, the {COOLING_OFF_DAYS}-day
+              cancellation right is used up.</strong> You confirm you understand this when you book.
+              Your other rights — including the satisfaction guarantee below and your statutory
+              rights if the work is not done properly — are completely unaffected.
+            </li>
+            <li>
+              <strong>Before the job is done, you can still cancel.</strong> Cancel before your
+              Helper has started and you pay nothing; anything already charged is refunded. If you
+              cancel partway through a job that has already begun at your request, you pay only for
+              what was actually done up to that point.
+            </li>
+            <li>
+              For a booking scheduled far enough ahead that the job has not happened yet, your
+              {' '}{COOLING_OFF_DAYS}-day right still applies in the normal way.
+            </li>
+          </ul>
+          <p className="mt-3">
+            To cancel, use the cancel option on your tracking page, or contact us by WhatsApp or
+            email (section 20) — a clear statement that you want to cancel is enough.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-3">9. Cancellations, refunds and our guarantee</h2>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
               <strong>Satisfaction guarantee:</strong> if you are not happy with a completed job, tell
@@ -221,7 +292,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">9. Acceptable use</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">10. Acceptable use</h2>
           <p>When using VANO, you agree not to:</p>
           <ul className="list-disc pl-5 space-y-1.5 mt-2">
             <li>Post false, misleading, or fraudulent content.</li>
@@ -240,7 +311,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">10. Verification and safety</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">11. Verification and safety</h2>
           <p>
             We take reasonable steps to verify Helpers, including ID checks before a Helper&apos;s
             first job, and we show you a Helper&apos;s name, photo and rating. However, verification
@@ -251,7 +322,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">11. Content you post</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">12. Content you post</h2>
           <p>
             You retain ownership of content you create and upload to VANO (profile information,
             photos, messages, ratings and reviews). By posting content, you grant VANO a
@@ -266,7 +337,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">12. Disclaimer of warranties</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">13. Disclaimer of warranties</h2>
           <p>
             Except for our guarantee in section 8 and your statutory rights, the Platform is provided
             &quot;as is&quot; and &quot;as available&quot; without warranties of any kind, whether
@@ -281,7 +352,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">13. Limitation of liability</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">14. Limitation of liability</h2>
           <p>
             To the maximum extent permitted by Irish and EU law, VANO shall not be liable for any
             indirect, incidental, special, consequential or punitive damages, including loss of
@@ -294,7 +365,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">14. Disputes between users</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">15. Disputes between users</h2>
           <p>
             The household service is provided by the Helper, not by VANO. If a dispute arises between
             a Customer and a Helper, the parties are responsible for resolving it. We will help where
@@ -304,7 +375,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">15. Account termination</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">16. Account termination</h2>
           <p>
             You may delete your account at any time. We may suspend or terminate your account if you
             breach these Terms, or if we reasonably believe your conduct harms the Platform, our
@@ -314,7 +385,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">16. Changes to these terms</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">17. Changes to these terms</h2>
           <p>
             We may update these Terms from time to time. We will notify you of material changes by
             posting a notice on the Platform. Continued use of VANO after changes take effect
@@ -323,7 +394,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">17. Governing law</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">18. Governing law</h2>
           <p>
             These Terms are governed by the laws of Ireland, and the courts of Ireland have
             jurisdiction over any dispute relating to these Terms or the Platform. This does not
@@ -333,7 +404,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">18. Privacy</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">19. Privacy</h2>
           <p>
             Your use of VANO is also governed by our{' '}
             <Link to="/privacy" className="text-primary hover:underline underline-offset-4">
@@ -344,7 +415,7 @@ const Terms = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">19. Contact</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">20. Contact</h2>
           <p>If you have any questions about these Terms, contact us:</p>
           <p className="mt-2">
             <strong>WhatsApp:</strong>{' '}

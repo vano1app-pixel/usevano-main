@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
 import { TEAM_INSTAGRAM_URL, TEAM_FACEBOOK_URL, TEAM_TIKTOK_URL } from '@/lib/contact';
+import { traderIdentityLine } from '@/lib/legalEntity';
 
 // Service landing pages — internal links so crawlers (and people) can reach
 // /cleaning-galway etc. from every page. Keep in step with
@@ -100,7 +101,11 @@ export const HouseholdFooter: React.FC = () => {
           >
             hello@vanojobs.com
           </a>
-          <p className="text-white/55 text-xs">© 2026 VANO · Ireland</p>
+          {/* Trader identity (SI 68/2003: name + geographic address must be
+              permanently accessible). traderIdentityLine falls back to the
+              honest short form until the details are configured — see
+              src/lib/legalEntity.ts. */}
+          <p className="text-white/55 text-xs">© 2026 {traderIdentityLine()}</p>
         </div>
       </div>
     </footer>
