@@ -917,7 +917,6 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // prices it — builder "+2" labels and custom job names are ignored); the
   // server re-prices the same pair authoritatively at checkout.
   const priceCents = getPriceCents(cat.slug, size, extraLabel);
-  const priceLabel = priceCents ? fmt(priceCents) : null;
   // Bring-the-basics supplies (equipment question) + travel top-up (far-out
   // addresses) — both the STUDENT'S money, both recomputed authoritatively
   // by the server (bring_supplies boolean / geocoded coordinates); these are
@@ -925,6 +924,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const suppliesCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
   const travelCents = coords ? travelTopupCents(coords.lat, coords.lng) : 0;
   const jobTotalCents = priceCents != null ? priceCents + suppliesCents + travelCents : null;
+  // The docked CTA quotes the FULL job money (labour + supplies + travel) —
+  // it must always agree with the price card above it.
+  const priceLabel = jobTotalCents ? fmt(jobTotalCents) : null;
 
   // Live field validity — drives the small green ✓ next to each label as it's
   // filled. Quiet reassurance at the highest-friction step (a stranger typing
