@@ -220,7 +220,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <p>There's no shortage of ways for a student to earn a bit of money. So <em>why Vano</em>? It comes down to three things we've built in on purpose: pay that actually clears minimum wage, work you can do today, and no boss standing over a rota.</p>
 <h2>1. Pay that clears minimum wage — by design</h2>
 <p>This is the one we're proudest of. A lot of gig platforms advertise a headline rate, then quietly shave it with fees until your real take-home dips below what the law guarantees. We refuse to do that. On Vano, <strong>you keep 100% of the job price</strong>: your <a href="/glossary/net-pay">take-home</a> on time-based jobs is the full <strong>€22 an hour</strong> — far above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15.</p>
-<p>Here's the actual maths, no hand-waving: cleaning, garden and online tutoring are all quoted at €22/hr to the customer, and the customer pays you that directly when the job's done. Vano's <a href="/glossary/platform-fee">booking fee</a> (15% of the job price, minimum €4) is charged to the customer's card — none of it comes out of your pocket. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
+<p>Here's the actual maths, no hand-waving: cleaning, garden and online tutoring are all quoted at €22/hr to the customer, and the customer pays you that directly when the job's done. Vano's <a href="/glossary/platform-fee">booking fee</a> (15% of the job price, minimum €5) is charged to the customer's card — none of it comes out of your pocket. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
 <h2>2. Same-day, not "sometime next week"</h2>
 <p>Vano is built for <a href="/glossary/same-day-home-help">same-day</a> help. A customer books, the job is <a href="/glossary/job-dispatch">dispatched</a> to nearby helpers by SMS and push, and whoever accepts first gets it. For you that means you can earn <em>today</em> — open the app on a free afternoon and there may already be a job two streets away.</p>
 <h2>3. No awkward boss, no rota</h2>
@@ -388,7 +388,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "cleaner-cost-galway",
     title: "How Much Does a Cleaner Cost in Galway? (2026 Prices)",
     summary:
-      "A cleaner in Galway costs €22 an hour on Vano — a typical 2-hour clean is €36 plus a small booking fee (15%, min €4). No contracts, no call-out charges, and you can usually book same-day.",
+      "A cleaner in Galway costs €22 an hour on Vano — a typical 2-hour clean is €44 plus a small booking fee (15%, min €5). No contracts, no call-out charges, and you can usually book same-day.",
     description:
       "Real 2026 cleaner prices in Galway: €22/hr with no contracts or call-out fees. What a 2, 3 or 4-hour clean costs, what's included, and how to book same-day.",
     keywords:
@@ -405,13 +405,13 @@ export const BLOG_POSTS: BlogPost[] = [
 <p>Short answer: on Vano, a cleaner in Galway costs <strong>€22 an hour</strong>, and you book exactly the hours you want. No contracts, no minimum weekly commitment, no call-out charge. Here's what that actually comes to, what's included, and how it compares.</p>
 <h2>Galway cleaning prices at a glance (2026)</h2>
 <ul>
-<li><strong>2-hour clean</strong> (kitchen + bathroom + floors) — €36</li>
-<li><strong>3-hour clean</strong> (whole small home) — €54</li>
-<li><strong>4-hour <a href="/glossary/deep-clean">deep clean</a></strong> — €72</li>
+<li><strong>2-hour clean</strong> (kitchen + bathroom + floors) — €44</li>
+<li><strong>3-hour clean</strong> (whole small home) — €66</li>
+<li><strong>4-hour <a href="/glossary/deep-clean">deep clean</a></strong> — €88</li>
 <li><strong>Oven &amp; kitchen clean</strong> — €22–€44 (1–2 hours usually does it)</li>
-<li><strong><a href="/glossary/end-of-tenancy-clean">End-of-tenancy clean</a></strong> — €54–€72 for most flats (3–4 hours)</li>
+<li><strong><a href="/glossary/end-of-tenancy-clean">End-of-tenancy clean</a></strong> — €66–€88 for most flats (3–4 hours)</li>
 </ul>
-<p>On top of the job price there's one small <strong>booking fee</strong> — 15% of the job price, minimum €4 — charged to your card only <a href="/glossary/pay-after-accept">when a helper says yes</a>. So a 2-hour clean is €36 + €5.40 = <strong>€41.40 all-in</strong>. The €36 goes straight to your cleaner (Revolut or cash when the job's done — they keep 100%), and the price is agreed upfront, so there are no surprises after.</p>
+<p>On top of the job price there's one small <strong>booking fee</strong> — 15% of the job price, minimum €5 — charged to your card only <a href="/glossary/pay-after-accept">when a helper says yes</a>. So a 2-hour clean is €44 + €6.60 = <strong>€50.60 all-in</strong>. The €44 goes straight to your cleaner (Revolut or cash when the job's done — they keep 100%), and the price is agreed upfront, so there are no surprises after.</p>
 <h2>What's included in a standard clean?</h2>
 <p>The everyday essentials: kitchen surfaces and hob, bathroom (toilet, sink, shower or bath), floors hoovered and mopped, and general tidying and dusting. If you want the heavier stuff — inside the oven, inside cupboards, limescale, skirting boards — book more time and say so in the booking note. Our guide to <a href="/blog/deep-clean-vs-standard-clean">deep clean vs standard clean</a> helps you pick.</p>
 <h2>Who does the cleaning?</h2>
@@ -424,7 +424,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["deep-clean-vs-standard-clean", "end-of-tenancy-cleaning-galway", "laundry-service-galway-cost"],
     faqs: [
-      { q: "How much does a cleaner cost per hour in Galway?", a: "€22 an hour on Vano, with no contracts or call-out fees. A typical 2-hour clean costs €36 plus a small booking fee (15%, minimum €4)." },
+      { q: "How much does a cleaner cost per hour in Galway?", a: "€22 an hour on Vano, with no contracts or call-out fees. A typical 2-hour clean costs €44 plus a small booking fee (15%, minimum €5)." },
       { q: "Is there a minimum number of hours?", a: "Cleaning is booked by the hour — most people book 2 hours for a kitchen-bathroom-floors clean, and 3–4 hours for a whole home or deep clean." },
       { q: "Do I pay upfront?", a: "No. Booking is free — the small booking fee is only charged when a helper says yes, and you pay the cleaner the job price directly (Revolut or cash) once the work is done." },
       { q: "Are Vano cleaners vetted?", a: "Every cleaner is ID-verified before their first job, rated after every job, and can only start the job using the 4-digit code shown on your screen." },
@@ -435,9 +435,9 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "end-of-tenancy-cleaning-galway",
     title: "End-of-Tenancy Cleaning in Galway: Checklist & Cost (2026)",
     summary:
-      "An end-of-tenancy clean in Galway costs €54–€72 for most flats on Vano (3–4 hours at €22/hr). Here's the room-by-room checklist landlords actually check — and how to get it done same-day before handover.",
+      "An end-of-tenancy clean in Galway costs €66–€88 for most flats on Vano (3–4 hours at €22/hr). Here's the room-by-room checklist landlords actually check — and how to get it done same-day before handover.",
     description:
-      "Moving out in Galway? End-of-tenancy cleaning costs €54–€72 for most flats (€22/hr). The room-by-room deposit checklist plus how to book a same-day move-out clean.",
+      "Moving out in Galway? End-of-tenancy cleaning costs €66–€88 for most flats (€22/hr). The room-by-room deposit checklist plus how to book a same-day move-out clean.",
     keywords:
       "end of tenancy cleaning Galway, move out cleaning Galway, deposit cleaning checklist Ireland, end of lease clean cost, student accommodation cleaning Galway",
     eyebrow: "Moving out",
@@ -453,11 +453,11 @@ export const BLOG_POSTS: BlogPost[] = [
 <h2>What does an end-of-tenancy clean cost in Galway?</h2>
 <p>On Vano it's priced simply by time at <strong>€22/hr</strong>:</p>
 <ul>
-<li><strong>Studio or one-bed flat</strong> — 3 hours, €54</li>
-<li><strong>Two-bed house or apartment</strong> — 4 hours, €72</li>
-<li><strong>Bigger or very lived-in homes</strong> — 5–6 hours, €90–€108</li>
+<li><strong>Studio or one-bed flat</strong> — 3 hours, €66</li>
+<li><strong>Two-bed house or apartment</strong> — 4 hours, €88</li>
+<li><strong>Bigger or very lived-in homes</strong> — 5–6 hours, €110–€132</li>
 </ul>
-<p>Plus one small booking fee (15%, min €4) charged only <a href="/glossary/pay-after-accept">when a helper says yes</a>. The job price goes straight to your <a href="/glossary/student-cleaner">student cleaner</a> when it's done — they keep 100%. Compare that with dedicated end-of-tenancy firms, which commonly quote €150–€300 for the same flat.</p>
+<p>Plus one small booking fee (15%, min €5) charged only <a href="/glossary/pay-after-accept">when a helper says yes</a>. The job price goes straight to your <a href="/glossary/student-cleaner">student cleaner</a> when it's done — they keep 100%. Compare that with dedicated end-of-tenancy firms, which commonly quote €150–€300 for the same flat.</p>
 <h2>The room-by-room deposit checklist</h2>
 <h3>Kitchen (where deposits are lost)</h3>
 <ul>
@@ -487,7 +487,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["cleaner-cost-galway", "deep-clean-vs-standard-clean"],
     faqs: [
-      { q: "How much is an end-of-tenancy clean in Galway?", a: "€54–€72 for most flats on Vano (3–4 hours at €22/hr), plus a small booking fee. Dedicated end-of-tenancy firms commonly charge €150–€300 for the same size of home." },
+      { q: "How much is an end-of-tenancy clean in Galway?", a: "€66–€88 for most flats on Vano (3–4 hours at €22/hr), plus a small booking fee. Dedicated end-of-tenancy firms commonly charge €150–€300 for the same size of home." },
       { q: "How long does a move-out clean take?", a: "About 3 hours for a studio or one-bed, 4 hours for a two-bed — longer if the oven or bathroom needs serious work." },
       { q: "Can I get an end-of-tenancy clean same-day in Galway?", a: "Usually yes — most Vano jobs are confirmed within a few hours, so you can book the morning of your final inspection if needed." },
       { q: "Does the clean include the oven?", a: "Ask for it in your booking note and book enough time — the oven is the single most-checked item at handover and usually adds about an hour." },
@@ -504,9 +504,9 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "dog-walker-galway-cost",
     title: "Dog Walker in Galway: Prices & What a Good Walk Includes",
     summary:
-      "A dog walk in Galway costs €15 for 30 minutes or €20 for an hour on Vano — always on-lead, door to door, by an ID-verified local student you can see before they ring the bell.",
+      "A dog walk in Galway costs €15 for 30 minutes or €24 for an hour on Vano — always on-lead, door to door, by an ID-verified local student you can see before they ring the bell.",
     description:
-      "Dog walker prices in Galway for 2026: €15 for 30 minutes, €20 for an hour. What an on-lead walk includes, how vetting works, and how to book same-day.",
+      "Dog walker prices in Galway for 2026: €15 for 30 minutes, €24 for an hour. What an on-lead walk includes, how vetting works, and how to book same-day.",
     keywords:
       "dog walker Galway, dog walking prices Galway, dog walker cost Ireland, on-lead dog walking, same day dog walker Galway, pet care Galway",
     eyebrow: "Pets",
@@ -518,7 +518,7 @@ export const BLOG_POSTS: BlogPost[] = [
     heroAlt: "A student dog walker walking a dog on the lead along the Salthill prom in Galway",
     tags: ["Dog walking", "Prices", "Galway"],
     bodyHtml: `
-<p>Stuck in work, away for the day, or just wrecked? A dog walker in Galway costs less than most people think: <strong>€15 for a 30-minute walk, €20 for a full hour</strong> on Vano — and you can usually book one for today.</p>
+<p>Stuck in work, away for the day, or just wrecked? A dog walker in Galway costs less than most people think: <strong>€15 for a 30-minute walk, €24 for a full hour</strong> on Vano — and you can usually book one for today.</p>
 <h2>What the walk includes</h2>
 <p>Every Vano walk is <a href="/glossary/on-lead-dog-walking"><strong>on-lead, door to door</strong></a>: your walker collects your dog at your front door, keeps them on the lead for the whole walk, and drops them back home. On-lead is the professional standard when a dog is out with someone who isn't its owner — no recall gambles near traffic, no surprise run-ins on the prom.</p>
 <p>Add anything your dog needs in the booking note: route preferences, "no other dogs", treats allowed or not, where the lead lives.</p>
@@ -526,7 +526,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <p>A local student — <a href="/glossary/id-verified-helper">ID-verified before their first job</a> and rated after every job. You see their <strong>name, photo and rating before they arrive</strong>, and you can follow the pick-up on a live map. Many Galway owners end up requesting the same walker again once their dog has a favourite.</p>
 <h2>Galway dog walking prices compared</h2>
 <ul>
-<li><strong>Vano</strong> — €15 / 30 min, €20 / hour. Your walker keeps 100%; one small booking fee (min €4) confirms the booking <a href="/glossary/pay-after-accept">when someone says yes</a>.</li>
+<li><strong>Vano</strong> — €15 / 30 min, €24 / hour. Your walker keeps 100%; one small booking fee (min €5) confirms the booking <a href="/glossary/pay-after-accept">when someone says yes</a>.</li>
 <li><strong>Professional walkers &amp; agencies</strong> — commonly €15–€25 per walk, often needing a regular weekly slot and a meet-and-greet first.</li>
 <li><strong>Group walks</strong> — cheaper per dog, but your dog shares the walk and the attention.</li>
 </ul>
@@ -536,7 +536,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["cleaner-cost-galway", "laundry-service-galway-cost", "what-vano-helpers-do"],
     faqs: [
-      { q: "How much does a dog walker cost in Galway?", a: "€15 for a 30-minute walk or €20 for a full hour on Vano, plus a small booking fee (minimum €4) charged only when a walker says yes." },
+      { q: "How much does a dog walker cost in Galway?", a: "€15 for a 30-minute walk or €24 for a full hour on Vano, plus a small booking fee (minimum €5) charged only when a walker says yes." },
       { q: "Are the walks on-lead?", a: "Yes — every Vano walk is on-lead, door to door. It's the safe standard when a dog is out with someone who isn't its owner." },
       { q: "Can I meet the walker first?", a: "You see the walker's name, photo and rating before they arrive, and you can follow the walk pick-up on a live map. Owners often rebook the same walker once their dog has a favourite." },
       { q: "Can I book a dog walker for today?", a: "Usually yes — most Vano bookings are confirmed within a few hours, so a same-day walk is normal rather than the exception." },
@@ -569,7 +569,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Washed, dried, folded</strong> — everyday clothes, bedding and towels, handled with normal care (note anything delicate in the booking).</li>
 <li><strong>Returned folded</strong> — usually same-day or next-day, back at your door.</li>
 </ul>
-<p>You pay the €30 directly to your helper when it's back (Revolut or cash — they keep 100%), and one small €4.50 booking fee confirms the job <a href="/glossary/pay-after-accept">when a helper says yes</a>. So the true all-in cost is <strong>€34.50</strong>.</p>
+<p>You pay the €30 directly to your helper when it's back (Revolut or cash — they keep 100%), and one small €5 booking fee confirms the job <a href="/glossary/pay-after-accept">when a helper says yes</a>. So the true all-in cost is <strong>€35</strong>.</p>
 <h2>Who it suits</h2>
 <p><strong>Busy working households</strong> that never catch up on the basket; <strong>older neighbours</strong> for whom the machine, the line and the carrying have become a chore; <strong>students</strong> in accommodation where the shared machines eat coins; and anyone mid-move whose machine is in a van somewhere.</p>
 <h2>Compared with the alternatives</h2>
@@ -580,7 +580,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["cleaner-cost-galway", "dog-walker-galway-cost", "why-vano-fair-pay-same-day"],
     faqs: [
-      { q: "How much is the laundry service in Galway?", a: "€30 for a standard bag — collected, washed, dried and returned folded — plus a €4.50 booking fee when a helper says yes: €34.50 all-in. Bigger loads book as 2 bags (€50) or 3 bags (€65). No per-kilo charges." },
+      { q: "How much is the laundry service in Galway?", a: "€30 for a standard bag — collected, washed, dried and returned folded — plus a €5 booking fee when a helper says yes: €35 all-in. Bigger loads book as 2 bags (€50) or 3 bags (€65). No per-kilo charges." },
       { q: "How fast does laundry come back?", a: "Usually same-day or next-day, depending on when you book and drying time. The helper agrees timing with you at collection." },
       { q: "Is ironing included?", a: "No — the €30 covers wash, dry and fold. Ironing can be booked as its own job at €22/hr." },
       { q: "Who collects my laundry?", a: "A local ID-verified student — you see their name, photo and rating before they call, and the same helper returns it folded." },
@@ -591,9 +591,9 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "deep-clean-vs-standard-clean",
     title: "Deep Clean vs Standard Clean: Which Do You Actually Need?",
     summary:
-      "A standard clean (about 2 hours, €36) keeps a home ticking over; a deep clean (3–4 hours, €54–€72) gets into the corners a weekly tidy skips. Here's how to tell which your home needs — and when.",
+      "A standard clean (about 2 hours, €44) keeps a home ticking over; a deep clean (3–4 hours, €66–€88) gets into the corners a weekly tidy skips. Here's how to tell which your home needs — and when.",
     description:
-      "Deep clean or standard clean? What each includes, what they cost in Galway (€36 vs €54–€72 at €22/hr), and a simple rule for choosing the right one.",
+      "Deep clean or standard clean? What each includes, what they cost in Galway (€44 vs €66–€88 at €22/hr), and a simple rule for choosing the right one.",
     keywords:
       "deep clean vs regular clean, what is a deep clean, deep cleaning checklist Ireland, standard clean includes, deep clean cost Galway, spring clean",
     eyebrow: "Cleaning guide",
@@ -607,7 +607,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bodyHtml: `
 <p>"Deep clean" gets thrown around loosely, so here's the honest difference — and a one-line rule for picking: <strong>if you'd be embarrassed opening a cupboard in front of a guest, it's a deep clean.</strong></p>
 <h2>What a standard clean includes</h2>
-<p>A standard clean is the regular reset — about <strong>2 hours (€36)</strong> for most homes:</p>
+<p>A standard clean is the regular reset — about <strong>2 hours (€44)</strong> for most homes:</p>
 <ul>
 <li>Kitchen surfaces, hob and sink</li>
 <li>Bathroom: toilet, sink, shower/bath, mirror</li>
@@ -616,7 +616,7 @@ export const BLOG_POSTS: BlogPost[] = [
 </ul>
 <p>It keeps a home ticking over. Weekly or fortnightly standard cleans are the "never let it slide" routine.</p>
 <h2>What a deep clean adds</h2>
-<p>A <a href="/glossary/deep-clean">deep clean</a> — usually <strong>3–4 hours (€54–€72)</strong> — gets everything above <em>plus</em> the places a quick clean never reaches:</p>
+<p>A <a href="/glossary/deep-clean">deep clean</a> — usually <strong>3–4 hours (€66–€88)</strong> — gets everything above <em>plus</em> the places a quick clean never reaches:</p>
 <ul>
 <li>Inside cupboards, the fridge and the <a href="/glossary/oven-clean">oven</a></li>
 <li>Limescale off taps, shower screens and tiles</li>
@@ -630,14 +630,14 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Moving out?</strong> That's its own beast — the <a href="/glossary/end-of-tenancy-clean">end-of-tenancy clean</a> — with a landlord checklist attached. See the <a href="/blog/end-of-tenancy-cleaning-galway">full guide</a>.</li>
 </ul>
 <h2>Pricing is the same simple maths</h2>
-<p>On Vano both are the same honest rate — <strong>€22/hr</strong>, your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% — you're just booking more hours for a deep clean. One small booking fee (15%, min €4) is charged <a href="/glossary/pay-after-accept">when a helper says yes</a>, and optional <a href="/glossary/vano-cover">Vano Cover</a> (€2) covers accidental damage up to €250. Full price rundown in the <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
+<p>On Vano both are the same honest rate — <strong>€22/hr</strong>, your <a href="/glossary/student-cleaner">student cleaner</a> keeps 100% — you're just booking more hours for a deep clean. One small booking fee (15%, min €5) is charged <a href="/glossary/pay-after-accept">when a helper says yes</a>, and optional <a href="/glossary/vano-cover">Vano Cover</a> (€2) covers accidental damage up to €250. Full price rundown in the <a href="/blog/cleaner-cost-galway">Galway cleaner price guide</a>.</p>
 <p><a href="/#book"><strong>Book a clean that fits →</strong></a></p>
 `,
     related: ["cleaner-cost-galway", "end-of-tenancy-cleaning-galway", "laundry-service-galway-cost"],
     faqs: [
       { q: "What's the difference between a deep clean and a standard clean?", a: "A standard clean covers surfaces, bathroom, floors and tidying. A deep clean adds the hidden work: inside cupboards and appliances, limescale, skirting boards, and under furniture." },
       { q: "How often should I book a deep clean?", a: "Every 2–3 months for most homes, with standard cleans keeping things ticking over in between — or whenever cupboards and corners have quietly gotten away from you." },
-      { q: "How much does each cost in Galway?", a: "At €22/hr: a standard clean is about €36 (2 hours), a deep clean €54–€72 (3–4 hours), plus a small booking fee (15%, min €4)." },
+      { q: "How much does each cost in Galway?", a: "At €22/hr: a standard clean is about €44 (2 hours), a deep clean €66–€88 (3–4 hours), plus a small booking fee (15%, min €5)." },
     ],
   },
 ];

@@ -25,6 +25,10 @@ import { BLOG_POSTS, type BlogPost } from "../src/content/blog";
 import { GLOSSARY_TERMS, type GlossaryTerm } from "../src/content/glossary";
 import { SERVICE_LANDINGS, type ServiceLandingContent } from "../src/content/services";
 import { FAQS } from "../src/components/household/faqData";
+import {
+  HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, VANO_FEE_MIN_CENTS, getHouseholdPriceCents,
+} from "../src/lib/householdPricing";
+import { SERVICE_AREAS } from "../src/lib/serviceAreas";
 
 const DIST = join(process.cwd(), "dist");
 const TEMPLATE_PATH = join(DIST, "index.html");
@@ -510,13 +514,35 @@ const pages: PageSpec[] = [
 
 for (const page of pages) emit(page);
 
+// The figures llms.txt quotes, derived from the SAME tables checkout prices
+// from — never typed by hand. See src/lib/householdPricing.ts.
+const HOURLY_RATE_EUR = HOURLY_RATE_CENTS.cleaning / 100;
+const LAUNDRY_BAG_EUR = LAUNDRY_BAG_CENTS["1 bag"] / 100;
+const WALK_30_EUR = (getHouseholdPriceCents("dog-walk", "30 min") ?? 0) / 100;
+const WALK_60_EUR = (getHouseholdPriceCents("dog-walk", "1 hour") ?? 0) / 100;
+const FEE_MIN_EUR = VANO_FEE_MIN_CENTS / 100;
+const AREA_NAMES = SERVICE_AREAS.map((a) => a.name);
+
 // llms.txt — an emerging convention (llmstxt.org) that gives answer engines a
 // clean, curated Markdown map of the site. Generated from the same content so
 // it never drifts. Served as a static file at /llms.txt.
 const llmsTxt = [
   "# VANO",
   "",
-  "> Hire a local student for help at home — same-day in Galway, Ireland, from €15. Cleaning, laundry, garden help, dog walks and errands by ID-verified students. Booking is free: the card is only charged VANO's small booking fee when a helper accepts, and the customer pays the helper directly when the job's done — helpers keep 100% (€18/hr on timed jobs, above the Irish minimum wage).",
+  // The one paragraph an answer engine is most likely to quote verbatim, so
+  // every number in it has to be the number checkout actually charges. It
+  // said €18/hr for a week after the rate moved to €22 — meaning ChatGPT and
+  // Perplexity were confidently quoting a price we don't sell.
+  `> Hire a local student for help at home — same-day in Galway, Ireland. Cleaning and garden help are €${HOURLY_RATE_EUR}/hour (one-hour minimum), laundry is €${LAUNDRY_BAG_EUR} a bag collected and returned folded, and a dog walk is €${WALK_30_EUR} for 30 minutes or €${WALK_60_EUR} for an hour. Every helper is an ID-verified student. Booking is free: your card is only charged VANO's booking fee (15% of the job price, minimum €${FEE_MIN_EUR}) when a helper accepts, and you pay the helper directly when the job's done — they keep 100% of the job price, comfortably above the Irish minimum wage.`,
+  "",
+  "## Frequently asked",
+  // Answer engines lift Q&A pairs directly. Giving them the real answers, in
+  // one place, is the cheapest way to be quoted correctly rather than guessed at.
+  `- **How much does a cleaner cost in Galway?** €${HOURLY_RATE_EUR} an hour on VANO, one-hour minimum, plus a booking fee of 15% (minimum €${FEE_MIN_EUR}). A typical 2-hour clean is €${HOURLY_RATE_EUR * 2} plus the fee.`,
+  `- **How fast can I get help?** Same-day in Galway. Helpers are offered the job the moment you book and usually accept within minutes.`,
+  `- **Do I pay upfront?** No. Booking is free; the card is charged only when a helper accepts, and only for VANO's fee. The job price goes straight to the helper (Revolut or cash) when the work is done.`,
+  `- **Are the helpers vetted?** Yes — every helper passes a photo-ID check (Stripe Identity) before they can receive a single job offer.`,
+  `- **What areas do you cover?** All of Galway city and the surrounding areas, including ${AREA_NAMES.slice(0, 8).join(", ")} and more.`,
   "",
   "## Blog",
   ...BLOG_POSTS.map((p) => `- [${p.title}](${ORIGIN}/blog/${p.slug}): ${p.summary}`),

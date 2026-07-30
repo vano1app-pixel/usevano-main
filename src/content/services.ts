@@ -84,7 +84,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     ],
     priceLabel: '€22/hour',
     priceDetail: 'Most homes book 2 hours (€36). Same-day or book ahead for tomorrow.',
-    fromPriceEuro: 18,
+    fromPriceEuro: 22,
     included: [
       'Floors — hoovered & mopped',
       'Kitchen counters, hob & sink',
@@ -112,21 +112,21 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     shortLabel: 'Dog walks',
     title: 'Dog Walking in Galway — Same-Day Walker from €15',
     description:
-      'Book a local, ID-verified student dog walker in Galway today. 30-minute walk €15, full hour €20 — collected from your door, walked on-lead, returned safely.',
+      'Book a local, ID-verified student dog walker in Galway today. 30-minute walk €15, full hour €24 — collected from your door, walked on-lead, returned safely.',
     h1: 'A trusted dog walker in Galway, today',
     intro:
       'Stuck in work, away for the day, or the weather finally cleared? An ID-verified local student collects your dog from your door, walks them on-lead, and returns them home safely — with live tracking so you can see the walk happen.',
     body: [
       {
         heading: 'How a Vano walk works',
-        text: 'Pick 30 minutes (€15) or a full hour (€20), tell us your address, and a nearby walker accepts — usually within minutes. You’ll see their name, photo and rating before you pay, and you can follow the walk on a live map. Your dog is walked on-lead the whole time and handed back at your door, never left tied up or loose.',
+        text: 'Pick 30 minutes (€15) or a full hour (€24), tell us your address, and a nearby walker accepts — usually within minutes. You’ll see their name, photo and rating before you pay, and you can follow the walk on a live map. Your dog is walked on-lead the whole time and handed back at your door, never left tied up or loose.',
       },
       {
         heading: 'Regular walks without the subscription trap',
         text: 'There’s no contract and no weekly minimum — book a walk whenever you need one, from the Prom in Salthill to the woods in Terryland. If you find a walker your dog loves, book again in two taps.',
       },
     ],
-    priceLabel: '€15 / 30 min · €20 / hour',
+    priceLabel: '€15 / 30 min · €24 / hour',
     priceDetail: 'Collected, walked on-lead and returned safely. Same-day or book ahead.',
     fromPriceEuro: 15,
     included: [
@@ -172,7 +172,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     ],
     priceLabel: '€22/hour',
     priceDetail: 'One hour suits a small lawn; most gardens book 2–3 hours. Waste bagged.',
-    fromPriceEuro: 18,
+    fromPriceEuro: 22,
     included: [
       'Mowing & strimming',
       'Weeding & edging',
@@ -271,7 +271,7 @@ const PARKED_SERVICE_LANDINGS: ServiceLandingContent[] = [
     ],
     priceLabel: '€22/hour',
     priceDetail: 'You arrange the van or transport — your helper does the lifting.',
-    fromPriceEuro: 18,
+    fromPriceEuro: 22,
     included: [
       'Loading & unloading',
       'Stairs, awkward corners & heavy items',
