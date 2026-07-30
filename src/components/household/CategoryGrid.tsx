@@ -554,12 +554,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const [editDetails, setEditDetails] = useState(false);
   // Optional Vano Cover add-on — customer-elected at booking, flat €2.
   const [coverOpted, setCoverOpted] = useState(false);
-  // Card-pay option (2026-07-30, owner test): 'direct' = today's default
-  // (card pays only the VANO fee; the customer settles the job with the
-  // helper in person), 'card' = one card payment for everything at accept —
-  // the helper STILL keeps 100% of the job price (VANO transfers it on
-  // completion). Display-only here; the server stamps booking_data.card_pay.
-  const [payMode, setPayMode] = useState<'direct' | 'card'>('direct');
+  // How the job gets paid. CARD IS NOW THE DEFAULT (owner call 2026-07-30:
+  // "keep escrow, it's faster and less friction") — one card payment covers
+  // the job + the VANO fee at accept, and the helper STILL keeps 100% of the
+  // job price (Stripe Connect transfers it on completion; VANO never holds
+  // the money, which is what keeps this out of payment-intermediary
+  // territory). 'direct' stays available for customers who'd rather hand
+  // over cash/Revolut on the day, and for helpers not yet onboarded for
+  // payouts. Display-only here; the server stamps booking_data.card_pay.
+  const [payMode, setPayMode] = useState<'direct' | 'card'>('card');
   // The open question the form never asked (2026-07-27): gate code, parking,
   // the dog's name. Collapsed to one quiet line — zero friction for everyone
   // who skips it; the text rides the booking note to dispatch offers and the
@@ -1956,8 +1959,8 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               {CARD_PAY_OFFERED && priceCents && (
                 <div role="radiogroup" aria-label="How you'll pay the job" className="grid grid-cols-2 gap-2">
                   {([
-                    { mode: 'direct' as const, label: 'Pay helper directly', hint: 'Revolut or cash on the day' },
                     { mode: 'card' as const, label: 'Everything by card', hint: 'One payment · nothing on the day' },
+                    { mode: 'direct' as const, label: 'Pay helper directly', hint: 'Revolut or cash on the day' },
                   ]).map((o) => (
                     <button
                       key={o.mode}
