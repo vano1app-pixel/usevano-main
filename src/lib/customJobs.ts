@@ -214,8 +214,17 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['grocery', 'groceries', 'weekly shop', 'food shop', 'big shop', 'supermarket', 'aldi', 'lidl', 'tesco', 'dunnes'], example: 'do my weekly grocery shop' },
   { key: 'mealprep',   emoji: '🍲', label: 'Meal prep & cooking', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['meal prep', 'cook', 'cooking', 'batch cook', 'prepare meals', 'make dinner', 'home cooking', 'meals for the week'], example: 'batch-cook meals for the week' },
-  { key: 'dryclean',   emoji: '👔', label: 'Dry-cleaning drop & collect', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
-    keywords: ['dry cleaning', 'dry clean', 'dry cleaner', 'suit clean', 'alterations drop'], example: 'drop and collect the dry cleaning' },
+  // REMOVED 2026-07-30 (owner call: "that doesn't make sense"). Two reasons,
+  // both structural rather than cosmetic:
+  //   • It is TWO visits sold as one — you drop the clothes today and collect
+  //     them days later. One short booking cannot cover both, so either the
+  //     student does the second trip free or the customer's suit sits in a
+  //     shop with nobody booked to fetch it.
+  //   • Somebody has to PAY the dry cleaner. There is no float, no expense
+  //     reimbursement and no card in this flow, so it would have meant a
+  //     student fronting cash for a stranger's bill and chasing it back.
+  // Searching "dry cleaning" now falls through to the WhatsApp door, where a
+  // human can scope it properly. Don't re-add it without solving both.
   { key: 'returns',    emoji: '↩️', label: 'Parcel returns', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
     keywords: ['return parcel', 'drop returns', 'return to shop', 'send back', 'returns run', 'an post return'], example: 'drop off a few parcel returns' },
   { key: 'formfilling', emoji: '📝', label: 'Forms & paperwork help', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2600,
@@ -343,7 +352,7 @@ export const STARTER_CUSTOM_JOBS: CustomJob[] = ['clean', 'oddjobs', 'dog']
 const SHORT_VISIT_KEYS = new Set<string>([
   'dog', 'puppy', 'petsit', 'littertray', 'smallpets', 'chickens', 'watering',
   'binclean', 'keyholder', 'postrun', 'returns', 'libraryrun', 'recycling',
-  'charityshop', 'dryclean', 'waitin',
+  'charityshop', 'waitin',
 ]);
 
 /** True for quick visit jobs that should offer sub-hour (30/45 min) booking. */

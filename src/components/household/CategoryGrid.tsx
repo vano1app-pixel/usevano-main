@@ -228,7 +228,8 @@ const SUB_SERVICES: Record<string, { featured: SubService[]; more: SubService[] 
     featured: [
       { kind: 'core', label: 'Wash, dry & fold', emoji: '🧺' },
       { kind: 'custom', jobKey: 'ironing' },
-      { kind: 'custom', jobKey: 'dryclean' },
+      // 'dryclean' was here until 2026-07-30 — see customJobs.ts for why it
+      // came out (two visits sold as one, and nobody to pay the cleaner).
     ],
     more: [],
   },

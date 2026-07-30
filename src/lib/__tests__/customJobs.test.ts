@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchCustomJob, customJobByKey, CUSTOM_JOBS, POPULAR_CUSTOM_JOBS } from '../customJobs';
+import { matchCustomJob, customJobByKey, searchCustomJobs, isShortVisit, CUSTOM_JOBS, POPULAR_CUSTOM_JOBS } from '../customJobs';
 import { getHouseholdPriceCents } from '../householdPricing';
 
 // The recogniser is the zero-cost "AI brain" behind the custom section. These
@@ -154,5 +154,21 @@ describe('custom job catalogue integrity', () => {
   it('popular jobs are a non-empty subset of the catalogue', () => {
     expect(POPULAR_CUSTOM_JOBS.length).toBeGreaterThanOrEqual(4);
     for (const j of POPULAR_CUSTOM_JOBS) expect(CUSTOM_JOBS).toContain(j);
+  });
+});
+
+describe('retired catalogue jobs', () => {
+  it('dry-cleaning drop & collect is gone, and searching for it still finds a door', () => {
+    // Removed 2026-07-30 (owner: "that doesn't make sense"): it is two visits
+    // sold as one booking, and nobody in the flow can pay the dry cleaner.
+    expect(CUSTOM_JOBS.find((j) => j.key === 'dryclean')).toBeUndefined();
+    expect(isShortVisit('dryclean')).toBe(false);
+    for (const q of ['dry cleaning', 'dry clean', 'dry cleaner', 'suit clean']) {
+      const hits = searchCustomJobs(q, 8);
+      expect(hits.some((j) => /dry.?clean/i.test(j.label)), q).toBe(false);
+    }
+    // An unknown key must still resolve to the catch-all rather than crash —
+    // old links and saved bookings keep working.
+    expect(customJobByKey('dryclean').key).toBe('other');
   });
 });
