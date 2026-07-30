@@ -718,6 +718,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     haptic(10);
     track('hero_equip_pick', { category: entryCat.slug, answer: opt.key });
     setEquip(opt);
+    // An answer can make a ticked task impossible ("no mower" after ticking
+    // Lawn mowing). Drop those ticks here rather than letting a blocked task
+    // ride into the booking through a back-and-change.
+    if (opt.blocks) setTicked((v) => v.filter((k) => !(k in opt.blocks!)));
     navDir.current = 1;
     if (builderTasks) {
       setPickPhase('main');
@@ -750,6 +754,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // keeps comparing labour to labour (supplies aren't cleaning hours).
   const builderEquipCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
   const builderDisplayCents = builderPriceCents != null ? builderPriceCents + builderEquipCents : null;
+  // What actually leaves the customer's pocket: the job, the supplies add-on,
+  // and VANO's booking fee (charged on the BASE job price — the helper's
+  // expenses aren't taxed). This is the number the market anchor is compared
+  // against, so "you save" can't quietly ignore our own fee.
+  const builderAllInCents = builderPriceCents != null
+    ? builderPriceCents + builderEquipCents + computeVanoFeeCents(builderPriceCents)
+    : null;
   const builderMarket = builderSize ? builderMarketCents(entryCat.slug, builderSize) : null;
 
   // Page 1 (builder) → page 2: same contract as applyPick — the ticked list
@@ -1507,6 +1518,24 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   <div className="space-y-2" role="group" aria-label={pickTitle}>
                     {builderTasks.map((t, i) => {
                       const on = ticked.includes(t.key);
+                      // Ruled out by the equipment answer they just gave.
+                      const blockedWhy = equip?.blocks?.[t.key];
+                      if (blockedWhy) return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => { haptic(8); navDir.current = -1; setPickPhase('equip'); }}
+                          className="cascade-in flex w-full items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-secondary/30 px-3.5 py-3.5 text-left"
+                          style={{ '--cascade-i': Math.min(i, 8) } as React.CSSProperties}
+                        >
+                          <span aria-hidden="true" className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 border-foreground/15 bg-white/60" />
+                          <span className="text-2xl leading-none flex-shrink-0 opacity-40" aria-hidden="true">{t.emoji}</span>
+                          <span className="flex-1 min-w-0 text-[15px] font-semibold text-muted-foreground leading-snug">{t.label}</span>
+                          <span className="text-[11px] font-semibold text-muted-foreground/80 flex-shrink-0 text-right leading-tight">
+                            {blockedWhy}<br /><span className="text-sage-dark">Change</span>
+                          </span>
+                        </button>
+                      );
                       return (
                         <button
                           key={t.key}
@@ -1587,9 +1616,20 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                           : <> · booked time covers all of it</>}
                       </p>
                     )}
-                    {builderPriceCents != null && builderMarket != null && builderMarket > builderPriceCents && (
+                    {/* "You save" is measured against what the customer
+                        ACTUALLY PAYS — job + supplies + our booking fee — not
+                        the job price alone (found 2026-07-30 re-reading the
+                        wizard). Comparing a €22 job to a €28 agency hour and
+                        claiming "save €6" ignored the €5 fee on top: the real
+                        saving on a one-hour clean is €1. This repo's own rule
+                        is that an anchor which overclaims reads as a lie the
+                        first time someone price-checks it — so it now quotes
+                        the honest number, and stays silent below €2 rather
+                        than dressing up a rounding difference as a deal. */}
+                    {builderAllInCents != null && builderMarket != null
+                      && builderMarket - builderAllInCents >= 200 && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Typical Galway rate ~{fmt(builderMarket)} · <span className="font-semibold text-sage-dark">you save ~{fmt(builderMarket - builderPriceCents)}</span>
+                        Typical Galway rate ~{fmt(builderMarket)} · <span className="font-semibold text-sage-dark">you save ~{fmt(builderMarket - builderAllInCents)} all in</span>
                       </p>
                     )}
                     {/* The honest answer to "what if it takes longer?" — the

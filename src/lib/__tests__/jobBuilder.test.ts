@@ -18,7 +18,7 @@ import {
 } from '../jobBuilder';
 import {
   DOG_UPCHARGE_CENTS, HOURLY_RATE_CENTS, LAUNDRY_BAG_CENTS, getHouseholdPriceCents,
-  SUPPLIES_ADDON_CENTS, travelTopupCents,
+  SUPPLIES_ADDON_CENTS, travelTopupCents, computeVanoFeeCents,
   TRAVEL_TOPUP_NEAR_CENTS, TRAVEL_TOPUP_FAR_CENTS, GALWAY_CENTRE,
 } from '../householdPricing';
 // The REAL server table (pure TS, no Deno APIs) — the dog surcharge is priced
@@ -384,6 +384,56 @@ describe('equipment question — carries ride the note, add-ons stay in lock-ste
         expect(o.key.length, `${slug}/${o.key}`).toBeGreaterThan(0);
         expect(o.carry.trim().length, `${slug}/${o.key} carry`).toBeGreaterThan(0);
       }
+    }
+  });
+
+  // Found 2026-07-30 re-reading the wizard: the two questions contradicted
+  // each other. A customer could answer "no mower" and still tick "Lawn
+  // mowing", and we'd dispatch a helper across town to a job that cannot be
+  // done — the exact doorstep failure the equipment question exists to stop.
+  it('an answer that rules a task out names REAL tasks, with a reason', () => {
+    for (const [slug, q] of Object.entries(EQUIPMENT_QUESTIONS)) {
+      const keys = new Set((BUILDER_TASKS[slug] ?? []).map((t) => t.key));
+      for (const o of q.options) {
+        for (const [taskKey, why] of Object.entries(o.blocks ?? {})) {
+          expect(keys.has(taskKey), `${slug}/${o.key} blocks unknown task "${taskKey}"`).toBe(true);
+          expect(why.trim().length, `${slug}/${o.key}/${taskKey} needs a reason`).toBeGreaterThan(0);
+        }
+      }
+      // The all-equipped answer must never block anything — it's the "I have
+      // everything" door, and greying rows there would be nonsense.
+      expect(Object.keys(q.options[0].blocks ?? {}), `${slug}: first answer blocks nothing`).toEqual([]);
+    }
+    // The gear-gated garden jobs specifically: a bike cannot carry either.
+    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'basic')?.blocks).toHaveProperty('mowing');
+    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'none')?.blocks).toHaveProperty('mowing');
+    expect(EQUIPMENT_QUESTIONS.garden.options.find((o) => o.key === 'none')?.blocks).toHaveProperty('power');
+    // "No hoover" deliberately blocks NOTHING — the answer re-scopes floors to
+    // sweep & mop rather than making them impossible.
+    expect(EQUIPMENT_QUESTIONS.cleaning.options.find((o) => o.key === 'no-hoover')?.blocks).toBeUndefined();
+  });
+
+  // The market anchor must beat what the customer ACTUALLY PAYS, not the job
+  // price alone. Comparing a €22 job to a €28 agency hour and claiming "save
+  // €6" ignored our own €5 fee — the real saving is €1.
+  it('the "you save" anchor still wins once VANO’s own fee is counted in', () => {
+    const allIn = (slug: string, size: string) => {
+      const job = getHouseholdPriceCents(slug, size) as number;
+      return job + computeVanoFeeCents(job);
+    };
+    for (const [slug, rate] of Object.entries(BUILDER_MARKET_RATE_CENTS)) {
+      for (const hours of [1, 1.25, 2, 3, 4]) {
+        const size = hours === 1 ? '1 hour' : `${hours} hours`;
+        if (getHouseholdPriceCents(slug, size) == null) continue;
+        const market = builderMarketCents(slug, size) as number;
+        const paid = allIn(slug, size);
+        // It can be thin at the 1-hour minimum — that's why the card stays
+        // silent under €2 — but it must never be NEGATIVE, or the anchor is
+        // advertising a job that costs more than the agency it mocks.
+        expect(market, `${slug} ${size}: market €${market / 100} vs all-in €${paid / 100}`)
+          .toBeGreaterThanOrEqual(paid);
+      }
+      expect(rate).toBeGreaterThan(HOURLY_RATE_CENTS[slug]);
     }
   });
 

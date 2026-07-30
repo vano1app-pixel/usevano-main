@@ -197,6 +197,19 @@ export interface EquipmentOption {
   carry: string;
   /** Cleaning only: helper brings the basics — server prices the flat add-on. */
   suppliesAddon?: boolean;
+  /**
+   * BUILDER_TASKS keys this answer makes impossible, each with the reason the
+   * customer sees on the greyed row.
+   *
+   * Without this the two questions contradicted each other: a customer could
+   * answer "no mower" and then tick "Lawn mowing ~45 min", and we'd dispatch a
+   * helper across town to a job that cannot be done — the exact doorstep
+   * failure the equipment question exists to prevent (found 2026-07-30 while
+   * re-reading the wizard). Blocked rows are shown greyed with the reason and
+   * tap back to the answer, rather than vanishing: a disappearing row reads as
+   * a bug, and the customer may want to change their answer instead.
+   */
+  blocks?: Record<string, string>;
 }
 
 export interface EquipmentQuestion {
@@ -221,8 +234,13 @@ export const EQUIPMENT_QUESTIONS: Record<string, EquipmentQuestion> = {
     why: 'So your helper arrives ready — no doorstep surprises',
     options: [
       { key: 'mower',    emoji: '🚜', label: 'Mower & tools', hint: 'All set for any garden job',            carry: 'Has mower + tools' },
-      { key: 'basic',    emoji: '🧤', label: 'Some tools, no mower', hint: 'Weeding, hedges & tidy-ups work great', carry: 'Tools but no mower — no mowing' },
-      { key: 'none',     emoji: '🤷', label: 'No tools', hint: 'Helper brings gloves & hand tools for light work', carry: 'No tools — helper brings gloves & hand tools' },
+      // A helper cannot bring a lawnmower on a bike. Ticking mowing after this
+      // answer would book a job that dies on the doorstep, so the row greys out.
+      { key: 'basic',    emoji: '🧤', label: 'Some tools, no mower', hint: 'Weeding, hedges & tidy-ups work great', carry: 'Tools but no mower — no mowing',
+        blocks: { mowing: 'needs a mower' } },
+      // Nor a power washer. Hand tools (shears, gloves, rake) they do bring.
+      { key: 'none',     emoji: '🤷', label: 'No tools', hint: 'Helper brings gloves & hand tools for light work', carry: 'No tools — helper brings gloves & hand tools',
+        blocks: { mowing: 'needs a mower', power: 'needs a power washer' } },
     ],
   },
   'dog-walk': {
