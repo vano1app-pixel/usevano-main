@@ -928,9 +928,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const suppliesCents = equip?.suppliesAddon ? SUPPLIES_ADDON_CENTS : 0;
   const travelCents = coords ? travelTopupCents(coords.lat, coords.lng) : 0;
   const jobTotalCents = priceCents != null ? priceCents + suppliesCents + travelCents : null;
-  // The docked CTA quotes the FULL job money (labour + supplies + travel) —
-  // it must always agree with the price card above it.
-  const priceLabel = jobTotalCents ? fmt(jobTotalCents) : null;
+  // The docked CTA quotes what the booking COSTS IN TOTAL — job money
+  // (labour + supplies + travel) plus VANO's fee and any Cover. In card mode
+  // that is exactly the receipt's total band; in direct mode it's the true
+  // all-in cost (fee on the card today, the rest to the helper after). It
+  // used to quote the job money alone, which read €41 on a €46 checkout.
+  const totalCostCents = jobTotalCents != null
+    ? jobTotalCents + computeVanoFeeCents(priceCents ?? 0) + (coverOpted ? VANO_COVER_CENTS : 0)
+    : null;
+  const priceLabel = totalCostCents ? fmt(totalCostCents) : null;
 
   // Live field validity — drives the small green ✓ next to each label as it's
   // filled. Quiet reassurance at the highest-friction step (a stranger typing
@@ -1878,152 +1884,201 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </div>
 
             <div className="space-y-5">
-            {/* Price card — the maths reads top to bottom: job → fee → optional
-                €2 Cover → what actually lands on the card. The Cover opt-in
-                lives IN the breakdown, so ticking it visibly rolls the total
-                (+€2) instead of changing nothing on screen. Direct-pay: the
-                job money goes to the helper (100%); the card is only ever
-                charged the fee (+ Cover), and only at accept. */}
+            {/* Checkout (redesigned 2026-07-30, owner ask: "make it look like
+                Deliveroo — simple, colour-coded, less AI-generated"). Three
+                beats, in the order a person actually decides:
+                  1. HOW you'll pay — chosen first, so the total never changes
+                     under you after you've read it (it used to);
+                  2. the RECEIPT — a till-receipt card in three bands, with the
+                     two pots colour-coded (sage = your helper's money, navy =
+                     VANO's fee) because "who gets this?" is the question this
+                     pricing model always raises;
+                  3. the TOTAL — one big number on a tinted footer.
+                The explanatory paragraphs that used to sit here are gone: the
+                colour coding and the one-line reassurance under the total say
+                the same thing without a wall of text. */}
             <motion.div variants={listItem} className="space-y-3 pt-1">
-              {/* The plain-words money explainer — first-timers meet the
-                  two-pot maths (job money vs VANO fee) right here, so one
-                  familiar sentence de-mystifies it BEFORE the numbers.
-                  Written for the slowest reader in the room, on purpose. */}
-              {priceCents && (
-                <p className="text-[13px] leading-relaxed text-muted-foreground text-center px-1">
-                  {payMode === 'card'
-                    ? 'One card payment covers everything when a helper accepts — your student still keeps 100% of the job price.'
-                    : "Like paying a babysitter — you pay your student directly once the job's done. The small VANO fee is what books them."}
-                </p>
+              {/* ── HOW YOU'LL PAY ───────────────────────────────────
+                  Deliveroo's lesson: decide the payment method FIRST, then
+                  read the receipt. This used to sit BELOW the numbers, so
+                  the total changed under you after you'd already read it.
+                  Two cards, colour-coded — sage (the trust colour) for the
+                  selected one, and the wallet names spelled out because
+                  "Apple Pay" is the single biggest reassurance on a phone. */}
+              {CARD_PAY_OFFERED && priceCents && (
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    How you'll pay
+                  </p>
+                  <div role="radiogroup" aria-label="How you'll pay" className="grid grid-cols-2 gap-2">
+                    {([
+                      { mode: 'card' as const,   title: 'By card',        sub: 'Apple Pay · Google Pay · Card', foot: 'Nothing on the day' },
+                      { mode: 'direct' as const, title: 'Pay them',      sub: 'Revolut or cash',              foot: 'On the day, in person' },
+                    ]).map((o) => {
+                      const on = payMode === o.mode;
+                      return (
+                        <button
+                          key={o.mode}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => { setPayMode(o.mode); haptic(8); }}
+                          className={cn(
+                            'relative rounded-2xl border-2 px-3.5 py-3 text-left',
+                            'transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.97]',
+                            on ? 'border-sage bg-sage-light' : 'border-border bg-white hover:border-foreground/20',
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className={cn(
+                              'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150',
+                              on ? 'border-sage bg-sage' : 'border-foreground/25 bg-white',
+                            )} aria-hidden="true">
+                              {on && <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />}
+                            </span>
+                            <span className="text-[15px] font-bold text-foreground">{o.title}</span>
+                          </span>
+                          <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">{o.sub}</span>
+                          <span className={cn('mt-0.5 block text-[11px] font-semibold', on ? 'text-sage-dark' : 'text-muted-foreground')}>{o.foot}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-              {priceCents && (
-                <div className="px-4 py-4 rounded-2xl bg-foreground/[0.04] border border-foreground/10">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[15px] text-foreground/70 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'As soon as possible' : when}{size ? ` · ${size}` : ''}</span>
-                    <AnimatedPrice cents={priceCents} className="text-xl font-bold text-foreground flex-shrink-0" />
-                  </div>
-                  <p className="text-[13px] text-muted-foreground mt-1">{payMode === 'card' ? 'Goes to your helper — they keep 100%' : 'Paid straight to your helper — they keep 100%'}</p>
 
-                  {suppliesCents > 0 && (
-                    <div className="flex items-center justify-between gap-3 mt-2">
-                      <span className="text-sm text-foreground/70">Helper brings cleaning products</span>
-                      <span className="text-sm font-semibold text-foreground flex-shrink-0">+{fmt(suppliesCents)}</span>
+              {/* ── THE RECEIPT ──────────────────────────────────────
+                  One card, three bands, read top to bottom like a till
+                  receipt: what your helper gets · what VANO charges ·
+                  the total. The two pots are COLOUR-CODED (sage dot =
+                  the student's money, navy dot = VANO's fee) because
+                  "who is this money going to" is the single question
+                  customers ask about this pricing model. */}
+              {priceCents && jobTotalCents != null && (
+                <div className="overflow-hidden rounded-2xl border border-border bg-white">
+                  {/* Band 1 — the helper's money */}
+                  <div className="px-4 pt-3.5 pb-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate text-[15px] font-semibold text-foreground">
+                        {cat.label}{size ? ` · ${size}` : ''}
+                      </span>
+                      <AnimatedPrice cents={priceCents} className="flex-shrink-0 text-[15px] font-bold text-foreground" />
                     </div>
-                  )}
-                  {travelCents > 0 && (
-                    <div className="flex items-center justify-between gap-3 mt-2">
-                      <span className="text-sm text-foreground/70">Travel top-up — outside the city, goes to your helper</span>
-                      <span className="text-sm font-semibold text-foreground flex-shrink-0">+{fmt(travelCents)}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between gap-3 mt-3 border-t border-foreground/10 pt-3">
-                    <span className="text-sm text-foreground/70">VANO booking fee</span>
-                    <AnimatedPrice cents={computeVanoFeeCents(priceCents)} className="text-sm font-semibold text-foreground flex-shrink-0" />
-                  </div>
-
-                  <AnimatePresence initial={false}>
-                    {coverOpted && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: SHEET_EASE }}
-                        className="overflow-hidden"
-                      >
-                        <div className="flex items-center justify-between gap-3 mt-2">
-                          <span className="text-sm text-foreground/70">Vano Cover</span>
-                          <span className="text-sm font-semibold text-foreground flex-shrink-0">+{fmt(VANO_COVER_CENTS)}</span>
-                        </div>
-                      </motion.div>
+                    {suppliesCents > 0 && (
+                      <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+                        <span className="text-muted-foreground">Helper brings products</span>
+                        <span className="flex-shrink-0 font-semibold text-foreground">+{fmt(suppliesCents)}</span>
+                      </div>
                     )}
-                  </AnimatePresence>
+                    {travelCents > 0 && (
+                      <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+                        <span className="text-muted-foreground">Travel to you</span>
+                        <span className="flex-shrink-0 font-semibold text-foreground">+{fmt(travelCents)}</span>
+                      </div>
+                    )}
+                    <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-sage-dark">
+                      <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sage" aria-hidden="true" />
+                      {fmt(jobTotalCents)} to your helper — they keep 100%
+                    </p>
+                  </div>
 
-                  {/* The only money that ever touches the card — rolls when the
-                      duration or Cover changes it (the "price builds up" beat) */}
-                  <div className="flex items-center justify-between gap-3 mt-3 border-t border-foreground/10 pt-3">
-                    <span className="text-[15px] font-bold text-foreground">{payMode === 'card' ? 'Card total when a helper says yes' : 'You pay when a helper says yes'}</span>
+                  {/* Band 2 — what VANO charges */}
+                  <div className="border-t border-border/70 px-4 py-3">
+                    <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-navy/45" aria-hidden="true" />
+                        VANO booking fee
+                      </span>
+                      <AnimatedPrice cents={computeVanoFeeCents(priceCents)} className="flex-shrink-0 text-[13px] font-semibold text-foreground" />
+                    </div>
+                    <AnimatePresence initial={false}>
+                      {coverOpted && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.18, ease: SHEET_EASE }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-navy/45" aria-hidden="true" />
+                              Vano Cover
+                            </span>
+                            <span className="flex-shrink-0 font-semibold text-foreground">+{fmt(VANO_COVER_CENTS)}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Band 3 — the total, the one number people look for */}
+                  <div className="flex items-center justify-between gap-3 border-t border-border/70 bg-secondary/40 px-4 py-3.5">
+                    <span className="text-[13px] font-semibold text-foreground/80">
+                      {payMode === 'card' ? 'Card total on accept' : 'Card today'}
+                    </span>
                     <AnimatedPrice
                       announce
-                      cents={(payMode === 'card' ? (jobTotalCents ?? 0) : 0) + computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
-                      className="text-lg font-bold text-sage-dark flex-shrink-0"
+                      cents={(payMode === 'card' ? jobTotalCents : 0) + computeVanoFeeCents(priceCents) + (coverOpted ? VANO_COVER_CENTS : 0)}
+                      className="flex-shrink-0 text-2xl font-extrabold text-foreground"
                     />
                   </div>
                 </div>
               )}
 
-              {/* How you'll pay the job (2026-07-30, owner test): direct
-                  settle-up stays the default; "everything by card" charges
-                  job + fee in one payment at accept — the helper still keeps
-                  100% (VANO transfers the job price on completion). */}
-              {CARD_PAY_OFFERED && priceCents && (
-                <div role="radiogroup" aria-label="How you'll pay the job" className="grid grid-cols-2 gap-2">
-                  {([
-                    { mode: 'card' as const, label: 'Everything by card', hint: 'One payment · nothing on the day' },
-                    { mode: 'direct' as const, label: 'Pay helper directly', hint: 'Revolut or cash on the day' },
-                  ]).map((o) => (
-                    <button
-                      key={o.mode}
-                      type="button"
-                      role="radio"
-                      aria-checked={payMode === o.mode}
-                      onClick={() => { setPayMode(o.mode); haptic(8); }}
-                      className={cn(
-                        'rounded-2xl border px-3.5 py-3 text-left transition-colors duration-150',
-                        payMode === o.mode ? 'border-sage bg-sage-light' : 'border-border bg-white hover:bg-secondary/40',
-                      )}
-                    >
-                      <span className="block text-sm font-bold text-foreground">{o.label}</span>
-                      <span className="block text-[12px] text-muted-foreground mt-0.5 leading-snug">{o.hint}</span>
-                    </button>
-                  ))}
-                </div>
+              {/* One line, and deliberately NOT "you only pay when a helper
+                  says yes" — the docked bar already says that, and repeating
+                  it is exactly the padding that makes a checkout read as
+                  generated. This says the thing the bar doesn't. */}
+              {priceCents && (
+                <p className="flex items-center justify-center gap-1.5 text-[12px] text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0 text-sage" aria-hidden="true" />
+                  {payMode === 'card'
+                    ? 'Apple Pay, Google Pay or card · secured by Stripe'
+                    : "Only VANO's fee goes on your card — the rest is cash or Revolut"}
+                </p>
               )}
 
-              {/* Vano Cover — its OWN clear, tappable card with a big visible
-                  tick, right under the price. It used to be a tiny checkbox
-                  buried in the fee breakdown ("hidden, no tick"). */}
+              {/* Vano Cover — a compact ADD row, not a third competing card.
+                  It only earns full weight once it's on (the amount then
+                  appears in the receipt above). */}
               {priceCents && (
                 <button
                   type="button"
                   onClick={() => { setCoverOpted(v => !v); haptic(8); }}
                   aria-pressed={coverOpted}
                   className={cn(
-                    'w-full flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors duration-150',
-                    coverOpted ? 'border-sage bg-sage-light' : 'border-border bg-white hover:bg-secondary/40',
+                    'flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left',
+                    'transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.98]',
+                    coverOpted ? 'border-sage bg-sage-light' : 'border-dashed border-border bg-white hover:border-foreground/25',
                   )}
                 >
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150',
-                      coverOpted ? 'border-sage bg-sage' : 'border-foreground/30 bg-white',
+                      'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150',
+                      coverOpted ? 'border-sage bg-sage' : 'border-foreground/25 bg-white',
                     )}
                   >
                     <AnimatePresence initial={false}>
                       {coverOpted && (
                         <motion.span
-                          initial={{ scale: 0.4, opacity: 0 }}
+                          initial={{ scale: 0.6, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0.4, opacity: 0 }}
-                          transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                          exit={{ scale: 0.6, opacity: 0 }}
+                          transition={{ type: 'spring', duration: 0.3, bounce: 0.2 }}
                           className="inline-flex"
                         >
-                          <Check className="h-4 w-4 text-white" strokeWidth={3.5} />
+                          <Check className="h-3.5 w-3.5 text-white" strokeWidth={3.5} />
                         </motion.span>
                       )}
                     </AnimatePresence>
                   </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-2">
-                      <span className="text-[15px] font-bold text-foreground">Add Vano Cover</span>
-                      <span className="text-sm font-bold text-sage-dark flex-shrink-0">+{fmt(VANO_COVER_CENTS)}</span>
-                    </span>
-                    <span className="block text-[13px] text-muted-foreground mt-0.5">
-                      Covers accidental damage up to €250 ·{' '}
-                      <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>how it works</a>
-                    </span>
+                  <span className="min-w-0 flex-1 text-[13px] leading-snug text-foreground">
+                    <span className="font-semibold">Add Vano Cover</span>
+                    <span className="text-muted-foreground"> — accidental damage up to €250</span>
                   </span>
+                  <span className="flex-shrink-0 text-[13px] font-bold text-sage-dark">+{fmt(VANO_COVER_CENTS)}</span>
                 </button>
               )}
 
