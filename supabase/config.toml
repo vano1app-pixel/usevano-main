@@ -132,6 +132,13 @@ project_id = "puomfwjtpvqedwxjxogh"
   [functions.admin-partner-payouts]
     verify_jwt = false
 
+  # The ops copilot — reads the live board and returns a ranked "what needs a
+  # human now" list for the admin dashboard. Read-only by design. Auth lives
+  # inside the function: caller JWT → user_roles role='admin' (same pattern
+  # as admin-partner-payouts).
+  [functions.ops-copilot]
+    verify_jwt = false
+
   # House Autopilot helper matching. dispatch-autopilot-plan is called by
   # stripe-webhook with the service-role key (internal-only check inside);
   # accept-autopilot-plan is the helper's one-tap claim link (HMAC token in the
