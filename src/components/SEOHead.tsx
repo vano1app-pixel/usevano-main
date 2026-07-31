@@ -34,7 +34,10 @@ export const SEOHead = ({
   // 1200×630 PNG — the spec-compliant size / format for LinkedIn /
   // Slack / WhatsApp / Facebook / Twitter previews. The old /og.svg
   // rendered inconsistently across scrapers (many silently drop SVG).
-  image = '/og.png',
+  // VERSIONED: social platforms cache a link preview by image URL and several
+  // (Snapchat, iMessage) offer no way to re-scrape, so a new card needs a new
+  // URL. Keep in step with index.html and scripts/generate-og-image.py.
+  image = '/og-v2.png',
   url: urlProp,
   noindex = false,
   type = 'website',
@@ -71,10 +74,10 @@ export const SEOHead = ({
       <meta property="og:image" content={ogImageAbsolute} />
       {/* Image dimensions + type help scrapers that don't download
            the image eagerly reserve the correct card shape. Assumes
-           the default 1200x630 /og.png; per-page images that pass a
+           the default 1200x630 card; per-page images that pass a
            different `image` prop will still work — scrapers just fall
            back to probing the file. */}
-      {image === '/og.png' && (
+      {image === '/og-v2.png' && (
         <>
           <meta property="og:image:type" content="image/png" />
           <meta property="og:image:width" content="1200" />
@@ -95,7 +98,7 @@ export const SEOHead = ({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImageAbsolute} />
-      {image === '/og.png' && (
+      {image === '/og-v2.png' && (
         <meta name="twitter:image:alt" content="VANO — same-day home help in Galway, from €15." />
       )}
 

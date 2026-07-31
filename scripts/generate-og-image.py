@@ -28,6 +28,18 @@ RE-RUN THIS when the headline, the live category tiles or the entry price
 change — the card is the one brand surface with no runtime, so it goes stale
 silently. The category list and price below are mirrors, not sources: the
 truth lives in CategoryGrid's CATEGORIES and src/lib/householdPricing.ts.
+
+── AND BUMP OG_VERSION WHEN YOU DO ───────────────────────────────────────
+Every social platform caches a link preview by IMAGE URL, indefinitely, the
+first time anyone shares the link. Replacing the bytes at /og.png does NOT
+reach them: LinkedIn, Snapchat, WhatsApp and iMessage all keep serving the
+card they scraped months ago. LinkedIn and Facebook have manual re-scrape
+tools; Snapchat and iMessage have none at all.
+
+So the meta tags point at a VERSIONED filename. Bumping OG_VERSION mints a
+URL nothing has ever cached, which every platform is then forced to fetch —
+the only reliable purge that works everywhere. og.png is still written too,
+so anything that hardcoded it keeps resolving.
 """
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -137,6 +149,14 @@ draw.text((106, 545), 'vanojobs.com', fill=NAVY, font=body)
 tw = draw.textlength(TRUST, font=small)
 draw.text((W - 80 - tw, 551), TRUST, fill=MUTED, font=small)
 
-out_path = 'public/og.png'
-img.save(out_path, 'PNG', optimize=True)
-print(f'Wrote {out_path}: {img.size}')
+# Bump this whenever the card changes, then update the three references in
+# index.html and the default in src/components/SEOHead.tsx (the script prints
+# them below). A new URL is the only cache purge that works on every platform.
+OG_VERSION = 2
+
+for out_path in ('public/og.png', f'public/og-v{OG_VERSION}.png'):
+    img.save(out_path, 'PNG', optimize=True)
+    print(f'Wrote {out_path}: {img.size}')
+print(f'\nMeta tags should reference /og-v{OG_VERSION}.png — check:')
+print(f'  index.html  og:image, twitter:image, LocalBusiness "image"')
+print(f'  src/components/SEOHead.tsx  `image = \'/og-v{OG_VERSION}.png\'`')
