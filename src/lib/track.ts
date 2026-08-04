@@ -46,6 +46,10 @@ export type TrackEvent =
   // with { category, tasks, size } — the funnel step between tile tap and
   // checkout submit for builder categories.
   | 'builder_continue'
+  /** WAITLIST_MODE: someone wanted a job we couldn't cover. The demand
+   *  signal that says where to recruit helpers next. */
+  | 'waitlist_request'
+  | 'waitlist_whatsapp'
   | 'hero_usual_tap'
   | 'hero_search_open'
   | 'hero_whatsapp_tap'

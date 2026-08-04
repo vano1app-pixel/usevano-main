@@ -84,6 +84,11 @@ project_id = "puomfwjtpvqedwxjxogh"
   # booking UUID is the credential.
   [functions.respond-extra-time]
     verify_jwt = false
+  # Waitlist mode: what the sheet calls INSTEAD of checkout while there aren't
+  # enough helpers. Anonymous like every customer action — no booking, no
+  # Stripe, it just pages the owner with a lead.
+  [functions.waitlist-request]
+    verify_jwt = false
   # Nudges the customer to confirm a finished job (and escalates to an admin if
   # they don't) so a helper isn't left unpaid. Called by the cron and internally
   # by household-arrival; never moves money. No user JWT to verify.

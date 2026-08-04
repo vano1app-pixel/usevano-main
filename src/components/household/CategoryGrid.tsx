@@ -18,6 +18,7 @@ import { COOLING_OFF_DAYS, IMMEDIATE_PERFORMANCE_CONSENT_TEXT } from '@/lib/lega
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
 import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, minutesText, taskMinutes, hoursFromSizeLabel, bookedMinutes, durationText, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
 import { KIT_HIRE_CENTS, kitHireCents, kitLabel } from '@/lib/kit';
+import { WAITLIST_MODE, WAITLIST_CTA, WAITLIST_TITLE, WAITLIST_BODY, waitlistWhatsAppText } from '@/lib/waitlist';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -288,16 +289,43 @@ function fmt(cents: number): string {
 
 // ─── Time slots ───────────────────────────────────────────────────────────
 
+/**
+ * Minimum notice on a booking, in hours (owner call 2026-07-31: "take the
+ * now choice out — we don't have enough students to do it now").
+ *
+ * "Now" was a promise the supply side couldn't keep. A booking placed at
+ * 11am for 11am needs a student who is free, nearby and looking at their
+ * phone that minute; when nobody is, the job sits unclaimed and the customer
+ * watches an empty tracking page — which is a worse first experience than
+ * being told honestly that the earliest slot is 2pm.
+ *
+ * Three hours is also what makes the offer WORTH taking: a student can plan
+ * around a lecture instead of dropping everything. The server enforces the
+ * same floor (see _shared/bookingNotice.ts) so no door can bypass it.
+ */
+export const MIN_NOTICE_HOURS = 3;
+
+/** Today's bookable slots — every one at least MIN_NOTICE_HOURS away, on the
+ *  half hour, ending at 9pm. Returns [] late in the day, when the whole
+ *  window has passed and the earliest real option is tomorrow. */
 function getTimeSlots(): string[] {
-  const slots: string[] = ['Now'];
+  const slots: string[] = [];
   const next = new Date();
   next.setSeconds(0, 0);
-  next.setMinutes(next.getMinutes() < 30 ? 30 : 60);
+  next.setMinutes(next.getMinutes() + MIN_NOTICE_HOURS * 60);
+  // Round UP to the next :00/:30 — but only when not already on one, or an
+  // exact 12:00 becomes 12:30 and the customer waits an extra half hour for
+  // no reason. Mirrors earliestStart in _shared/bookingNotice.ts.
+  const mins = next.getMinutes();
+  if (mins !== 0 && mins !== 30) next.setMinutes(mins < 30 ? 30 : 60, 0, 0);
   const fmtTime = (d: Date) => {
     const h = d.getHours(), m = d.getMinutes();
     return `${h > 12 ? h - 12 : h === 0 ? 12 : h}${m ? `:${String(m).padStart(2, '0')}` : ''}${h >= 12 ? 'pm' : 'am'}`;
   };
-  while (next.getHours() < 21) {
+  // Same-day only: once the clock rolls past midnight the label would read
+  // "1am" and book the wrong day, so stop at the end of today.
+  const today = next.getDate();
+  while (next.getHours() < 21 && next.getDate() === today) {
     slots.push(fmtTime(next));
     next.setMinutes(next.getMinutes() + 30);
   }
@@ -312,9 +340,12 @@ const TOMORROW_SLOTS = ['Tomorrow 9am', 'Tomorrow 12pm', 'Tomorrow 3pm', 'Tomorr
 /**
  * Turn a chosen "when" slot into a real local timestamp (ISO) for book-ahead.
  * The server stores it so a future job dispatches at a lead window instead of
- * immediately. Returns null for ASAP ("Now"), unparseable, or already-past
- * today slots — null means "as soon as possible", the default behaviour.
- * Slots look like "Now", "1pm", "12:30pm" (today) or "Tomorrow 9am".
+ * immediately. Returns null for unparseable or already-past today slots —
+ * null means "as soon as possible", which since 2026-07-31 the SERVER floors
+ * to MIN_NOTICE_HOURS rather than dispatching instantly.
+ * Slots look like "1pm", "12:30pm" (today) or "Tomorrow 9am". "Now" is
+ * still accepted here so a stale bookmark or a remembered draft degrades to
+ * the server floor instead of erroring.
  */
 function computeScheduledAt(when: string): string | null {
   if (!when || when === 'Now') return null;
@@ -328,7 +359,8 @@ function computeScheduledAt(when: string): string | null {
   const d = new Date();
   if (/^tomorrow/i.test(when)) d.setDate(d.getDate() + 1);
   d.setHours(hr, min, 0, 0);
-  // A "today" slot that's already passed → treat as ASAP rather than a past time.
+  // A "today" slot that's already passed → null, which the SERVER floor then
+  // lifts to the earliest real slot rather than dispatching into the past.
   if (d.getTime() < Date.now() - 60_000) return null;
   return d.toISOString();
 }
@@ -337,7 +369,7 @@ function computeScheduledAt(when: string): string | null {
 
 function buildWhatsAppMsg(cat: Category, when: string, size: string, address?: string): string {
   const lines = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
-  if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : when.startsWith('Tomorrow') ? when : `today at ${when}`}`);
+  if (when) lines.push(`When: ${when.startsWith('Tomorrow') ? when : `today at ${when}`}`);
   if (size) lines.push(`Duration: ${durationText(size)}`);
   if (address) lines.push(`Address: ${address}`);
   lines.push('Can you let me know who is available?');
@@ -387,7 +419,8 @@ const listItem: Variants = {
 
 interface ChipProps {
   active:   boolean;
-  /** Emerald "same-day" treatment (the "Now" slot). */
+  /** Emerald "soonest" treatment — the earliest bookable slot (was the
+   *  "Now" chip until the 3-hour notice floor replaced it). */
   accent?:  boolean;
   /** Shared-element namespace — the highlight glides between chips in a group. */
   group:    string;
@@ -505,7 +538,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // sees category + size, so the server prices exactly as before.
   const builderTasks = BUILDER_TASKS[entryCat.slug];
   const startOnPick = (isDescribe || !!subServices || !!builderTasks) && !initialSize && !entryExtraLabel && !direct;
-  const [step, setStep] = useState<'pick' | 'form'>(startOnPick ? 'pick' : 'form');
+  // 'waitlisted' is the terminal step in WAITLIST_MODE — the sheet stays open
+  // and tells the truth instead of handing off to Stripe or /track.
+  const [step, setStep] = useState<'pick' | 'form' | 'waitlisted'>(startOnPick ? 'pick' : 'form');
+  /** True once the owner's alert actually went out — the screen degrades to
+   *  "text us yourself" rather than implying someone definitely heard. */
+  const [waitlistNotified, setWaitlistNotified] = useState(true);
   const [ticked, setTicked] = useState<string[]>([]);
   // The one-tap sizing question (2026-07-27, owner ask: "after they choose
   // the category it asks a small question — how big is the garden, how big
@@ -546,8 +584,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     return describeQuery.trim().length >= 2 ? rows : [...rows, customJobByKey('other')];
   }, [isDescribe, step, describeQuery]);
 
-  const [when,     setWhen]    = useState('Now');
-  // When + duration collapse to a single "ASAP · change" line by default —
+  // Default to the earliest bookable slot rather than the old 'Now' — and to
+  // tomorrow morning once today's window has closed, so the collapsed row
+  // never shows a time nobody can actually book.
+  const [when,     setWhen]    = useState(() => getTimeSlots()[0] ?? TOMORROW_SLOTS[0]);
+  // When + duration collapse to a single "Today 2pm · change" line by default —
   // most people want it now, so we don't make them wade through time chips.
   const [showWhen, setShowWhen] = useState(false);
   // Area also collapses to a compact line — Galway is the only live area and
@@ -1015,7 +1056,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // runs it through durationText → "1 hr 45 min". Non-duration labels
   // ("2 bags", "Small area") come back untouched.
   const sizeText = size ? durationText(size) : '';
-  const ctaLabel = [
+  // In waitlist mode the button can't promise a booking — it asks. The price
+  // stays off it too: quoting a total next to a button that takes no money
+  // reads as a charge that never arrives.
+  const ctaLabel = WAITLIST_MODE ? WAITLIST_CTA : [
     cat.label.length <= 12 ? `Book ${cat.label}` : 'Book',
     sizeText || null,
     priceLabel,
@@ -1070,7 +1114,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
           )}
         />
-        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">We'll text you when a helper says yes · Outside Ireland? Add your country code (+44…)</p>
+        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">{WAITLIST_MODE ? "We'll text you the moment we can cover your job" : "We'll text you when a helper says yes"} · Outside Ireland? Add your country code (+44…)</p>
       </div>
 
       {/* Address — Eircode search or current location */}
@@ -1145,6 +1189,48 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     submitLock.current = true;
     setLoading(true); setError(null); setSubmitFailed(false);
     haptic(12); // subtle confirm tick on supported phones
+
+    // ── WAITLIST MODE ────────────────────────────────────────────────────
+    // No checkout, no booking, no Stripe. Charging for a job no student can
+    // accept is worse than saying "not yet", so the flow stops here and pages
+    // the owner with a lead he can ring. Everything the sheet gathered still
+    // goes with it — he opens the call knowing what they wanted.
+    if (WAITLIST_MODE) {
+      try {
+        const { data } = await supabase.functions.invoke('waitlist-request', {
+          body: {
+            category:         cat.slug,
+            size_label:       size,
+            when_label:       when,
+            note:             [note ?? '', customerNote.trim()].filter(Boolean).join(' · '),
+            customer_phone:   phoneClean,
+            customer_address: address.trim(),
+            ...(coords ? { customer_lat: coords.lat, customer_lng: coords.lng } : {}),
+            city,
+            price_euros:      jobTotalCents != null ? jobTotalCents / 100 : null,
+          },
+        });
+        setWaitlistNotified((data as { notified?: boolean } | null)?.notified !== false);
+      } catch {
+        // The request still "worked" from the customer's side — they told us
+        // what they want. The screen just leans on the text-us button.
+        setWaitlistNotified(false);
+      }
+      // Their details are still worth remembering for the day booking opens.
+      saveBookingMemory({
+        phone: phoneClean, address: address.trim(),
+        ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+        city, lastCategory: cat.slug, lastSize: size,
+      });
+      track('waitlist_request', { category: cat.slug, size, when });
+      setLoading(false);
+      submitLock.current = false;
+      navDir.current = 1;
+      setStep('waitlisted');
+      scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
@@ -1400,13 +1486,23 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 exit={{ opacity: 0, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.18, ease: 'easeOut' } }}
                 className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5 overflow-hidden"
               >
-                {[
-                  { id: 'idv',   text: 'ID-verified student' },
-                  // Live chip: ticking the €2 Cover below flips the promise
-                  // from "optional" to "added" — the sheet acknowledges it.
-                  { id: 'cover', text: coverOpted ? '€250 cover added' : 'Optional €250 cover' },
-                  { id: 'mbg',   text: 'Money-back guarantee' },
-                ].map(({ id, text }) => (
+                {(WAITLIST_MODE
+                  // Waitlist mode charges nothing, so "money-back guarantee"
+                  // and the €2 Cover would be promises about a transaction
+                  // that never happens. These three are all still true today.
+                  ? [
+                      { id: 'idv',   text: 'ID-verified student' },
+                      { id: 'nocard', text: 'No card needed' },
+                      { id: 'queue', text: 'First in the queue' },
+                    ]
+                  : [
+                      { id: 'idv',   text: 'ID-verified student' },
+                      // Live chip: ticking the €2 Cover below flips the promise
+                      // from "optional" to "added" — the sheet acknowledges it.
+                      { id: 'cover', text: coverOpted ? '€250 cover added' : 'Optional €250 cover' },
+                      { id: 'mbg',   text: 'Money-back guarantee' },
+                    ]
+                ).map(({ id, text }) => (
                   <span key={id} className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-semibold text-sage-dark whitespace-nowrap">
                     <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
                     <motion.span
@@ -1728,7 +1824,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 Fair prices, always — your helper earns above minimum wage on every job.
               </p>
             </motion.div>
-          ) : (
+          ) : step === 'form' ? (
           <motion.form
             key="form-page"
             custom={navDir.current}
@@ -1823,7 +1919,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             )}
 
             {/* When + duration + area — ONE quiet "logistics" card, two lines
-                (they were two separate rows). ASAP · Galway is what almost
+                (they were two separate rows). The soonest slot is what almost
                 everyone wants, so both lines start collapsed and unfold their
                 options in place when tapped. Fewer decisions up front = a
                 faster booking. */}
@@ -1836,7 +1932,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               >
                 <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
                   <Clock className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
-                  <span className="font-semibold">{when === 'Now' ? 'ASAP' : when}</span>
+                  <span className="font-semibold">{when.startsWith('Tomorrow') ? when : `Today ${when}`}</span>
                   {sizeText && <span className="text-muted-foreground truncate">· {sizeText}</span>}
                 </span>
                 <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">{showWhen ? 'Done' : 'Change'}</span>
@@ -1853,9 +1949,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   >
                     <div className="px-4 pb-3.5">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5">When?</p>
+                      {/* Say WHY the earliest slot is where it is. A customer
+                          who wanted someone right now deserves the reason, and
+                          "your helper needs time to get to you" is both true
+                          and reassuring — it reads as care, not scarcity. */}
+                      {timeSlots.length > 0 ? (
+                        <p className="text-[11px] text-muted-foreground mb-2">
+                          Earliest today is <span className="font-semibold text-foreground/80">{timeSlots[0]}</span> — we give your helper time to get to you.
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground mb-2">
+                          Today's slots have closed — pick a time tomorrow below.
+                        </p>
+                      )}
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {timeSlots.map(opt => (
-                          <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
+                          <Chip key={opt} group="when" active={when === opt} accent={opt === timeSlots[0]} onClick={() => setWhen(opt)}>
                             {opt}
                           </Chip>
                         ))}
@@ -2016,7 +2125,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   Two cards, colour-coded — sage (the trust colour) for the
                   selected one, and the wallet names spelled out because
                   "Apple Pay" is the single biggest reassurance on a phone. */}
-              {CARD_PAY_OFFERED && priceCents && (
+              {!WAITLIST_MODE && CARD_PAY_OFFERED && priceCents && (
                 <div>
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     How you'll pay
@@ -2065,7 +2174,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   the student's money, navy dot = VANO's fee) because
                   "who is this money going to" is the single question
                   customers ask about this pricing model. */}
-              {priceCents && jobTotalCents != null && (
+              {/* WAITLIST: no money moves, so the three-band receipt would be
+                  theatre — and a "Card total on accept" line under a button
+                  that charges nothing is a promise of a charge that never
+                  arrives. One estimate, clearly labelled as one. */}
+              {WAITLIST_MODE && priceCents && jobTotalCents != null && (
+                <div className="rounded-2xl border border-border bg-white px-4 py-3.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[13px] font-semibold text-foreground/80">Roughly what it'd cost</span>
+                    <AnimatedPrice cents={jobTotalCents} className="flex-shrink-0 text-2xl font-extrabold text-foreground" />
+                  </div>
+                  <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
+                    Nothing to pay now — we'll confirm the price with you when a helper's available.
+                  </p>
+                </div>
+              )}
+              {!WAITLIST_MODE && priceCents && jobTotalCents != null && (
                 <div className="overflow-hidden rounded-2xl border border-border bg-white">
                   {/* Band 1 — the helper's money */}
                   <div className="px-4 pt-3.5 pb-3">
@@ -2147,7 +2271,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   says yes" — the docked bar already says that, and repeating
                   it is exactly the padding that makes a checkout read as
                   generated. This says the thing the bar doesn't. */}
-              {priceCents && (
+              {!WAITLIST_MODE && priceCents && (
                 <p className="flex items-center justify-center gap-1.5 text-[12px] text-muted-foreground">
                   <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0 text-sage" aria-hidden="true" />
                   {payMode === 'card'
@@ -2159,7 +2283,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               {/* Vano Cover — a compact ADD row, not a third competing card.
                   It only earns full weight once it's on (the amount then
                   appears in the receipt above). */}
-              {priceCents && (
+              {!WAITLIST_MODE && priceCents && (
                 <button
                   type="button"
                   onClick={() => { setCoverOpted(v => !v); haptic(8); }}
@@ -2257,7 +2381,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   words on purpose — a right buried in legalese isn't informed
                   consent, and the free-cancel-before-they-start half is
                   genuinely good news worth reading. */}
-              <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
+              <p className={cn('text-center text-[13px] leading-relaxed text-muted-foreground', WAITLIST_MODE && 'hidden')}>
                 {IMMEDIATE_PERFORMANCE_CONSENT_TEXT}{' '}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">
                   Your {COOLING_OFF_DAYS}-day right
@@ -2265,6 +2389,71 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               </p>
             </motion.div>
           </motion.form>
+          ) : (
+
+          /* ── WAITLIST: the honest "not yet" ─────────────────────────────
+              The terminal screen in WAITLIST_MODE. It has to do three things
+              and no more: say plainly that we can't cover it, give a reason
+              that reads as care rather than incompetence ("we won't send
+              someone until we're sure they're brilliant"), and put a human
+              one tap away. Sage tick, not a red warning — nothing went wrong,
+              they're first in the queue. */
+          <motion.div
+            key="waitlisted"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.34, ease: SHEET_EASE } }}
+            className="px-5 pb-6 pt-2 text-center"
+          >
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-sage-light">
+              <Check className="h-8 w-8 text-sage-dark" strokeWidth={2.5} />
+            </div>
+            <h3 className="display-lg text-[26px] leading-tight text-foreground">{WAITLIST_TITLE}</h3>
+            <p className="mx-auto mt-2.5 max-w-[19rem] text-[14px] leading-relaxed text-muted-foreground">
+              {WAITLIST_BODY}
+            </p>
+
+            {/* What we've got — proof their details actually landed, and the
+                exact words the owner will open the call with. */}
+            <div className="surface-float mt-5 rounded-2xl border border-border bg-white px-4 py-3.5 text-left">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/50">On your list</p>
+              <p className="mt-1.5 text-[15px] font-semibold text-foreground">
+                {cat.label}{sizeText ? ` · ${sizeText}` : ''}
+              </p>
+              <p className="text-[13px] text-muted-foreground">
+                {when.startsWith('Tomorrow') ? when : `Today ${when}`}{city ? ` · ${city}` : ''}
+              </p>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                We'll text <span className="font-semibold text-foreground/80">{phone.trim()}</span> as soon as we can cover it.
+              </p>
+            </div>
+
+            {/* The human door. Primary on purpose: someone who just heard
+                "not yet" is exactly who's worth talking to, and the owner
+                would rather have the conversation than lose the lead. */}
+            <a
+              href={`${teamWhatsAppHref}?text=${encodeURIComponent(waitlistWhatsAppText(cat.label, when, city))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => track('waitlist_whatsapp', { category: cat.slug })}
+              className="mt-5 flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-sage text-[15px] font-bold text-white transition-[background-color,transform] duration-150 hover:bg-sage-dark active:scale-[0.98]"
+            >
+              Text us — we'll sort you first
+            </a>
+            {/* Honest fallback: if the owner's alert didn't send, the button
+                above isn't a nicety, it's the only channel that worked. */}
+            {!waitlistNotified && (
+              <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+                Our alert didn't go through just now — dropping us a message is the surest way to be first in the queue.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-3 w-full text-[13px] font-semibold text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+            >
+              Done
+            </button>
+          </motion.div>
           )}
           </AnimatePresence>
         </div>
@@ -2299,6 +2488,14 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 ? 'Booked — taking you to live tracking…'
                 : securing
                 ? 'Opening the secure card step…'
+                : WAITLIST_MODE
+                ? <>
+                    {/* In waitlist mode there is no payment step at all, so
+                        "you only pay when…" would be reassuring the customer
+                        about a moment that never comes. Say the true thing:
+                        nothing is charged, and no card is asked for. */}
+                    <span className="whitespace-nowrap">Nothing to pay — no card needed</span>
+                  </>
                 : <>
                     {/* Two nowrap phrases: a narrow screen breaks at the
                         separator, never mid-word ("money-/back"). */}
@@ -2365,7 +2562,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       Sending your booking…
                     </>
                   : loading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />{WAITLIST_MODE ? 'Sending…' : 'Booking…'}</>
                   : <>
                       <motion.span
                         className="inline-flex"

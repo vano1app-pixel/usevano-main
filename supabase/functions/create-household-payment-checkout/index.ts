@@ -12,6 +12,8 @@ import {
 } from "../_shared/householdPricing.ts";
 // "We'll bring the mower" — gear the household hasn't got. See _shared/kit.ts.
 import { kitHireCents, normalizeKit } from "../_shared/kit.ts";
+// No booking starts sooner than the minimum notice — see the module for why.
+import { applyNoticeFloor, noticeLabel } from "../_shared/bookingNotice.ts";
 // Free-text safety screen — shared pure module so the blocked lines are
 // pinned by vitest (src/lib/__tests__/safetyScreen.test.ts).
 import { screenRequestText } from "../_shared/safetyScreen.ts";
@@ -135,12 +137,31 @@ serve(async (req) => {
     if (typeof scheduledAtRaw === 'string' && scheduledAtRaw) {
       const t = Date.parse(scheduledAtRaw);
       const now = Date.now();
-      // Accept 20 min – 21 days ahead; ignore past/near-now (treat as ASAP) and
-      // absurd far-future values.
-      if (Number.isFinite(t) && t > now + 20 * 60 * 1000 && t < now + 21 * 24 * 60 * 60 * 1000) {
+      // Reject only the absurd far-future; the near end is handled by the
+      // notice floor below rather than by silently falling back to ASAP.
+      if (Number.isFinite(t) && t < now + 21 * 24 * 60 * 60 * 1000) {
         scheduledAt = new Date(t).toISOString();
       }
     }
+
+    // ── MINIMUM NOTICE (2026-07-31) ──────────────────────────────────────
+    // No booking starts sooner than MIN_NOTICE_HOURS from now, whichever door
+    // it came through — the sheet, the WhatsApp intake, a "book your usual"
+    // rebook or a stale cached bundle. "Now" was a promise the supply side
+    // couldn't keep: a job wanted this minute needs a student free, nearby and
+    // looking at their phone, and when nobody is, the customer watches an empty
+    // tracking page. Anything sooner is LIFTED, never rejected — a booking must
+    // not die because someone asked for it too soon. See _shared/bookingNotice.
+    const noticeFloor = applyNoticeFloor(scheduledAt);
+    scheduledAt = noticeFloor.scheduledAt;
+    const noticeMoved = noticeFloor.moved;
+    // `when_label` is the string EVERYONE reads — the helper's offer, the
+    // customer's messages, the tracking page, the dedupe key. If the floor
+    // moved the booking, the label has to move with it or both sides are told
+    // a time that isn't the time.
+    const whenLabel: string | null = noticeMoved
+      ? noticeLabel(scheduledAt)
+      : ((typeof when_label === 'string' && when_label.trim()) || null);
 
     if (!category || !VALID_CATEGORIES.includes(category as Category)) {
       return bad(400, 'Invalid category');
@@ -156,7 +177,10 @@ serve(async (req) => {
     // independently validated to be 20min–21d in the future). No money rides
     // on this any more (the old 10% book-ahead price cut retired with
     // direct-pay); it's kept for dispatch timing + booking_data honesty.
-    const isScheduled = scheduled === true && scheduledAt !== null;
+    // Every booking now carries a real start time (the notice floor guarantees
+    // one), so "scheduled" means what the CUSTOMER chose — a slot they picked,
+    // rather than the earliest we could offer them.
+    const isScheduled = scheduled === true && !noticeMoved;
 
     // ── Safety screen for free-text requests ─────────────────────────────
     // Patterns + rationale live in _shared/safetyScreen.ts (pure TS, pinned
@@ -362,7 +386,7 @@ serve(async (req) => {
     // booking_data is built once and (only for welcome referrals) updated in
     // place after the referral row insert supplies its id.
     const bookingData: Record<string, unknown> = {
-      when_label:    when_label || null,
+      when_label:    whenLabel,
       size_label:    sl || null,
       extra_label:   el || null,
       scheduled:     isScheduled,
@@ -460,7 +484,7 @@ serve(async (req) => {
         .eq('category', cat)
         // Same requested time too — otherwise a customer booking "Cleaning now"
         // then "Cleaning tomorrow 9am" would have the second silently swallowed.
-        .eq('scheduled_date', when_label || 'flexible')
+        .eq('scheduled_date', whenLabel || 'flexible')
         .not('status', 'in', '(cancelled,completed)')
         .gte('created_at', dedupeCutoff)
         .order('created_at', { ascending: false })
@@ -518,7 +542,7 @@ serve(async (req) => {
       .insert({
         customer_id: null,
         category: cat,
-        scheduled_date: when_label || 'flexible',
+        scheduled_date: whenLabel || 'flexible',
         time_slot: null,
         is_express: false,
         price_estimate_cents: jobTotalCents,
@@ -760,7 +784,13 @@ serve(async (req) => {
     // isn't auto-cancelled before it's due). LEAD_MIN mirrors that cron.
     // Auth path: dispatch is DEFERRED to the auth webhook — helpers only ever
     // see fee-secured jobs.
-    const LEAD_MIN = 90;
+    // Raised 90 → 240 with the 3-hour notice floor (2026-07-31). Every booking
+    // is now future-dated, so at 90 the cron would have held a 3pm job until
+    // 1:30pm — giving the student LESS notice than before, which is the exact
+    // opposite of the point. At 240 a same-day booking still fans out the
+    // moment it's made (helper hears immediately, arrives at the agreed time)
+    // and only genuinely far-ahead jobs wait for the cron.
+    const LEAD_MIN = 240;
     const dispatchNow = !authActive && (!scheduledAt || (Date.parse(scheduledAt) - Date.now()) <= LEAD_MIN * 60 * 1000);
     if (dispatchNow) {
       try {
@@ -770,7 +800,7 @@ serve(async (req) => {
           body: JSON.stringify({
             record: {
               id: bookingId, status: 'pending', city: cityVal,
-              category: cat, scheduled_date: when_label || 'flexible',
+              category: cat, scheduled_date: whenLabel || 'flexible',
               price_estimate_cents: jobTotalCents,
             },
           }),
@@ -803,7 +833,7 @@ serve(async (req) => {
             customer_phone: customer_phone.trim(),
             customer_email: typeof customer_email === 'string' ? customer_email.trim() : null,
             category: cat,
-            scheduled_date: when_label || 'flexible',
+            scheduled_date: whenLabel || 'flexible',
             city: cityVal,
             price_euros: (jobTotalCents / 100).toFixed(2),
             booking_id: bookingId,
@@ -831,7 +861,7 @@ serve(async (req) => {
               `Customer: ${customer_name.trim()}`,
               `Phone: ${customer_phone.trim()}`,
               `City: ${cityVal ?? '—'}`,
-              `When: ${when_label || 'Flexible'}`,
+              `When: ${whenLabel || 'Flexible'}`,
               `Helper gets ${cardPay ? '(paid by card via VANO)' : '(paid directly)'}: €${(jobTotalCents / 100).toFixed(2)}`,
               `Vano fee: €${(feeDueCents / 100).toFixed(2)}${coverOpted ? ' (incl. €2 Vano Cover)' : ''}${authActive ? ' — RESERVED at booking (card hold), captured on accept' : ' — charged on accept'}`,
               ...(unpaidStrikes > 0 ? [`⚠ Customer has ${unpaidStrikes} unpaid strike(s)`] : []),
