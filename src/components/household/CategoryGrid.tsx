@@ -288,16 +288,43 @@ function fmt(cents: number): string {
 
 // ─── Time slots ───────────────────────────────────────────────────────────
 
+/**
+ * Minimum notice on a booking, in hours (owner call 2026-07-31: "take the
+ * now choice out — we don't have enough students to do it now").
+ *
+ * "Now" was a promise the supply side couldn't keep. A booking placed at
+ * 11am for 11am needs a student who is free, nearby and looking at their
+ * phone that minute; when nobody is, the job sits unclaimed and the customer
+ * watches an empty tracking page — which is a worse first experience than
+ * being told honestly that the earliest slot is 2pm.
+ *
+ * Three hours is also what makes the offer WORTH taking: a student can plan
+ * around a lecture instead of dropping everything. The server enforces the
+ * same floor (see _shared/bookingNotice.ts) so no door can bypass it.
+ */
+export const MIN_NOTICE_HOURS = 3;
+
+/** Today's bookable slots — every one at least MIN_NOTICE_HOURS away, on the
+ *  half hour, ending at 9pm. Returns [] late in the day, when the whole
+ *  window has passed and the earliest real option is tomorrow. */
 function getTimeSlots(): string[] {
-  const slots: string[] = ['Now'];
+  const slots: string[] = [];
   const next = new Date();
   next.setSeconds(0, 0);
-  next.setMinutes(next.getMinutes() < 30 ? 30 : 60);
+  next.setMinutes(next.getMinutes() + MIN_NOTICE_HOURS * 60);
+  // Round UP to the next :00/:30 — but only when not already on one, or an
+  // exact 12:00 becomes 12:30 and the customer waits an extra half hour for
+  // no reason. Mirrors earliestStart in _shared/bookingNotice.ts.
+  const mins = next.getMinutes();
+  if (mins !== 0 && mins !== 30) next.setMinutes(mins < 30 ? 30 : 60, 0, 0);
   const fmtTime = (d: Date) => {
     const h = d.getHours(), m = d.getMinutes();
     return `${h > 12 ? h - 12 : h === 0 ? 12 : h}${m ? `:${String(m).padStart(2, '0')}` : ''}${h >= 12 ? 'pm' : 'am'}`;
   };
-  while (next.getHours() < 21) {
+  // Same-day only: once the clock rolls past midnight the label would read
+  // "1am" and book the wrong day, so stop at the end of today.
+  const today = next.getDate();
+  while (next.getHours() < 21 && next.getDate() === today) {
     slots.push(fmtTime(next));
     next.setMinutes(next.getMinutes() + 30);
   }
@@ -312,9 +339,12 @@ const TOMORROW_SLOTS = ['Tomorrow 9am', 'Tomorrow 12pm', 'Tomorrow 3pm', 'Tomorr
 /**
  * Turn a chosen "when" slot into a real local timestamp (ISO) for book-ahead.
  * The server stores it so a future job dispatches at a lead window instead of
- * immediately. Returns null for ASAP ("Now"), unparseable, or already-past
- * today slots — null means "as soon as possible", the default behaviour.
- * Slots look like "Now", "1pm", "12:30pm" (today) or "Tomorrow 9am".
+ * immediately. Returns null for unparseable or already-past today slots —
+ * null means "as soon as possible", which since 2026-07-31 the SERVER floors
+ * to MIN_NOTICE_HOURS rather than dispatching instantly.
+ * Slots look like "1pm", "12:30pm" (today) or "Tomorrow 9am". "Now" is
+ * still accepted here so a stale bookmark or a remembered draft degrades to
+ * the server floor instead of erroring.
  */
 function computeScheduledAt(when: string): string | null {
   if (!when || when === 'Now') return null;
@@ -328,7 +358,8 @@ function computeScheduledAt(when: string): string | null {
   const d = new Date();
   if (/^tomorrow/i.test(when)) d.setDate(d.getDate() + 1);
   d.setHours(hr, min, 0, 0);
-  // A "today" slot that's already passed → treat as ASAP rather than a past time.
+  // A "today" slot that's already passed → null, which the SERVER floor then
+  // lifts to the earliest real slot rather than dispatching into the past.
   if (d.getTime() < Date.now() - 60_000) return null;
   return d.toISOString();
 }
@@ -337,7 +368,7 @@ function computeScheduledAt(when: string): string | null {
 
 function buildWhatsAppMsg(cat: Category, when: string, size: string, address?: string): string {
   const lines = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
-  if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : when.startsWith('Tomorrow') ? when : `today at ${when}`}`);
+  if (when) lines.push(`When: ${when.startsWith('Tomorrow') ? when : `today at ${when}`}`);
   if (size) lines.push(`Duration: ${durationText(size)}`);
   if (address) lines.push(`Address: ${address}`);
   lines.push('Can you let me know who is available?');
@@ -387,7 +418,8 @@ const listItem: Variants = {
 
 interface ChipProps {
   active:   boolean;
-  /** Emerald "same-day" treatment (the "Now" slot). */
+  /** Emerald "soonest" treatment — the earliest bookable slot (was the
+   *  "Now" chip until the 3-hour notice floor replaced it). */
   accent?:  boolean;
   /** Shared-element namespace — the highlight glides between chips in a group. */
   group:    string;
@@ -546,8 +578,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     return describeQuery.trim().length >= 2 ? rows : [...rows, customJobByKey('other')];
   }, [isDescribe, step, describeQuery]);
 
-  const [when,     setWhen]    = useState('Now');
-  // When + duration collapse to a single "ASAP · change" line by default —
+  // Default to the earliest bookable slot rather than the old 'Now' — and to
+  // tomorrow morning once today's window has closed, so the collapsed row
+  // never shows a time nobody can actually book.
+  const [when,     setWhen]    = useState(() => getTimeSlots()[0] ?? TOMORROW_SLOTS[0]);
+  // When + duration collapse to a single "Today 2pm · change" line by default —
   // most people want it now, so we don't make them wade through time chips.
   const [showWhen, setShowWhen] = useState(false);
   // Area also collapses to a compact line — Galway is the only live area and
@@ -1823,7 +1858,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             )}
 
             {/* When + duration + area — ONE quiet "logistics" card, two lines
-                (they were two separate rows). ASAP · Galway is what almost
+                (they were two separate rows). The soonest slot is what almost
                 everyone wants, so both lines start collapsed and unfold their
                 options in place when tapped. Fewer decisions up front = a
                 faster booking. */}
@@ -1836,7 +1871,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               >
                 <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
                   <Clock className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
-                  <span className="font-semibold">{when === 'Now' ? 'ASAP' : when}</span>
+                  <span className="font-semibold">{when.startsWith('Tomorrow') ? when : `Today ${when}`}</span>
                   {sizeText && <span className="text-muted-foreground truncate">· {sizeText}</span>}
                 </span>
                 <span className="text-[13px] font-semibold text-sage-dark flex-shrink-0">{showWhen ? 'Done' : 'Change'}</span>
@@ -1853,9 +1888,22 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   >
                     <div className="px-4 pb-3.5">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5">When?</p>
+                      {/* Say WHY the earliest slot is where it is. A customer
+                          who wanted someone right now deserves the reason, and
+                          "your helper needs time to get to you" is both true
+                          and reassuring — it reads as care, not scarcity. */}
+                      {timeSlots.length > 0 ? (
+                        <p className="text-[11px] text-muted-foreground mb-2">
+                          Earliest today is <span className="font-semibold text-foreground/80">{timeSlots[0]}</span> — we give your helper time to get to you.
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground mb-2">
+                          Today's slots have closed — pick a time tomorrow below.
+                        </p>
+                      )}
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {timeSlots.map(opt => (
-                          <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
+                          <Chip key={opt} group="when" active={when === opt} accent={opt === timeSlots[0]} onClick={() => setWhen(opt)}>
                             {opt}
                           </Chip>
                         ))}
