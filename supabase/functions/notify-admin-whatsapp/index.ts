@@ -285,6 +285,25 @@ serve(async (req) => {
         `Price: €${price_euros ?? '?'}\nRef: ${ref(booking_id)}`;
       contactPhone = customer_phone;
 
+    } else if (type === 'waitlist_request') {
+      // 📋 A real customer wanted a real job and we couldn't cover it
+      // (WAITLIST_MODE — see src/lib/waitlist.ts). This is the lead: the
+      // owner rings them back. Everything the sheet gathered is here so the
+      // call can open with "you wanted a 2-hour clean in Salthill on Tuesday"
+      // rather than "what were you after?".
+      const { customer_phone, category, size_label, when_label, city, area, note, price_euros } = body;
+      subject = `📋 Waitlist request — ${cat(category)} in ${area || city || 'Galway'}`;
+      message =
+        `📋 *Waitlist request* — no helper available, they're waiting on you.\n` +
+        `Job: ${cat(category)}${size_label ? ` (${size_label})` : ''}\n` +
+        `When they wanted it: ${when_label || 'flexible'}\n` +
+        `Area: ${area || city || 'Galway'}\n` +
+        `Phone: ${customer_phone ?? 'not provided'}\n` +
+        (note ? `Notes: ${note}\n` : '') +
+        (price_euros ? `Would have been: €${price_euros}\n` : '') +
+        `\n☎️ Ring them back — they asked and nobody could take it.`;
+      contactPhone = customer_phone;
+
     } else if (type === 'helper_sos') {
       // 🆘 The panic button. A helper on a live job says they need help —
       // the one page that must never be missable, so the send block below
