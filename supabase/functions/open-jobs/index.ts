@@ -49,7 +49,6 @@ function buildCorsHeaders(req: Request) {
 function isOriginAllowed(req: Request) { return !req.headers.get('Origin') || matchOrigin(req) !== null; }
 
 interface OpenJob {
-  id: string;
   category: string | null;
   /** Neighbourhood-grained ("Salthill"), never street-level. The exact
    *  address unlocks only after this helper claims the job. */
@@ -103,11 +102,16 @@ serve(async (req) => {
       .limit(20);
     if (qErr) { console.error('[open-jobs] query failed', qErr); return bad(500, 'Could not load open jobs'); }
 
+    // The raw booking id is the anonymous-customer CAPABILITY — with it, the
+    // public get_household_booking RPC returns the customer's name/phone/exact
+    // address and the customer_cancel path opens. So it NEVER goes in this
+    // (unauthenticated) response. Kept server-side only, index-aligned with
+    // `jobs`, purely to sign claim tokens for an eligible helper below.
+    const ids = ((rows ?? []) as Array<Record<string, unknown>>).map((r) => r.id as string);
     const jobs: OpenJob[] = ((rows ?? []) as Array<Record<string, unknown>>).map((r) => {
       const bd = (r.booking_data ?? {}) as Record<string, unknown>;
       const rep = (bd.customer_rep ?? null) as OpenJob['customer_rep'];
       return {
-        id: r.id as string,
         category: (r.category as string | null) ?? null,
         // NEVER r.customer_address — approxAreaLabel can only ever return a
         // name from the fixed area table, the city, or a safe generic.
@@ -146,9 +150,9 @@ serve(async (req) => {
         ineligibleReason = null;
         // Same token accept-job verifies — 2 h expiry, plenty for a board tap.
         const expEpoch = Math.floor(Date.now() / 1000) + 2 * 60 * 60;
-        await Promise.all(jobs.map(async (j) => {
+        await Promise.all(jobs.map(async (j, i) => {
           try {
-            const tok = await signAcceptToken({ b: j.id, h: helper.id, u: helper.user_id ?? null, e: expEpoch });
+            const tok = await signAcceptToken({ b: ids[i], h: helper.id, u: helper.user_id ?? null, e: expEpoch });
             j.accept_url = `${supabaseUrl}/functions/v1/accept-job?t=${tok}`;
           } catch { /* job stays listed without a link — fail-soft */ }
         }));
