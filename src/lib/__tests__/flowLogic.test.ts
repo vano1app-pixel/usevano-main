@@ -104,5 +104,11 @@ describe('normalizePhoneE164', () => {
     expect(normalizePhoneE164('12345')).toBe(null);
     expect(normalizePhoneE164('')).toBe(null);
     expect(normalizePhoneE164('+1')).toBe(null);             // too short after +
+    // Junk with a valid *shape* but an impossible leading-zero country code —
+    // the troll's `0000000000` used to normalise to `+00000000` and sail
+    // through. Country codes never start with 0.
+    expect(normalizePhoneE164('0000000000')).toBe(null);
+    expect(normalizePhoneE164('00 000 00000')).toBe(null);
+    expect(normalizePhoneE164('+0123456789')).toBe(null);
   });
 });

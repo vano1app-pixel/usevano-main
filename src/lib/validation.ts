@@ -22,10 +22,13 @@ export function isValidPhone(raw: string): boolean {
 export function normalizePhoneE164(raw: string): string | null {
   const cleaned = (raw ?? '').replace(/[\s\-().]/g, '').trim();
   if (!cleaned) return null;
-  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  // E.164 country codes never start with 0, so `+00…` / `00 00…` is junk, not a
+  // number. The old `\d{8,15}` accepted `0000000000` (→ `+00000000`) — a valid
+  // *shape* that can never be texted; the leading [1-9] closes that.
+  if (cleaned.startsWith('+')) return /^\+[1-9]\d{7,14}$/.test(cleaned) ? cleaned : null;
   if (cleaned.startsWith('00')) {
     const c = '+' + cleaned.slice(2);
-    return /^\+\d{8,15}$/.test(c) ? c : null;
+    return /^\+[1-9]\d{7,14}$/.test(c) ? c : null;
   }
   if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
   if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
