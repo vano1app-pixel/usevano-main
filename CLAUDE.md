@@ -788,6 +788,12 @@ tick-eyebrows, floating cards.
 - Stripe is raw REST (no SDK) in every function — match that style.
 - `design-references/` (30MB) and `.claude/skills/` are **not app code** — design
   reference material, fenced off from the build/tests. Ignore them when reading.
+- `plugins/ayush-agents/` + `.claude-plugin/marketplace.json` are **not app
+  code** either — a Claude Code plugin shipping five subagents (`flow-guard`
+  verifies the never-break flows in a real browser, `money-check` audits the
+  price/fee invariants, plus `ship-doctor`, `design-critic`, `growth-scout`).
+  Markdown + JSON only; tsc reads `src` and vitest collects test files, so
+  neither touches the build. See `plugins/ayush-agents/README.md`.
 - One lockfile: `package-lock.json` (npm). The stale bun locks were deleted
   in the July 2026 cleanup — don't reintroduce them.
 
