@@ -187,7 +187,7 @@ serve(async (req) => {
       .replace(/\s{2,}/g, ' ')
       .trim()
       .slice(0, 200);
-    for (const k of ['name', 'customer_name', 'helper_name', 'email', 'customer_email', 'city', 'reason', 'customer_address']) {
+    for (const k of ['name', 'customer_name', 'helper_name', 'email', 'customer_email', 'city', 'reason', 'customer_address', 'note', 'size_label', 'when_label', 'area']) {
       if (typeof body[k] === 'string') body[k] = clean(body[k]);
     }
     const cat = (c: string) => CATEGORY_LABELS[c] ?? c;

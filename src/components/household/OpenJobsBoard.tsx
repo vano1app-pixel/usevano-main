@@ -16,7 +16,6 @@ import { Loader2, RefreshCw, Zap } from 'lucide-react';
 // there is.
 
 interface OpenJob {
-  id: string;
   category: string | null;
   /** Neighbourhood label from the server — never the exact address. */
   area: string | null;
@@ -115,14 +114,14 @@ export function OpenJobsBoard({ helperId, accountToken, idVerified, onVerify }: 
 
       {jobs !== null && jobs.length > 0 && (
         <ul className="space-y-2">
-          {jobs.map((j) => {
+          {jobs.map((j, i) => {
             const label = (j.category && HELPER_CATEGORY_LABELS[j.category]) ?? j.extra_label ?? 'Job';
             const rep = j.customer_rep;
             const repLine = rep && (rep.paid_jobs ?? 0) > 0
               ? `Pays promptly · ${rep.paid_jobs} job${rep.paid_jobs === 1 ? '' : 's'}${rep.stars ? ` · ★${rep.stars}` : ''}`
               : null;
             return (
-              <li key={j.id} className="rounded-2xl border border-border bg-white p-3.5">
+              <li key={i} className="rounded-2xl border border-border bg-white p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-foreground truncate">

@@ -1,0 +1,15 @@
+{
+  "name": "ayush",
+  "description": "Ayush Puri's personal Claude Code plugins, built alongside VANO (vanojobs.com).",
+  "owner": {
+    "name": "Ayush Puri",
+    "email": "ayushpuri1239@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "ayush-agents",
+      "source": "./plugins/ayush-agents",
+      "description": "Five specialist subagents for how Ayush ships VANO: flow-guard, money-check, ship-doctor, design-critic, growth-scout."
+    }
+  ]
+}

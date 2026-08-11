@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "ayush-agents",
+  "displayName": "Ayush's Agents",
+  "version": "1.0.0",
+  "description": "Five specialist subagents for how Ayush actually ships VANO: flow-guard (real-browser verification of the flows that must never break), money-check (pricing, fee and wage invariants), ship-doctor (read-only deploy and infra diagnosis), design-critic (taste review with real screenshots), growth-scout (outreach and content fact-checked against the live code).",
+  "author": {
+    "name": "Ayush Puri",
+    "url": "https://www.linkedin.com/in/ayush-puri-4b88b8357"
+  },
+  "homepage": "https://vanojobs.com",
+  "repository": "https://github.com/vano1app-pixel/usevano-main",
+  "license": "MIT",
+  "keywords": [
+    "vano",
+    "agents",
+    "verification",
+    "playwright",
+    "pricing",
+    "deployment",
+    "design-review",
+    "outreach"
+  ]
+}

@@ -88,9 +88,9 @@ const HelperTerms = () => (
               VANO earnings to Revenue.
             </li>
             <li>
-              <strong>VANO reports helper earnings to Revenue</strong> each year, as EU platform
-              rules (DAC7) require of every platform. Keep your details accurate so that report is
-              right.
+              <strong>Keep your own records.</strong> VANO does not currently report your earnings
+              to Revenue on your behalf, so track what you earn. If EU platform rules (DAC7) ever
+              require us to report, we&apos;ll tell you first and ask for the details we need.
             </li>
             <li>
               Nothing here is tax advice — Revenue&apos;s website covers self-assessed income, and

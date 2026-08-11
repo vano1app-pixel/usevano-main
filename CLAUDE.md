@@ -72,7 +72,7 @@ escrow and complete under the old rules everywhere):
    to your helper directly — they keep 100%"), the VANO booking fee, and the
    optional €2 Vano Cover checkbox.
 2. → **`create-household-payment-checkout`** edge function: prices the job
-   server-side, computes the fee (`_shared/vanoFees.ts` — 15% min €4 + €2
+   server-side, computes the fee (`_shared/vanoFees.ts` — 15% min €5 + €2
    cover if opted), blocks customers with ≥2 unpaid-job strikes, stamps a
    `customer_rep` snapshot, inserts the booking, dispatches. **Pay-after-
    accept** still holds — but what's charged at accept is ONLY Vano's fee.
@@ -314,8 +314,8 @@ rounds or the `custom` catch-all.
   cross-checks it against the frontend table; `householdPayMath.test.ts`
   keeps the hardcoded wage-floor contract.
 - **Fee maths (direct-pay):** `functions/_shared/vanoFees.ts` is the single
-  source — `VANO_FEE_BPS=1500` (15% of job price), `VANO_FEE_MIN_CENTS=400`
-  (€4 floor), `VANO_COVER_CENTS=200` (€2 opt-in),
+  source — `VANO_FEE_BPS=1500` (15% of job price), `VANO_FEE_MIN_CENTS=500`
+  (€5 floor), `VANO_COVER_CENTS=200` (€2 opt-in),
   `UNPAID_STRIKE_BLOCK_THRESHOLD=2`. Mirrored in `src/lib/householdPricing.ts`
   for sheet display; `householdPayMath.test.ts` locks the two in step.
 - **INVARIANT:** every *time-based* rate must net a student ≥ Ireland's minimum
@@ -357,7 +357,7 @@ rounds or the `custom` catch-all.
   small carries only, no furniture/full moves. Don't remount without the
   owner.
 - **Vano's take (direct-pay):** ONLY the booking fee — 15% of the job price,
-  min €4, charged to the customer's card at accept (+ €2 Cover if opted).
+  min €5, charged to the customer's card at accept (+ €2 Cover if opted).
   Nothing is taken from the helper. Discounts (loyalty every-3rd = fee
   waived; referral €5) apply to the FEE only — never the job price, which
   isn't Vano's money. The old 10% book-ahead price cut is gone.
@@ -525,7 +525,7 @@ extend it.
 
 ## Money movement & escrow
 - **DIRECT-PAY (all new bookings, `booking_data.direct_pay`)**: Vano's card
-  charge = booking fee (15% min €4) + optional €2 Cover, nothing else. The
+  charge = booking fee (15% min €5) + optional €2 Cover, nothing else. The
   job price moves customer→helper directly (Revolut tag on the helper row —
   `payment_handle`, editable via `update-helper-profile` + both profile
   editors; TrackBooking's pay card + the completion email deep-link the
@@ -788,6 +788,12 @@ tick-eyebrows, floating cards.
 - Stripe is raw REST (no SDK) in every function — match that style.
 - `design-references/` (30MB) and `.claude/skills/` are **not app code** — design
   reference material, fenced off from the build/tests. Ignore them when reading.
+- `plugins/ayush-agents/` + `.claude-plugin/marketplace.json` are **not app
+  code** either — a Claude Code plugin shipping five subagents (`flow-guard`
+  verifies the never-break flows in a real browser, `money-check` audits the
+  price/fee invariants, plus `ship-doctor`, `design-critic`, `growth-scout`).
+  Markdown + JSON only; tsc reads `src` and vitest collects test files, so
+  neither touches the build. See `plugins/ayush-agents/README.md`.
 - One lockfile: `package-lock.json` (npm). The stale bun locks were deleted
   in the July 2026 cleanup — don't reintroduce them.
 
@@ -867,7 +873,7 @@ ticks even on a failed fetch) and persists the mid-OTP "code sent" state
 **The DIRECT-PAY pivot (July 2026, the big one — see "The one booking path"
 and "Money movement" above):** Vano stopped holding job money entirely to
 stay clear of payment-intermediary exposure. Card charge at accept =
-booking fee (15% min €4, `_shared/vanoFees.ts`) + optional €2 Vano Cover
+booking fee (15% min €5, `_shared/vanoFees.ts`) + optional €2 Vano Cover
 (now an opt-in checkbox in the sheet, no longer bundled); customers pay
 helpers directly (Revolut `payment_handle` / cash) and helpers keep 100%
 (dispatch offers, dashboard earnings, JoinAsHelper, blog/glossary/service
