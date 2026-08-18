@@ -149,6 +149,14 @@ project_id = "puomfwjtpvqedwxjxogh"
   [functions.ops-copilot]
     verify_jwt = false
 
+  # The helper copilot — the supply-side twin of ops-copilot. ?action=board is
+  # admin-JWT + user_roles read-only triage of the helper funnel; ?action=nudge
+  # is the acting cron that texts/emails stuck helpers, gated on the service key
+  # or the vault cron secret (check_cron_key) exactly like
+  # nudge-helper-onboarding. Both auth paths live inside the function.
+  [functions.helper-copilot]
+    verify_jwt = false
+
   # The open-jobs board (missed-the-ping recovery on /student-account). The
   # LIST is sanitised and public; the per-helper CLAIM links require the
   # phone-gate account_token inside the body (hasAccountAccess) + approved +

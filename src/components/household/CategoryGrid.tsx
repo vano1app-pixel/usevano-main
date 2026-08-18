@@ -10,6 +10,7 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { AddressPicker } from '@/components/household/AddressPicker';
+import { HelperBench } from '@/components/household/HelperBench';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
@@ -1531,6 +1532,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* THE FACES behind the chip above. "ID-verified student" is a
+              claim; four real students who could take this job is proof, and
+              proof is what the sheet was missing at the exact moment the
+              customer decides to let a stranger into their home. Mounted only
+              on the form page (the pick page is still about the job, not the
+              person) and self-hiding when there's nobody to show — see
+              HelperBench for the honesty/fail-soft/iOS rules it keeps. */}
+          {step === 'form' && <HelperBench category={cat.slug} city={city} />}
 
           {/* The two wizard pages hand off with a directional slide (iOS
               push/pop) instead of a hard cut — mode="wait" lets the old page

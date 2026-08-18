@@ -502,6 +502,54 @@ extend it.
   customer-side (sage `ShieldCheck` "ID-verified", ID only) — pick one tick
   identity eventually.
 
+**The helper copilot — the AI agent that runs the funnel (2026-08-18):**
+`functions/helper-copilot` + `_shared/helperFunnel.ts` (pure, lock-stepped by
+`src/lib/__tests__/helperFunnel.test.ts`). `ops-copilot` was the brain for the
+DEMAND side (one live booking at a time, read-only); nothing was the brain for
+SUPPLY. `nudge-helper-onboarding` chases two drop-offs with fixed templates,
+and everything else in the funnel was invisible: no photo, no Revolut tag,
+verified-but-never-accepted, a Garda-vetting opt-in nobody actioned.
+- `?action=board` — admin JWT + `user_roles` (same as ops-copilot). Read-only,
+  AI-ranked "who is stuck where and what unblocks them".
+- `?action=nudge` — the ACTING cron (service key or the vault cron secret via
+  `check_cron_key`, exactly like nudge-helper-onboarding). Sends ONE personal
+  message per helper per run over the existing WhatsApp+SMS+email channels.
+  `{ dry_run: true }` returns exactly what it would send, to whom, spending
+  nothing. Cadence: `0 */4 * * *` (the clocks are in hours).
+- **THE SAFETY MODEL — three-way split, only one third is the model's.**
+  (1) WHO + WHY is `_shared/helperFunnel.ts` — deterministic, unit-tested; the
+  model never picks a recipient. (2) WHETHER is `helper_nudge_log` (migration
+  `20260818000000`, service-role-only): per-helper per-signal caps + cooldowns,
+  stamped only AFTER a successful send, so a Twilio outage can't silently burn
+  someone's cap. (3) Only WORDING is Gemini's, and it must keep the link, stay
+  under the length cap, and return every index exactly once or the
+  deterministic text sends instead. Fail-soft like parse-custom-job.
+- Signals with `actor: 'owner'` carry `message: null` and are NEVER sendable —
+  that's what keeps money asks (the €2/month tick) and judgment calls (a low
+  rating, a Garda opt-in) on the board and out of a text. The
+  NO-SURPRISE-SEND INVARIANT in the test enumerates every rule and fails
+  unless owner signals are message-null and every sendable one carries a cap,
+  a cooldown and a link. Don't add a rule without adding it to that list.
+- `garda_vetting_ok` is written by `update-helper-profile` into
+  **`application_data`** (not a column) and, before this, was read by NOTHING —
+  same dead-field shape `own_kit` had. `garda_optin_unactioned` surfaces it.
+
+**The helper bench — faces at the decision moment (2026-08-18):**
+`components/household/HelperBench.tsx` + `src/lib/helperBench.ts`, mounted on
+the booking sheet's FORM step. The sheet used to answer "who's coming to my
+house?" with an abstraction ("An ID-verified student, matched to your job")
+while every other trust surface led with a face. It now shows up to 4 real
+matching helpers. **THE HONESTY RULE:** the bench query is the mirror of
+dispatch's offer query — `_shared/helperMatch.ts` is the one definition
+(`dispatch-household-job` imports it) and `src/lib/helperBench.ts` mirrors it
+under `helperBench.test.ts`, so the faces shown are provably the pool that
+would receive the offer. Widening one side (e.g. dropping the `id_verified`
+gate to make a thin city look busier) fails the test rather than quietly
+turning a trust feature into a lie. Display-only and fail-soft: no faces, a
+thin city or a failed query render NOTHING (not a skeleton — a shimmer inside
+a decision sheet reads as broken). Photos go through `boundedPhotoUrl` before
+any `<img>` mounts, per the iOS rule.
+
 ## Who has an account (the auth model)
 - **Customers have NO accounts — keep it that way.** Booking, tracking,
   finding past bookings and rating are all anonymous: identity is the phone
