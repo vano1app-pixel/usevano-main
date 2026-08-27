@@ -82,6 +82,10 @@ serve(async (req) => {
       return json(429, { error: "You're already on the list — we'll be in touch. (Too many requests just now.)" });
     }
 
+    // Name (waitlist mode) — the owner RINGS these leads, so the page needs
+    // someone to ask for. Optional on the wire: the WhatsApp door and any
+    // older client can still post without it rather than 400 on a lead.
+    const customerName = str(body.customer_name, 80);
     const category = str(body.category, 40);
     const sizeLabel = str(body.size_label, 60);
     const whenLabel = str(body.when_label, 60);
@@ -106,7 +110,7 @@ serve(async (req) => {
     try {
       const { error: insErr } = await supabase.from('analytics_events').insert({
         event: 'waitlist_request',
-        props: { category, size_label: sizeLabel, when_label: whenLabel, area, city, note, price_euros: priceEuros, phone },
+        props: { name: customerName, category, size_label: sizeLabel, when_label: whenLabel, area, city, note, price_euros: priceEuros, phone },
       });
       if (insErr) console.error('[waitlist-request] record failed (non-fatal)', insErr);
     } catch (e) { console.error('[waitlist-request] record threw (non-fatal)', e); }
@@ -131,6 +135,7 @@ serve(async (req) => {
           body: JSON.stringify({
             type: 'waitlist_request',
             customer_phone: phone,
+            customer_name: customerName,
             category, size_label: sizeLabel, when_label: whenLabel,
             city, area, note, price_euros: priceEuros,
           }),

@@ -184,6 +184,33 @@ export function hourlyRateLabel(slug: string): string | null {
   return rate ? `from €${rate / 100}/hr` : null;
 }
 
+/**
+ * The entry price for a category in that category's OWN unit — the label the
+ * front-door tiles carry.
+ *
+ * The grid mixes three units: cleaning and garden are hourly, laundry is per
+ * BAG and a dog walk is per WALK. A single shared "/hr" would be false on
+ * half the tiles, so each one states its own. Every number is derived from
+ * the tables above (never typed twice), so a price change lands on the front
+ * door automatically and can't drift out of lock-step with checkout.
+ *
+ * Returns null for any category without an honest single entry price — the
+ * tile then renders name-only, exactly as it did before.
+ */
+export function tileEntryPriceLabel(slug: string): string | null {
+  const hourly = HOURLY_RATE_CENTS[slug];
+  if (hourly) return `from €${hourly / 100}/hr`;
+  if (slug === 'shopping') {
+    const cents = getHouseholdPriceCents('shopping', '1 bag');
+    return cents ? `from €${cents / 100}/bag` : null;
+  }
+  if (slug === 'dog-walk') {
+    const cents = getHouseholdPriceCents('dog-walk', '30 min');
+    return cents ? `from €${cents / 100}/walk` : null;
+  }
+  return null;
+}
+
 // ── Direct-pay model (July 2026) ──────────────────────────────────────────
 // Vano never holds the job money: the customer pays the STUDENT directly
 // (Revolut / cash) and the student keeps 100% of the job price. Vano's card
