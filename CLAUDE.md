@@ -113,10 +113,15 @@ treating any of them as equivalent defeats the whole point.
   `npm run build` is Vite **plus** `scripts/prerender-content.ts`; if the
   build command is ever narrowed to `vite build`, the ~31 prerendered SEO
   pages and `llms.txt` silently stop shipping.
-- **Check the domain is on the right project.** `vanojobs.com` must be
-  attached to THIS Vercel project (a stale project holding the domain is
-  why a green deploy can serve old content or 404). `www.vanojobs.com`
-  must be attached too — `vercel.json` 308-redirects www → apex, and that
+- **TWO Vercel projects are linked to this ONE repo** (confirmed
+  2026-08-27) — `vanojobs.com` (`prj_bjW3TmBP…`) and `usevano-main`
+  (`prj_jykGK6fU…`), both under the team `vano1app-pixels-projects`. **Only
+  `vanojobs.com` serves the domain and is production.** Every deploy link,
+  preview URL, env var and dashboard setting in this file means THAT
+  project; `usevano-main` is a leftover that also builds on every push and
+  is safe to ignore (or delete). Editing the wrong one is the classic way
+  to "fix" an env var and see nothing change. `www.vanojobs.com` must be
+  attached to it too — `vercel.json` 308-redirects www → apex, and that
   rule only ever fires if Vercel is answering for www in the first place.
 - **Env vars live in Vercel** (Project → Settings → Environment
   Variables), not in the repo — only `.env.example` is committed, and
@@ -134,6 +139,43 @@ treating any of them as equivalent defeats the whole point.
   **Supabase → Edge Functions → Secrets** and are never prefixed, never on
   Vercel, never read by client code. If a secret ever needs a `VITE_`
   prefix to work, the logic is on the wrong side of the wire.
+
+### PostHog — session replay only (wired 2026-08-27, hard-won)
+An evening was lost to this; the details below are the whole map.
+- **Project 257745, EU cloud.** Dashboard `https://eu.posthog.com/project/
+  257745`, replay at `/replay`. The INGEST host is
+  **`https://eu.i.posthog.com`** — note the `i.`. `eu.posthog.com` is the
+  dashboard and accepts no data, silently. US and EU are separate clouds
+  with separate databases: an EU token posted to the US endpoint is not
+  recognised and nothing anywhere reports an error.
+- **The host comes from the CODE, not an env var.** `src/main.tsx` defaults
+  `api_host` to the EU ingest URL and `VITE_POSTHOG_HOST` is deliberately
+  NOT set in Vercel. That variable existed once, pointing at US, and
+  silently beat the code default — env vars always win. Don't re-add it;
+  with no variable there is only one place the region can be wrong.
+  `VITE_POSTHOG_KEY` (Production) is the only PostHog var.
+- **REPLAY ONLY — the events feed reading zero is CORRECT, not broken.**
+  `autocapture`, `capture_pageview` and `capture_pageleave` are all false
+  and `track.ts` no longer mirrors to PostHog (owner call: the Supabase
+  `analytics_events` table is the funnel source of truth). So **judge this
+  by the Replay tab and nothing else.** PostHog's onboarding wizard waits
+  for an EVENT to confirm installation — that check can never pass here.
+  Don't "fix" the silence by turning capture back on.
+- **Never run `npx @posthog/wizard`.** posthog-js is already a dependency
+  and already initialised; the wizard adds a SECOND `init()` with
+  autocapture back on and a US host.
+- **`window.posthog` is undefined and that is expected** — the ES-module
+  build assigns no global (only PostHog's script snippet does). Debug from
+  the Network tab: filter `posthog`, look for POSTs to `eu.i.posthog.com`.
+- **`respect_dnt: true`**, so a browser with Do Not Track on is never
+  recorded. This is the usual reason "my own test didn't show up".
+- **Masking is TWO settings, and one is not enough.** `maskAllInputs`
+  covers input VALUES only; rrweb records text rendered outside an
+  `<input>` in the clear — the callback screen printing the customer's
+  phone was a real live leak (fixed #414). `maskTextClass: 'ph-mask'` is
+  pinned in main.tsx, and **any element rendering a phone, address or
+  customer name as text must carry `className="ph-mask"`.** Grep for
+  `ph-mask` before adding a new one. Privacy.tsx §7 promises this.
 
 ## The one booking path (important — don't add a second)
 There is exactly ONE customer booking flow — **DIRECT-PAY since July 2026**
