@@ -2498,7 +2498,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 {when.startsWith('Tomorrow') ? when : `Today ${when}`}{city ? ` · ${city}` : ''}
               </p>
               <p className="mt-2 text-[13px] text-muted-foreground">
-                We'll ring <span className="font-semibold text-foreground/80">{phone.trim()}</span> within the hour.
+                {/* ph-mask: the customer's phone as TEXT — maskAllInputs
+                    does not reach it (see main.tsx). */}
+                We'll ring <span className="ph-mask font-semibold text-foreground/80">{phone.trim()}</span> within the hour.
               </p>
             </div>
 

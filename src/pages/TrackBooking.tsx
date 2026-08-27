@@ -1321,7 +1321,8 @@ const TrackBooking = () => {
           {booking.customer_address && booking.customer_address !== 'Not provided' && (
             <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border/40 text-xs text-muted-foreground">
               <MapPin size={12} className="flex-shrink-0" />
-              <span className="truncate">{booking.customer_address}</span>
+              {/* ph-mask: customer's home address as text. */}
+              <span className="ph-mask truncate">{booking.customer_address}</span>
             </div>
           )}
         </motion.div>

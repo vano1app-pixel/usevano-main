@@ -449,7 +449,8 @@ export default function HouseholdAdmin() {
                       <p>
                         <span className="text-muted-foreground">Phone: </span>
                         <a href={`https://wa.me/${b.customer_phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                          {b.customer_phone}
+                          {/* ph-mask: customer phone on the admin board. */}
+                          <span className="ph-mask">{b.customer_phone}</span>
                         </a>
                       </p>
                     )}
