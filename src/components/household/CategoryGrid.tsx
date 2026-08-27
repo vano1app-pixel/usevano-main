@@ -13,7 +13,7 @@ import { AddressPicker } from '@/components/household/AddressPicker';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
-import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES_ADDON_CENTS, travelTopupCents, CARD_PAY_OFFERED, HOURLY_RATE_CENTS } from '@/lib/householdPricing';
+import { getHouseholdPriceCents, computeVanoFeeCents, VANO_COVER_CENTS, SUPPLIES_ADDON_CENTS, travelTopupCents, CARD_PAY_OFFERED, HOURLY_RATE_CENTS, tileEntryPriceLabel } from '@/lib/householdPricing';
 import { COOLING_OFF_DAYS, IMMEDIATE_PERFORMANCE_CONSENT_TEXT } from '@/lib/legalEntity';
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
 import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, minutesText, taskMinutes, hoursFromSizeLabel, bookedMinutes, durationText, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
@@ -2743,13 +2743,23 @@ export const CategoryGrid: React.FC = () => {
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                 onClick={() => { haptic(10); track('hero_tile_tap', { category: c.slug }); openSheet(c); }}
                 aria-label={`Book ${c.label}`}
-                // Owner call (2026-07-24): tiles carry ONLY pic + name — the
+                // Owner call (2026-07-24): tiles carried ONLY pic + name — the
                 // "from €X" price tags came OFF the front door ("so we don't
-                // scare them off"). Price now reveals inside the sheet once
-                // they're engaged: builder ticks build it up, the form card
-                // shows the full maths. Don't re-add prices here without the
-                // owner. The job description (cat.hint) lives in the booking
-                // sheet header, not here.
+                // scare them off"). Price revealed inside the sheet once they
+                // were engaged: builder ticks build it up, the form card shows
+                // the full maths.
+                //
+                // UNDER TEST (2026-08-27, owner asked to look at it again):
+                // the tags are BACK, each in its own honest unit via
+                // tileEntryPriceLabel — "/hr" on cleaning + garden, "/bag" on
+                // laundry, "/walk" on pets, because one shared "/hr" would be
+                // a lie on half the grid. This REVERSES the July call and the
+                // owner has not confirmed it yet — he asked to see it on a
+                // preview and judge with his eyes. If he says no, delete the
+                // price <span> below and restore this note to a plain
+                // "don't re-add prices here without the owner".
+                // The job description (cat.hint) lives in the booking sheet
+                // header, not here.
                 // Desktop (lg:) sizes run a step bigger than the usual scale on
                 // purpose — the paying customer skews 35+ and the tiles are the
                 // whole front door, so they must read from armchair distance.
@@ -2763,6 +2773,11 @@ export const CategoryGrid: React.FC = () => {
                 )}
                 <span className="text-3xl sm:text-4xl lg:text-5xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
                 <span className="mt-1.5 sm:mt-2 text-sm sm:text-lg lg:text-xl font-bold text-foreground leading-tight">{c.label}</span>
+                {tileEntryPriceLabel(c.slug) && (
+                  <span className="mt-0.5 text-[10px] sm:text-xs lg:text-sm font-semibold tracking-tight text-muted-foreground tabular-nums leading-none">
+                    {tileEntryPriceLabel(c.slug)}
+                  </span>
+                )}
               </motion.button>
             );
           })}
@@ -2773,6 +2788,20 @@ export const CategoryGrid: React.FC = () => {
               old deep links and in-flight bookings keep working. Remount by
               rendering a navy tile for CATEGORIES 'business' here. */}
         </motion.div>
+
+        {/* "No card needed" — TRUE ONLY IN WAITLIST MODE, which is why it is
+            gated on the flag rather than written into the copy. The sheet
+            currently stops one step short of checkout and charges nobody
+            (src/lib/waitlist.ts), so saying so removes the "am I about to be
+            charged?" hesitation at the front door without promising anything
+            we don't mean. The DAY WAITLIST_MODE flips to false this line
+            disappears on its own — a free booking is not what comes back,
+            the fee does, and a stale "no card needed" would be a lie. */}
+        {WAITLIST_MODE && (
+          <p className="mt-4 text-center text-xs sm:text-sm text-muted-foreground">
+            No card needed — tell us what you need and we'll text you back.
+          </p>
+        )}
       </div>
 
       {/* Bottom sheet — a REAL portal to <body>. Rendered in place it sits in
