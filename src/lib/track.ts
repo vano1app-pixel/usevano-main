@@ -1,12 +1,11 @@
 /**
- * In-house analytics with an optional PostHog mirror.
+ * In-house analytics. ONE sink: the Supabase `analytics_events` table.
  *
- * Every event is written to the Supabase `analytics_events` table
- * (existing behaviour — admin-queryable via RLS) AND, when the
- * PostHog SDK is loaded, mirrored to `posthog.capture()` so the same
- * event lands in the PostHog dashboard for funnels / retention /
- * session-replay joins. The two sinks are independent — if either
- * fails the other still runs, and the caller never sees an error.
+ * Every event is written there (admin-queryable via RLS) and nowhere else.
+ * There WAS a PostHog mirror; it was removed 2026-08-27 when PostHog was
+ * narrowed to session replay only (see main.tsx). This table is the source
+ * of truth for the funnel — the 60-day drop-off analysis that prompted the
+ * callback-capture rebuild was read straight out of it.
  *
  * - Fire-and-forget: never throws, never blocks UX.
  * - Resolves the current user_id from the active session (or NULL if anon).
@@ -65,22 +64,18 @@ export type TrackEvent =
   | 'social_follow_tap';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
-  // PostHog mirror — dynamic import keeps posthog-js out of the entry
-  // bundle (it's ~50KB gzipped). main.tsx initialises PostHog during
-  // requestIdleCallback so by the time a user clicks anything that calls
-  // track(), the SDK is almost always already loaded; if not, the import
-  // resolves first and capture() runs once it's available. Wrapped in
-  // try/catch because PostHog throws when localStorage is blocked
-  // (private-mode Safari) and analytics must never break the call site.
-  if (import.meta.env.VITE_POSTHOG_KEY) {
-    void import('posthog-js').then(({ default: posthog }) => {
-      try {
-        if (posthog.__loaded) posthog.capture(event, props);
-      } catch {
-        /* swallow */
-      }
-    }).catch(() => { /* swallow */ });
-  }
+  // NO PostHog mirror (owner call 2026-08-27). PostHog is here for SESSION
+  // REPLAY ONLY — main.tsx turns off autocapture, pageviews and pageleaves
+  // for the same reason. Every event below is already written to the
+  // `analytics_events` table, which is the source of truth for the funnel
+  // (it's what the 60-day drop-off analysis was read from), so mirroring
+  // them into PostHog bought a second, thinner copy of numbers we already
+  // have and nothing else.
+  //
+  // The events are deliberately NOT lost: the Supabase insert below is
+  // unchanged. If PostHog funnels are ever wanted, restore the dynamic
+  // import + posthog.capture(event, props) here — the SDK is still loaded
+  // by main.tsx, so it's a re-add, not a rebuild.
 
   // Defer the Supabase insert so we never block the calling render/handler.
   void (async () => {
