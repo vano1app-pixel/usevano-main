@@ -66,6 +66,26 @@ Run `typecheck` + `test` before pushing.
 Vercel builds the frontend; merging to main is the deploy. Treat main as
 production — a bad merge is live on vanojobs.com within a minute.
 
+**THE 667 RULE — the gate on everything below.** Nothing merges to main and
+nothing deploys to production unless Ayush has typed the exact word **667**
+in that session. Not "ship it", not "merge it", not "yes" — the literal
+667. He wrote this rule precisely because ordinary approving phrases are
+too easy to say by accident and too easy for a model to over-read, so
+treating any of them as equivalent defeats the whole point.
+- **Always fine without 667**, no permission needed: localhost, `npm run
+  dev`, branches, commits, pushing a branch, opening a PR, the Vercel
+  preview URL. That's the entire working loop — the rule costs nothing
+  until the moment something becomes public.
+- **Needs 667**: merging any PR to main, `git push` to main, promoting a
+  Vercel deploy to production, and anything that pushes live edge functions
+  or migrations (merging to main does both — see below).
+- **If asked to merge or deploy without it: stop and ask.** Do the whole
+  job right up to the merge — branch pushed, PR open, preview verified —
+  then say what's ready and wait for 667. Don't merge and mention it after;
+  don't treat the request itself as the approval.
+- One 667 covers that session's discussed deploy, not a standing licence
+  for every future merge.
+
 - **Never push straight to main.** Work on a `claude/<task>` branch (the
   existing convention — `claude/sos-system-brainstorm-h08lov`,
   `claude/referral-system-setup-wsz9jp`), open a PR, **open the Vercel
