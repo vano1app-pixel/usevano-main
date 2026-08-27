@@ -1050,7 +1050,8 @@ const StudentAccount = () => {
                   </div>
                 ) : (
                   <>
-                    <span className="flex-1 text-sm text-foreground">{helper.phone}</span>
+                    {/* ph-mask: the helper's own phone number. */}
+                    <span className="ph-mask flex-1 text-sm text-foreground">{helper.phone}</span>
                     <button
                       onClick={() => { setPhoneInput(helper.phone); setEditingPhone(true); }}
                       className="text-xs text-primary font-medium"

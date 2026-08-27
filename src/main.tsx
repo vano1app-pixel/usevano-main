@@ -96,7 +96,20 @@ deferToIdle(() => {
         // booking sheet collects a phone and an address — this is the line
         // that keeps replay on the right side of the privacy policy, which
         // promises exactly this (src/pages/Privacy.tsx §7). Never remove it.
-        session_recording: { maskAllInputs: true },
+        session_recording: {
+          // Input VALUES — covers every field the customer types into.
+          maskAllInputs: true,
+          // Input masking is NOT enough on its own: rrweb only masks what is
+          // inside an <input>. A phone number PRINTED as page text (the
+          // callback confirmation says "We'll ring 08x… within the hour")
+          // records in the clear. maskTextClass is rrweb's opt-in for that —
+          // pinned explicitly rather than relying on the library default, so
+          // the class every PII element below carries can't stop working
+          // because an upstream default changed.
+          // Add `ph-mask` to ANY element that renders a phone, address or
+          // customer name as text. Grep for it before adding a new one.
+          maskTextClass: 'ph-mask',
+        },
         respect_dnt: true,
         persistence: 'localStorage+cookie',
       });

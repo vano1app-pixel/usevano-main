@@ -133,7 +133,8 @@ const Account: React.FC = () => {
                 </span>
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">Phone</p>
-                  <p className="text-sm font-semibold text-foreground truncate">{mem.phone}</p>
+                  {/* ph-mask: saved phone (see main.tsx maskTextClass). */}
+                  <p className="ph-mask text-sm font-semibold text-foreground truncate">{mem.phone}</p>
                 </div>
               </div>
               {mem.address && (
@@ -143,7 +144,8 @@ const Account: React.FC = () => {
                   </span>
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">Address</p>
-                    <p className="text-sm font-semibold text-foreground truncate">{mem.address}</p>
+                    {/* ph-mask: saved home address. */}
+                    <p className="ph-mask text-sm font-semibold text-foreground truncate">{mem.address}</p>
                   </div>
                 </div>
               )}
