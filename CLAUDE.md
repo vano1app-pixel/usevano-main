@@ -62,6 +62,59 @@ Hard-learned specifics (July 2026 — a real applicant hit a black screen):
 
 Run `typecheck` + `test` before pushing.
 
+## Deploying
+Vercel builds the frontend; merging to main is the deploy. Treat main as
+production — a bad merge is live on vanojobs.com within a minute.
+
+- **Never push straight to main.** Work on a `claude/<task>` branch (the
+  existing convention — `claude/sos-system-brainstorm-h08lov`,
+  `claude/referral-system-setup-wsz9jp`), open a PR, **open the Vercel
+  preview URL and click the thing you changed**, and only then merge. The
+  preview is a real deploy of that branch — it is the cheapest place to
+  catch a white screen. For anything touching the never-break flows above,
+  the preview URL is what the Playwright drive should run against.
+- **Merging to main also deploys the edge functions** —
+  `.github/workflows/supabase-deploy.yml` pushes every function in
+  `supabase/functions/` to the LIVE Supabase project on merge. There is no
+  preview environment for them: the Vercel preview runs branch frontend
+  code against **production** functions and **production** data. So a
+  frontend+function change can look fine in preview and only break once
+  merged. Migrations are deliberately NOT auto-applied (run them by hand in
+  the SQL Editor, before the merge that needs them).
+- **Build config is pinned in `vercel.json`, not the dashboard** —
+  `"framework": "vite"`, `"outputDirectory": "dist"`,
+  `"buildCommand": "npm run build"`. Keep them; and if the Vercel project
+  settings ever disagree (a preset of "Other", or an output dir that isn't
+  `dist`), fix the dashboard to match the file. The failure mode is nasty
+  and silent: the **build goes green and production 404s**, because Vercel
+  publishes an empty/wrong directory while `vercel.json`'s SPA rewrite
+  (`/((?!api/).*)` → `/index.html`) has no `index.html` to serve. Green
+  checkmark ≠ working site — always load the deployed URL.
+  `npm run build` is Vite **plus** `scripts/prerender-content.ts`; if the
+  build command is ever narrowed to `vite build`, the ~31 prerendered SEO
+  pages and `llms.txt` silently stop shipping.
+- **Check the domain is on the right project.** `vanojobs.com` must be
+  attached to THIS Vercel project (a stale project holding the domain is
+  why a green deploy can serve old content or 404). `www.vanojobs.com`
+  must be attached too — `vercel.json` 308-redirects www → apex, and that
+  rule only ever fires if Vercel is answering for www in the first place.
+- **Env vars live in Vercel** (Project → Settings → Environment
+  Variables), not in the repo — only `.env.example` is committed, and
+  `.env.local` stays untracked. Add a new var to Vercel for Production
+  *and* Preview, or the preview build silently differs from production.
+  Vite inlines env at BUILD time, so changing a var needs a redeploy, not
+  just a save.
+- **Nothing `VITE_`-prefixed may hold a secret.** Every `VITE_*` value is
+  baked into the JS bundle and readable by anyone who opens devtools —
+  that's why the live set is only publishable/public things (Supabase URL +
+  publishable key, PostHog write-only token, Sentry DSN, Maps key, site
+  URL, trader details). Server secrets — `STRIPE_SECRET_KEY`,
+  `STRIPE_WEBHOOK_SECRET`, `TWILIO_AUTH_TOKEN`, `RESEND_API_KEY`,
+  `GEMINI_API_KEY`, `VAPID_PRIVATE_KEY`, the service-role key — live in
+  **Supabase → Edge Functions → Secrets** and are never prefixed, never on
+  Vercel, never read by client code. If a secret ever needs a `VITE_`
+  prefix to work, the logic is on the wrong side of the wire.
+
 ## The one booking path (important — don't add a second)
 There is exactly ONE customer booking flow — **DIRECT-PAY since July 2026**
 (`booking_data.direct_pay === true`; bookings without the flag are legacy
