@@ -18,7 +18,7 @@ import { COOLING_OFF_DAYS, IMMEDIATE_PERFORMANCE_CONSENT_TEXT } from '@/lib/lega
 import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '@/lib/customJobs';
 import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, minutesText, taskMinutes, hoursFromSizeLabel, bookedMinutes, durationText, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
 import { KIT_HIRE_CENTS, kitHireCents, kitLabel } from '@/lib/kit';
-import { WAITLIST_MODE, WAITLIST_CTA, WAITLIST_TITLE, WAITLIST_BODY, waitlistWhatsAppText } from '@/lib/waitlist';
+import { WAITLIST_MODE, WAITLIST_CTA, WAITLIST_TITLE, WAITLIST_BODY, WAITLIST_FORM_HEADLINE, WAITLIST_FORM_SUB, waitlistWhatsAppText } from '@/lib/waitlist';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -1077,12 +1077,66 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // overflow-hidden only WHILE the height animates; left on, it would clip
   // the address suggestions dropdown.
   const [fieldsUnfolded, setFieldsUnfolded] = useState(false);
+  // Name — waitlist mode only (the callback needs someone to ask for).
+  const [name, setName] = useState('');
+  const [nameError, setNameError] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // The two identity fields (phone + address). Rendered two ways below: fresh
   // visitors get them as a normal cascade item; returning customers see them
   // unfold in place when "Edit" (or a validation error) reveals them.
   const detailFields = (
     <>
+      {/* THE CALLBACK PROMISE — waitlist mode only (owner call 2026-08-27).
+          It leads the fields because it is the reason to fill them in: the
+          old ending took an address and gave back "coming soon", and nobody
+          completed it. Copy lives in src/lib/waitlist.ts so the promise is
+          stated in exactly one place. */}
+      {WAITLIST_MODE && (
+        <div className="rounded-2xl border border-sage/30 bg-sage-light/40 px-4 py-3.5">
+          <p className="text-[15px] sm:text-base font-bold leading-snug text-foreground">
+            {WAITLIST_FORM_HEADLINE}
+          </p>
+          <p className="mt-1 text-[13px] leading-relaxed text-sage-dark font-semibold">
+            {WAITLIST_FORM_SUB}
+          </p>
+        </div>
+      )}
+
+      {/* Name — waitlist mode only. Someone is going to RING them, so the
+          call opens with their name instead of "hello, is that the number
+          that filled in the website?". The booking flow doesn't ask (the
+          helper gets the address, not a name), so this stays gated. */}
+      {WAITLIST_MODE && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5 flex items-center gap-1.5">
+            Your name
+            <AnimatePresence>
+              {name.trim().length > 1 && (
+                <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
+                  <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </p>
+          <input
+            ref={nameInputRef}
+            type="text"
+            value={name}
+            onChange={e => { setName(e.target.value); if (nameError) setNameError(false); if (error) setError(null); }}
+            placeholder="First name"
+            autoComplete="given-name"
+            enterKeyHint="next"
+            required
+            className={cn(
+              'w-full rounded-xl border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
+              nameError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
+            )}
+          />
+          <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">So we know who we're asking for when we ring</p>
+        </div>
+      )}
+
       {/* Phone first — the sheet slides up straight onto this field.
           Time + duration below are pre-picked, so number + address is
           all a new visitor has to type. */}
@@ -1114,11 +1168,16 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
           )}
         />
-        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">{WAITLIST_MODE ? "We'll text you the moment we can cover your job" : "We'll text you when a helper says yes"} · Outside Ireland? Add your country code (+44…)</p>
+        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">{WAITLIST_MODE ? "We'll ring this number within the hour" : "We'll text you when a helper says yes"} · Outside Ireland? Add your country code (+44…)</p>
       </div>
 
-      {/* Address — Eircode search or current location */}
-      <div>
+      {/* Address — Eircode search or current location.
+          HIDDEN IN WAITLIST MODE (owner call 2026-08-27): nobody is coming to
+          the house yet, so demanding a street address + map preview to join a
+          waiting list was asking the most and giving back the least — and the
+          server never stored it anyway (waitlist-request keeps only the
+          neighbourhood). The owner gets the address on the callback. */}
+      <div className={cn(WAITLIST_MODE && 'hidden')} aria-hidden={WAITLIST_MODE || undefined}>
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5 flex items-center gap-1.5">
           Where?
           <AnimatePresence>
@@ -1180,7 +1239,17 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       setError("We can't text that number — Irish mobiles (08…) work as-is; for other countries add the code, e.g. +44 7…");
       return;
     }
-    if (!address.trim()) {
+    // Waitlist mode asks for a NAME (someone is going to ring them) and does
+    // NOT ask for an address (nobody is coming to the house yet). Booking mode
+    // is unchanged: address required, no name.
+    if (WAITLIST_MODE) {
+      if (name.trim().length < 2) {
+        revealFieldError();
+        setNameError(true);
+        setError('Please add your name so we know who to ask for.');
+        return;
+      }
+    } else if (!address.trim()) {
       revealFieldError();
       setAddressError(true);
       setError('Please add your address so your helper can find you.');
@@ -1204,8 +1273,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             when_label:       when,
             note:             [note ?? '', customerNote.trim()].filter(Boolean).join(' · '),
             customer_phone:   phoneClean,
-            customer_address: address.trim(),
-            ...(coords ? { customer_lat: coords.lat, customer_lng: coords.lng } : {}),
+            customer_name:    name.trim(),
+            // No address in waitlist mode — the field isn't shown and the
+            // server only ever kept a neighbourhood from it anyway. `city`
+            // still rides along when the visitor picked one earlier.
             city,
             price_euros:      jobTotalCents != null ? jobTotalCents / 100 : null,
           },
@@ -1218,7 +1289,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       }
       // Their details are still worth remembering for the day booking opens.
       saveBookingMemory({
-        phone: phoneClean, address: address.trim(),
+        phone: phoneClean,
+        // Only remember an address if one was actually collected — in
+        // waitlist mode the field is hidden, and writing '' would wipe a
+        // returning customer's saved address.
+        ...(address.trim() ? { address: address.trim() } : {}),
         ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
         city, lastCategory: cat.slug, lastSize: size,
       });
@@ -2415,7 +2490,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             {/* What we've got — proof their details actually landed, and the
                 exact words the owner will open the call with. */}
             <div className="surface-float mt-5 rounded-2xl border border-border bg-white px-4 py-3.5 text-left">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/50">On your list</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/50">What we'll ring about</p>
               <p className="mt-1.5 text-[15px] font-semibold text-foreground">
                 {cat.label}{sizeText ? ` · ${sizeText}` : ''}
               </p>
@@ -2423,7 +2498,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 {when.startsWith('Tomorrow') ? when : `Today ${when}`}{city ? ` · ${city}` : ''}
               </p>
               <p className="mt-2 text-[13px] text-muted-foreground">
-                We'll text <span className="font-semibold text-foreground/80">{phone.trim()}</span> as soon as we can cover it.
+                We'll ring <span className="font-semibold text-foreground/80">{phone.trim()}</span> within the hour.
               </p>
             </div>
 
@@ -2437,7 +2512,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               onClick={() => track('waitlist_whatsapp', { category: cat.slug })}
               className="mt-5 flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-sage text-[15px] font-bold text-white transition-[background-color,transform] duration-150 hover:bg-sage-dark active:scale-[0.98]"
             >
-              Text us — we'll sort you first
+              Rather message? Chat on WhatsApp
             </a>
             {/* Honest fallback: if the owner's alert didn't send, the button
                 above isn't a nicety, it's the only channel that worked. */}
@@ -2494,7 +2569,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         "you only pay when…" would be reassuring the customer
                         about a moment that never comes. Say the true thing:
                         nothing is charged, and no card is asked for. */}
-                    <span className="whitespace-nowrap">Nothing to pay — no card needed</span>
+                    <span className="whitespace-nowrap">{WAITLIST_FORM_SUB}</span>
                   </>
                 : <>
                     {/* Two nowrap phrases: a narrow screen breaks at the
@@ -2516,7 +2591,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               // The glow only lights up once the form is genuinely ready to
               // submit (valid phone + an address), so it's a truthful "ready"
               // cue rather than lighting up on the first digit.
-              phoneValid && addressValid && !loading ? 'shadow-primary-glow' : '',
+              phoneValid && (WAITLIST_MODE ? name.trim().length > 1 : addressValid) && !loading ? 'shadow-primary-glow' : '',
             )}
           >
             <Button
@@ -2577,7 +2652,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </Button>
             {/* Occasional light sweep so the primary action feels alive —
                 only once the form is actually ready to submit */}
-            {!loading && !securing && !bookedOk && phoneValid && addressValid && (
+            {!loading && !securing && !bookedOk && phoneValid && (WAITLIST_MODE ? name.trim().length > 1 : addressValid) && (
               <motion.span
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"

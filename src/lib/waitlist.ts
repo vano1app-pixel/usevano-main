@@ -17,15 +17,35 @@
 export const WAITLIST_MODE = true;
 
 /** What the docked button says instead of "Book Cleaning · €44". */
-export const WAITLIST_CTA = 'Request this job';
+export const WAITLIST_CTA = 'Send request';
 
-/** The headline on the confirmation screen. Honest, not apologetic — a
- *  waiting list reads as demand, and "we're picky about who we send" is a
- *  better reason to wait than "we're not ready". */
-export const WAITLIST_TITLE = 'Coming soon in your area';
+/**
+ * THE CALLBACK PROMISE (owner call 2026-08-27, his exact words).
+ *
+ * The old ending asked for a home address and a map, then answered with
+ * "Coming soon in your area" — a no, in exchange for where you live. Thirty
+ * people reached it after ticking their way through the whole builder and
+ * NOT ONE finished (analytics_events, 60 days). So the dead end becomes a
+ * callback capture: four things, and a person rings you.
+ *
+ * This is a PROMISE THE OWNER KEEPS BY HAND — there is no automation behind
+ * it. If the hour can't be honoured, change the words here rather than let
+ * the site say something untrue; it's one constant and every surface reads
+ * from it.
+ */
+export const WAITLIST_FORM_HEADLINE = "We'll ring you back within the hour to confirm a helper.";
+
+/** Sits under the headline. True in waitlist mode: there is no checkout at
+ *  all, so no card is asked for and nothing is charged. */
+export const WAITLIST_FORM_SUB = 'No card needed — nothing is charged.';
+
+/** The headline on the confirmation screen. It REPEATS the callback promise
+ *  rather than announcing a wait — the last thing they read should be the
+ *  thing that's about to happen. */
+export const WAITLIST_TITLE = "We'll ring you back within the hour";
 
 export const WAITLIST_BODY =
-  "We're signing up more helpers in Galway right now — we won't take your booking until we're sure someone brilliant can actually turn up. You're on the list, and we'll text you the moment we can cover it.";
+  "Your request is with us. We'll call you within the hour to confirm a helper — no card needed, and nothing is charged. If you'd rather not wait for the phone to ring, message us on WhatsApp and we'll pick it up there.";
 
 /** The pre-filled WhatsApp text on the "text us" button. */
 export function waitlistWhatsAppText(job: string, when: string, area: string): string {
