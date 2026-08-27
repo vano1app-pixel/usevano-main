@@ -70,11 +70,32 @@ deferToIdle(() => {
   const posthogKey = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
   if (posthogKey) {
     void import('posthog-js').then(({ default: posthog }) => {
+      // SESSION REPLAY ONLY (owner call 2026-08-27). The analytics_events
+      // table in Supabase is already the event sink and the source of truth
+      // for the funnel — PostHog is here to WATCH a session, not to count
+      // one. So every capture path is off and recording is explicitly on.
       posthog.init(posthogKey, {
-        api_host: (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com',
-        capture_pageview: 'history_change',
+        // EU project (257745). The INGEST host is eu.i.posthog.com — note the
+        // `i.`; eu.posthog.com is the dashboard and will not accept events.
+        // Defaulting to EU rather than US so a missing VITE_POSTHOG_HOST
+        // can't silently ship recordings to the wrong region, where they
+        // simply never appear.
+        api_host: (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://eu.i.posthog.com',
+        // No event capture: no clicks/inputs harvested automatically, and no
+        // pageview events. track.ts still sends its OWN named events (see the
+        // note there) — this only stops PostHog inventing extras.
+        autocapture: false,
+        capture_pageview: false,
+        capture_pageleave: false,
+        // The one thing we DO want, stated explicitly rather than left to the
+        // project default so it can't be turned off from the dashboard by
+        // accident.
+        disable_session_recording: false,
         // Mask every input value in session recordings so bios, phone
-        // numbers, and in-flight message drafts can't be replayed.
+        // numbers, and in-flight message drafts can't be replayed. The
+        // booking sheet collects a phone and an address — this is the line
+        // that keeps replay on the right side of the privacy policy, which
+        // promises exactly this (src/pages/Privacy.tsx §7). Never remove it.
         session_recording: { maskAllInputs: true },
         respect_dnt: true,
         persistence: 'localStorage+cookie',

@@ -80,9 +80,13 @@ export function setUser(user: SentryUser): void {
  * Lazy PostHog identity helpers. Same shape as the Sentry shim above —
  * the SDK is dynamically imported on first call so the entry bundle
  * stays clean. main.tsx initialises PostHog during requestIdleCallback;
- * if identify/reset fire before init resolves, we just no-op (PostHog
- * captures pageview events automatically once init completes, and the
- * first identify will replay through the next call).
+ * if identify/reset fire before init resolves, we just no-op (the first
+ * identify will replay through the next call).
+ *
+ * These are IDENTITY, not events, so they survive the session-replay-only
+ * decision (2026-08-27) — attaching a helper's id is what lets a recording
+ * be told apart from another. PostHog no longer captures pageviews or
+ * autocaptures anything; see main.tsx.
  */
 export function identifyUser(id: string): void {
   if (!import.meta.env.VITE_POSTHOG_KEY) return;
