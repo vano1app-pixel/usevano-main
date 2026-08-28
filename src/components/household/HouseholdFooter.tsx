@@ -27,6 +27,7 @@ const NAV_LINKS = [
   { label: 'TikTok',         href: TEAM_TIKTOK_URL,                                  external: true  },
   { label: 'LinkedIn',       href: 'https://www.linkedin.com/in/ayush-puri-4b88b8357', external: true },
   { label: 'WhatsApp',       href: 'https://wa.me/353899817111',                     external: true  },
+  { label: 'Support',        href: '/support',                                       external: false },
   { label: 'Safety',         href: '/safety',                                        external: false },
   { label: 'Terms',          href: '/terms',                                         external: false },
   { label: 'Vano Cover',     href: '/cover',                                         external: false },

@@ -32,6 +32,7 @@ const STATIC_URLS: ReadonlyArray<SitemapUrl> = [
   { path: '/join',     changefreq: 'weekly',  priority: '0.8' },
   { path: '/blog',     changefreq: 'weekly',  priority: '0.7' },
   { path: '/glossary', changefreq: 'monthly', priority: '0.6' },
+  { path: '/support',  changefreq: 'monthly', priority: '0.4' },
   { path: '/privacy',  changefreq: 'monthly', priority: '0.2' },
   { path: '/terms',    changefreq: 'monthly', priority: '0.2' },
 ];

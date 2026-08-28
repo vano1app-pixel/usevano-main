@@ -40,6 +40,7 @@ const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const Cover = lazyWithRetry(() => import("./pages/Cover"));
 const Safety = lazyWithRetry(() => import("./pages/Safety"));
 const HelperTerms = lazyWithRetry(() => import("./pages/HelperTerms"));
+const Support = lazyWithRetry(() => import("./pages/Support"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const ServiceLanding = lazyWithRetry(() => import("./pages/ServiceLanding"));
 const BlogIndex = lazyWithRetry(() => import("./pages/BlogIndex"));
@@ -150,6 +151,9 @@ const App = () => {
                 FAQ, the sheet's trust row, helper profiles + accept emails. */}
             <Route path="/safety" element={<P><Safety /></P>} />
             <Route path="/helper-terms" element={<P><HelperTerms /></P>} />
+            {/* Help desk — contact channels + the household and helper FAQs.
+                Public and crawlable, like /safety; no auth, no redirect. */}
+            <Route path="/support" element={<P><Support /></P>} />
             {/* Per-service SEO landing pages (/cleaning-galway…). Slugs only —
                 the copy stays in the lazy ServiceLanding chunk. */}
             {SERVICE_LANDING_SLUGS.map((slug) => (
