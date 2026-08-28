@@ -198,7 +198,7 @@ interface Channel {
 const CHANNELS: Channel[] = [
   {
     icon: MessageCircle,
-    title: 'WhatsApp — the fastest way',
+    title: 'WhatsApp',
     body: (
       <>
         <a
@@ -209,8 +209,8 @@ const CHANNELS: Channel[] = [
         >
           {TEAM_PHONE_DISPLAY}
         </a>
-        {' '}— best for anything happening today: a helper running late, a booking to change or cancel,
-        or an urgent job.
+        {' '}— for anything happening today: a helper running late, a booking to change or cancel, or
+        an urgent job.
       </>
     ),
   },
@@ -232,9 +232,8 @@ const CHANNELS: Channel[] = [
     title: 'When you’ll hear back',
     body: (
       <>
-        We&apos;re a small Galway team and we read everything. WhatsApp is usually answered within a few
-        hours during the day; email within one working day. Anything about a job happening right now
-        jumps the queue — send that on WhatsApp.
+        We&apos;re a small Galway team and we read everything. We aim to reply within one working day.
+        If it&apos;s about a job happening right now, message us on WhatsApp so it reaches a phone.
       </>
     ),
   },

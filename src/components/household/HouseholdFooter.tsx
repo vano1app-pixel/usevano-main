@@ -1,7 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
-import { TEAM_INSTAGRAM_URL, TEAM_FACEBOOK_URL, TEAM_TIKTOK_URL } from '@/lib/contact';
+import {
+  TEAM_INSTAGRAM_URL,
+  TEAM_FACEBOOK_URL,
+  TEAM_TIKTOK_URL,
+  TEAM_CONTACT_EMAIL,
+  teamMailtoHref,
+} from '@/lib/contact';
 import { traderIdentityLine } from '@/lib/legalEntity';
 
 // Service landing pages — internal links so crawlers (and people) can reach
@@ -96,11 +102,18 @@ export const HouseholdFooter: React.FC = () => {
         </nav>
 
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          {/* The contact address comes from src/lib/contact.ts, the same
+              source /support, /privacy and /terms read, so there is ONE
+              inbox on the site. This was hardcoded to hello@vanojobs.com
+              until 2026-08-28 — vanojobs.com has no MX records, so that
+              address could not receive mail and every footer enquiry
+              bounced. Don't hardcode an address here again; if the branded
+              inbox is ever set up, point VITE_TEAM_CONTACT_EMAIL at it. */}
           <a
-            href="mailto:hello@vanojobs.com"
+            href={teamMailtoHref}
             className="inline-block text-xs text-white/60 hover:text-white bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] hover:bg-[length:100%_1px] transition-[background-size,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
           >
-            hello@vanojobs.com
+            {TEAM_CONTACT_EMAIL}
           </a>
           {/* Trader identity (SI 68/2003: name + geographic address must be
               permanently accessible). traderIdentityLine falls back to the
