@@ -63,8 +63,47 @@ function isOriginAllowed(req: Request): boolean {
 // NB: email is deliberately NOT returned — this endpoint is an unauthenticated
 // phone lookup, and a helper's email is the sensitive bit (phishing / account
 // takeover). The self-service profile editor doesn't use it.
-const PROFILE_COLUMNS =
-  'id, name, phone, photo_url, city, bio, college, course, study_year, categories, availability, status, stripe_account_id, stripe_payouts_enabled, payment_handle, own_kit, student_email_verified, id_verified, verified_plan_active, vano_verified';
+//
+// The list is SPLIT so that a column this code knows about but the database
+// does not can never cost a helper their account page. Edge functions
+// auto-deploy on merge while migrations are applied BY HAND, so there is
+// always a window where the two disagree — and on 2026-07-30 that window
+// opened on `own_kit` and stayed open for five weeks: Postgres failed the
+// WHOLE query with 42703, this endpoint 500'd, and /student-account texted a
+// code, verified it, then dead-ended on "Verified — but we could not load
+// your profile" for EVERY helper. (Found 2026-09-01 when a real ID-verified
+// applicant gave up and WhatsApp'd the owner.) CORE is what the editor cannot
+// render without; the rest are display flags worth degrading rather than
+// denying someone their own profile over. Same failure shape as the
+// 20260708020000 anon-grant bug — a column-level miss failing whole-query.
+const CORE_COLUMNS =
+  'id, name, phone, photo_url, city, bio, college, course, study_year, categories, availability, status, stripe_account_id, stripe_payouts_enabled, payment_handle';
+const OPTIONAL_COLUMNS =
+  'own_kit, student_email_verified, id_verified, verified_plan_active, vano_verified';
+const PROFILE_COLUMNS = `${CORE_COLUMNS}, ${OPTIONAL_COLUMNS}`;
+
+interface SelectResult {
+  data: Record<string, unknown> | null;
+  error: { code?: string; message?: string } | null;
+}
+
+/**
+ * Runs a profile SELECT, retrying once on 42703 (undefined_column) with the
+ * core columns only. Loud in the logs, because a hit here means a migration
+ * is pending — the degraded read is a safety net, not the fix.
+ */
+async function selectProfile(
+  run: (cols: string) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<SelectResult> {
+  const first = await run(PROFILE_COLUMNS) as SelectResult;
+  if (first.error?.code !== '42703') return first;
+  console.error(
+    '[find-helper-by-phone] SELECT list is ahead of the database (42703) — ' +
+    'serving the core profile without the optional flags. APPLY THE PENDING MIGRATION.',
+    first.error,
+  );
+  return await run(CORE_COLUMNS) as SelectResult;
+}
 
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
@@ -112,13 +151,14 @@ serve(async (req) => {
       variants.add('353' + phone.slice(1));
     }
 
-    let { data, error: dbErr } = await supabase
-      .from('household_helpers')
-      .select(PROFILE_COLUMNS)
-      .in('phone', [...variants])
-      .neq('status', 'suspended')
-      .limit(1)
-      .maybeSingle();
+    let { data, error: dbErr } = await selectProfile((cols) =>
+      supabase
+        .from('household_helpers')
+        .select(cols)
+        .in('phone', [...variants])
+        .neq('status', 'suspended')
+        .limit(1)
+        .maybeSingle());
 
     // Fallback: stored numbers sometimes contain spaces or odd formatting —
     // compare digits only, matching on the last 9 (Irish mobile without prefix).
@@ -134,11 +174,12 @@ serve(async (req) => {
         const hit = (rows ?? []).find((r: { id: string; phone: string | null }) =>
           (r.phone ?? '').replace(/\D/g, '').endsWith(last9));
         if (hit) {
-          const { data: full, error: fullErr } = await supabase
-            .from('household_helpers')
-            .select(PROFILE_COLUMNS)
-            .eq('id', hit.id)
-            .maybeSingle();
+          const { data: full, error: fullErr } = await selectProfile((cols) =>
+            supabase
+              .from('household_helpers')
+              .select(cols)
+              .eq('id', hit.id)
+              .maybeSingle());
           data = full;
           dbErr = fullErr;
         }
