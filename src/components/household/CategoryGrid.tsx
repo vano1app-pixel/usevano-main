@@ -124,8 +124,12 @@ const SHORT_DURATIONS = ['30 min', '45 min', '1 hour', '2 hours'];
 // page. PARKED 2026-07-23 (owner call: the Business tile took the navy 6th
 // slot). The describe-it machinery below (isDescribe, describeRows) stays
 // intact — remount by rendering a tile that calls openSheet(CUSTOM_TILE).
+// Reached only via the hero "Send someone" general-help door now (the tile
+// itself is parked), so the sheet header reads "General help" to match the
+// student side. isDescribe keys off slug, not label, so the describe-it
+// machinery is unaffected.
 const CUSTOM_TILE: Category = {
-  emoji: '✨', label: 'Anything else', slug: 'custom',
+  emoji: '✨', label: 'General help', slug: 'custom',
   hint: 'An ID-verified student, matched to your job',
   description: '',
 };
@@ -2753,13 +2757,19 @@ export const CategoryGrid: React.FC = () => {
   }, []);
 
   // Support the vano:select-category custom event (PopularCategories podium,
-  // pricing-page deep links). An event that carries a size already made its
-  // choice — skip the wizard question; a bare slug gets page 1 like a tile tap.
+  // pricing-page deep links, the hero "Send someone" general-help field). An
+  // event that carries a size already made its choice — skip the wizard
+  // question; a bare slug gets page 1 like a tile tap. `note`/`extraLabel`/
+  // `direct` let the general-help door land straight on the form with the
+  // customer's words prefilled (see src/lib/generalHelp.ts).
   useEffect(() => {
     const handle = (e: Event) => {
-      const { slug, size: evSize } = (e as CustomEvent<{ slug: string; size?: string }>).detail;
-      const cat = CATEGORIES.find(c => c.slug === slug);
-      if (cat) openSheet(cat, { size: evSize, direct: !!evSize });
+      const { slug, size: evSize, note, extraLabel, direct } =
+        (e as CustomEvent<{ slug: string; size?: string; note?: string; extraLabel?: string; direct?: boolean }>).detail;
+      // 'custom' isn't a grid tile — it lives as CUSTOM_TILE — so fall back to
+      // it so the describe-it / general-help door can open by slug.
+      const cat = CATEGORIES.find(c => c.slug === slug) ?? (slug === 'custom' ? CUSTOM_TILE : undefined);
+      if (cat) openSheet(cat, { size: evSize, note, extraLabel, direct: direct ?? !!evSize });
     };
     window.addEventListener('vano:select-category', handle);
     return () => window.removeEventListener('vano:select-category', handle);

@@ -52,6 +52,9 @@ export type TrackEvent =
   | 'hero_usual_tap'
   | 'hero_search_open'
   | 'hero_whatsapp_tap'
+  // General-help front door (2026-09): the "Send someone" field opens the
+  // booking sheet on a custom 2-hour job — props { rooms, timing, typed }.
+  | 'hero_general_help_submit'
   // The end-of-page CTA band after the FAQ — measures how many readers the
   // long page persuades (its taps scroll back up to the hero tiles).
   | 'closing_cta_tap'

@@ -61,12 +61,15 @@ const TRANSPORT_MODES = [
 // Marketing grid only ("Jobs available right now") — list ONLY categories a
 // customer can actually book today. Moving + tutoring are parked; they remain
 // valid helper SKILLS (helperSkills.ts) but can't headline "available now".
+// General help leads — the most common offer is a house that didn't pick a
+// job and still pays for a couple of hours (src/lib/generalHelp.ts). Then the
+// specific categories a customer can book today.
 const JOBS = [
-  { emoji: '🧺', label: 'Laundry' },
+  { emoji: '✨', label: 'General help' },
+  { emoji: '🧹', label: 'Cleaning' },
   { emoji: '🐕', label: 'Dog walks' },
   { emoji: '🌿', label: 'Garden work' },
-  { emoji: '🛒', label: 'Errands & odd jobs' },
-  { emoji: '🧹', label: 'Cleaning' },
+  { emoji: '🧺', label: 'Laundry' },
   { emoji: '🐾', label: 'Pet care' },
 ];
 
@@ -564,12 +567,12 @@ export const JoinAsHelper: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
             >
-              <p className="eyebrow mb-4 justify-center">For students across Ireland</p>
+              <p className="eyebrow mb-4 justify-center">For students in Galway</p>
               <h1 className="display-xl text-foreground mb-4">
-                Earn money between lectures
+                Make rent between lectures.
               </h1>
               <p className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-sm mx-auto">
-                Pick up flexible household jobs in your city. Laundry, dog walks, cleaning, garden work — you choose what you take on.
+                Small jobs in Galway. They come to you. You keep the job money — take it or skip it in two seconds.
               </p>
 
               <div className="flex justify-center gap-3 flex-wrap mb-2">
@@ -1020,7 +1023,10 @@ export const JoinAsHelper: React.FC = () => {
         {/* Job types */}
         <section className="px-4 py-12 max-w-lg mx-auto">
           <p className="eyebrow mb-3">What you'll do</p>
-          <h2 className="text-2xl font-semibold text-foreground mb-6">Jobs available right now</h2>
+          <h2 className="text-2xl font-semibold text-foreground mb-2">Jobs available right now</h2>
+          <p className="text-sm text-muted-foreground mb-6 max-w-md">
+            Most are <span className="font-medium text-foreground">general help</span> — a house that didn’t pick a job and just wants a hand for a couple of hours. You’ll see the rooms and their words before you accept.
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {JOBS.map(({ emoji, label }) => (
               <div key={label} className="surface-float bg-white border border-black/5 rounded-2xl p-4 flex items-center gap-3">
