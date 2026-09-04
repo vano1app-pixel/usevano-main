@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Phone, MapPin, CalendarCheck, MessageCircle, FileText, Shield, UserPlus, UserCog, ChevronRight, Pencil,
+  LifeBuoy, Trash2,
 } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
@@ -60,6 +61,8 @@ const Account: React.FC = () => {
     { label: 'Become a helper', to: '/join', icon: UserPlus },
     { label: 'Helper account — photo, payouts & profile', to: '/student-account', icon: UserCog },
     { label: 'Chat to us on WhatsApp', href: `${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! ')}`, icon: MessageCircle },
+    { label: 'Support', to: '/support', icon: LifeBuoy },
+    { label: 'Delete my data', to: '/support', icon: Trash2 },
     { label: 'Terms', to: '/terms', icon: FileText },
     { label: 'Privacy', to: '/privacy', icon: Shield },
   ];

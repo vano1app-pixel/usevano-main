@@ -74,6 +74,10 @@ const PwaUpdateToast = lazy(() =>
 
 import type { TransitionVariant } from "./components/PageTransition";
 import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
+// Eager (NOT lazy): when the device is offline the lazy chunk can't be fetched,
+// so the one screen whose whole job is to handle offline must already be in the
+// bundle.
+import { NativeOfflineGate } from "@/components/NativeOfflineGate";
 import { captureReferralFromUrl } from "@/lib/referral";
 import { SERVICE_LANDING_SLUGS } from "@/content/serviceSlugs";
 import { isNativeApp } from "@/lib/platform";
@@ -114,6 +118,8 @@ const App = () => {
       <SilentErrorBoundary source="ScrollProgress"><ScrollProgress /></SilentErrorBoundary>
       <SilentErrorBoundary source="ScrollToTop"><ScrollToTop /></SilentErrorBoundary>
       <SilentErrorBoundary source="InAppBrowserBanner"><InAppBrowserBanner /></SilentErrorBoundary>
+      {/* Native-only branded offline screen (4.2) — no-op on web. */}
+      <SilentErrorBoundary source="NativeOfflineGate"><NativeOfflineGate /></SilentErrorBoundary>
       <Toaster />
       <Sonner />
       {/* No transform/perspective here: any non-none perspective would make this
