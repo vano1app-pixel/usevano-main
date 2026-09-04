@@ -78,7 +78,11 @@ export const CUSTOM_JOBS: CustomJob[] = [
   { key: 'tenancy',    emoji: '🧴', label: 'End-of-tenancy clean', group: 'Cleaning', typicalHours: 4, marketHourlyCents: 2800,
     keywords: ['end of tenancy', 'move out', 'moveout', 'deposit clean', 'landlord clean', 'vacate clean'], example: 'end-of-tenancy clean to get my deposit back' },
   { key: 'oven',       emoji: '🔥', label: 'Oven & kitchen clean', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2800,
-    keywords: ['oven', 'kitchen', 'degrease', 'hob', 'extractor', 'fridge clean'], example: 'clean the oven and kitchen' },
+    // 'kitchen' deliberately NOT a keyword: a bare room noun ("help in the
+    // kitchen") is a ROOM signal handled by the live-peek lexicon
+    // (parseJobRequest), not a lock on this specific deep-clean. A real verb
+    // ("clean/degrease the oven") still lands here via the words below.
+    keywords: ['oven', 'degrease', 'hob', 'extractor', 'fridge clean'], example: 'clean the oven and kitchen' },
   { key: 'windows',    emoji: '🪟', label: 'Window cleaning (inside & ground floor)', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['window', 'windows', 'glass', 'panes', 'window cleaner'], example: 'clean the inside and ground-floor windows' },
   { key: 'ironing',    emoji: '🧺', label: 'Ironing & laundry', group: 'Cleaning', typicalHours: 2, marketHourlyCents: 2600,
@@ -110,7 +114,9 @@ export const CUSTOM_JOBS: CustomJob[] = [
   { key: 'mowing',     emoji: '🌱', label: 'Lawn mowing', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2800, popular: true,
     keywords: ['mow', 'lawn', 'grass', 'cut the grass', 'strimm', 'mowing', 'grass cutting'], example: 'mow the front and back lawn' },
   { key: 'weeding',    emoji: '🌿', label: 'Weeding & garden tidy', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 2800,
-    keywords: ['weed', 'weeding', 'garden', 'gardening', 'tidy garden', 'beds', 'borders', 'planting'], example: 'weed and tidy the garden' },
+    // 'garden' (bare) removed for the same reason — a room/area signal, not a
+    // lock on weeding. 'gardening', 'tidy garden', 'weed' etc. still match.
+    keywords: ['weed', 'weeding', 'gardening', 'tidy garden', 'beds', 'borders', 'planting'], example: 'weed and tidy the garden' },
   { key: 'hedge',      emoji: '✂️', label: 'Hedge & pruning', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 3000,
     keywords: ['hedge', 'trim', 'bush', 'bushes', 'prune', 'pruning', 'shrub', 'topiary'], example: 'trim the hedges' },
   { key: 'clearance',  emoji: '🍂', label: 'Garden clearance', group: 'Garden & outdoor', typicalHours: 3, marketHourlyCents: 3000,

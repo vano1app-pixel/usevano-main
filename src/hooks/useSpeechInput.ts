@@ -68,15 +68,23 @@ export function useSpeechInput(
 
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const finalRef = useRef('');
+  const silenceRef = useRef<number | null>(null);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<'denied' | 'error' | null>(null);
+
+  const SILENCE_MS = 1600; // stop after this long with no new speech
 
   // Latest callbacks without re-creating the recogniser each render.
   const onTranscriptRef = useRef(onTranscript);
   const onFinalRef = useRef(onFinal);
   useEffect(() => { onTranscriptRef.current = onTranscript; onFinalRef.current = onFinal; });
 
+  const clearSilence = () => {
+    if (silenceRef.current !== null) { window.clearTimeout(silenceRef.current); silenceRef.current = null; }
+  };
+
   const stop = useCallback(() => {
+    clearSilence();
     try { recRef.current?.stop(); } catch { /* already stopped */ }
   }, []);
 
@@ -87,7 +95,9 @@ export function useSpeechInput(
     finalRef.current = '';
     const rec = new Ctor();
     rec.lang = 'en-IE';
-    rec.continuous = false;
+    // Continuous so a natural mid-sentence pause doesn't cut the mic before
+    // they finish; we stop it ourselves after SILENCE_MS of quiet (or a tap).
+    rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
     rec.onresult = (e) => {
@@ -98,12 +108,19 @@ export function useSpeechInput(
         else interim += r[0].transcript;
       }
       onTranscriptRef.current((finalRef.current + interim).trim());
+      // Reset the quiet-timer on any speech; when it elapses, wrap up.
+      clearSilence();
+      silenceRef.current = window.setTimeout(() => {
+        try { rec.stop(); } catch { /* already stopping */ }
+      }, SILENCE_MS);
     };
     rec.onerror = (ev) => {
+      clearSilence();
       setError(ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'denied' : 'error');
       setListening(false);
     };
     rec.onend = () => {
+      clearSilence();
       setListening(false);
       const said = finalRef.current.trim();
       if (said) onFinalRef.current(said);
@@ -119,7 +136,7 @@ export function useSpeechInput(
   }, []);
 
   // Tidy up if the component unmounts mid-listen.
-  useEffect(() => () => { try { recRef.current?.abort(); } catch { /* noop */ } }, []);
+  useEffect(() => () => { clearSilence(); try { recRef.current?.abort(); } catch { /* noop */ } }, []);
 
   return { supported, listening, error, start, stop };
 }

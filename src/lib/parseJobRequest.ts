@@ -24,8 +24,12 @@ export interface ParsedJob {
   /** True when the job plausibly needs kit (garden/moving/cleaning) and the
    *  sentence didn't mention having it — the bubble asks one chip. */
   needsToolsQuestion: boolean;
-  /** True when we're not sure how long — the bubble confirms with 1h/2h/3h+. */
+  /** True when the sentence never said how long — the bubble confirms with
+   *  1h/2h/3h+. Deliberately NOT gated on AI confidence: a confident job with
+   *  no stated duration still needs the question (owner rule). */
   needsDurationQuestion: boolean;
+  /** True when a duration was actually said ("two hours", "all day"). */
+  durationStated: boolean;
   raw: string;
 }
 
@@ -86,7 +90,8 @@ function build(job: CustomJob, opts: {
     eircode: opts.eircode,
     confidence: opts.confidence,
     needsToolsQuestion: TOOLS_GROUPS.has(job.group) && !toolsMentioned,
-    needsDurationQuestion: !opts.durationStated && opts.confidence !== 'high',
+    needsDurationQuestion: !opts.durationStated,
+    durationStated: opts.durationStated,
     raw: opts.raw,
   };
 }
@@ -170,4 +175,126 @@ export async function parseJobRequest(text: string): Promise<ParsedJob> {
 /** "1 hour" / "2 hours" — the size label the sheet + server price on. */
 export function hoursToSizeLabel(hours: number): string {
   return hours === 1 ? '1 hour' : `${hours} hours`;
+}
+
+// ─── Live peek — questions under the field WHILE they speak or type ──────────
+//
+// 100% local and synchronous: it runs on the running transcript on every
+// keystroke / interim speech token, so the chips slide in immediately instead
+// of waiting for Gemini. It NEVER calls the network — the official
+// parseJobRequest still runs once when they stop. A room / intent lexicon
+// leads (so a bare "kitchen" is a ROOM signal, not a lock on Oven & kitchen
+// clean); the catalogue is only consulted for a strong, unambiguous verb.
+
+export interface PeekResult {
+  source: 'peek';
+  /** Ordered display tags — rooms and any strong job, e.g. ["Kitchen","Dog"]. */
+  tags: string[];
+  /** 'other' (General help) unless ONE strong, unambiguous job was named. */
+  jobKey: string;
+  label: string;
+  emoji: string;
+  hours: number | null;      // only when a duration was actually said
+  whenText?: string;
+  eircode?: string;
+  needsDuration: boolean;    // no duration said yet
+  needsTools: boolean;       // a kit-relevant signal, and kit not mentioned
+  /** Two or more distinct signals ("kitchen and the dog") → keep General help
+   *  and carry every signal, never collapse to one catalogue job. */
+  multiSignal: boolean;
+}
+
+interface Lexeme {
+  re: RegExp;
+  tag: string;
+  /** kit-relevant (cleaning / garden / moving) → drives the tools question. */
+  tools: boolean;
+  /** A strong catalogue lock; only applied when `needs` (if set) also matches. */
+  lock?: string;
+  needs?: RegExp;
+  /** A lock only — contributes no standalone tag/signal on its own. */
+  verbOnly?: boolean;
+  /** A qualifier ("upstairs", "lawn"), not a separate job — shows as a tag but
+   *  never counts toward "two real jobs" (so "mow the lawn" is one signal). */
+  modifier?: boolean;
+}
+
+// Tags that qualify a job rather than being one — never trip multi-signal.
+const MODIFIER_TAGS = new Set(['Upstairs', 'Lawn']);
+
+// Order is only for readability; tags are emitted in the order they appear in
+// the sentence. Rooms keep the booking as General help (a room isn't a job).
+const LEXEMES: Lexeme[] = [
+  // Rooms & areas.
+  { re: /\bkitchens?\b/,               tag: 'Kitchen',      tools: true },
+  { re: /\bbathrooms?\b/,              tag: 'Bathroom',     tools: true },
+  { re: /\bbedrooms?\b/,               tag: 'Bedrooms',     tools: true },
+  { re: /\bspare room\b/,              tag: 'Spare room',   tools: true },
+  { re: /\b(sitting|living) room\b/,   tag: 'Sitting room', tools: true },
+  { re: /\bfloors?\b/,                 tag: 'Floors',       tools: true },
+  { re: /\bbins?\b/,                   tag: 'Bins',         tools: false },
+  { re: /\bupstairs\b/,                tag: 'Upstairs',     tools: false, modifier: true },
+  { re: /\bgardens?\b/,                tag: 'Garden',       tools: true },
+  { re: /\blawns?\b/,                  tag: 'Lawn',         tools: true,  modifier: true },
+  // Strong, unambiguous jobs (a real verb / phrase) — these lock the catalogue.
+  { re: /\b(mow|mowing)\b|\bcut the grass\b/,               tag: 'Lawn mowing',       tools: true,  lock: 'mowing' },
+  { re: /\b(wardrobe|furniture|sofa|couch|dresser|desk)\b/, tag: 'Furniture',         tools: true,  lock: 'furniture', needs: /\b(shift|move|moving|lift|carry|upstairs|downstairs)\b/ },
+  { re: /\bdogs?\b/,                                        tag: 'Dog',               tools: false, lock: 'dog' },
+  { re: /\biron(ing)?\b/,                                   tag: 'Ironing',           tools: false, lock: 'ironing' },
+  { re: /\bhoover(ing)?\b|\bvacuum(ing)?\b/,                tag: 'Hoovering',         tools: true },
+  // Cleaning verbs — kit-relevant, but keep General help (no standalone tag).
+  { re: /\bclean(ing)?\b|\btidy(ing)?\b|\bscrub\b|\bmop\b/, tag: '',                  tools: true,  verbOnly: true },
+];
+
+/**
+ * Local live-read of a running transcript. Cheap, sync, never throws. Drives
+ * the chips that appear WHILE the customer is still talking / typing.
+ */
+export function peekJobRequest(text: string): PeekResult {
+  const raw = text.trim();
+  const eircode = findEircode(raw);
+  const whenText = findWhen(raw);
+  const hours = findHours(raw);
+  const toolsMentioned = TOOLS_MENTIONED_RE.test(raw);
+
+  const hits = LEXEMES
+    .map((lx) => ({ lx, idx: raw.search(lx.re) }))
+    .filter((h) => h.idx >= 0)
+    .sort((a, b) => a.idx - b.idx);
+
+  // Tags in spoken order (no blanks, deduped).
+  const tags: string[] = [];
+  for (const { lx } of hits) if (lx.tag && !tags.includes(lx.tag)) tags.push(lx.tag);
+  // A strong lawn-mow lock makes the bare "Lawn" tag redundant.
+  const mowing = hits.some(({ lx }) => lx.lock === 'mowing');
+  const shownTags = mowing ? tags.filter((t) => t !== 'Lawn') : tags;
+
+  // Strong locks whose extra requirement (if any) is satisfied.
+  const locks = hits
+    .filter(({ lx }) => lx.lock && (!lx.needs || lx.needs.test(raw)))
+    .map(({ lx }) => lx.lock!);
+
+  const toolsRelevant = hits.some(({ lx }) => lx.tools);
+  // A "real job" signal = a tag that isn't a mere qualifier. Two+ distinct
+  // ones ("kitchen and the dog") → keep General help, carry every signal.
+  const signalCount = shownTags.filter((t) => !MODIFIER_TAGS.has(t)).length;
+  const multiSignal = signalCount >= 2;
+
+  let jobKey = 'other';
+  if (!multiSignal && locks.length === 1) jobKey = locks[0];
+  const job = customJobByKey(jobKey);
+
+  return {
+    source: 'peek',
+    tags: shownTags,
+    jobKey: job.key,
+    label: job.key === 'other' ? 'General help' : job.label,
+    emoji: job.key === 'other' ? '✨' : job.emoji,
+    hours,
+    whenText,
+    eircode,
+    needsDuration: hours == null,
+    needsTools: toolsRelevant && !toolsMentioned,
+    multiSignal,
+  };
 }
