@@ -98,6 +98,19 @@ const CUSTOMER_FAQS: Faq[] = [
       </>
     ),
   },
+  {
+    q: 'How do I delete my data?',
+    a: (
+      <>
+        Customers don&apos;t have an account — email{' '}
+        <a href="mailto:vano1app@gmail.com" className="text-primary hover:underline underline-offset-4">vano1app@gmail.com</a>{' '}
+        (or WhatsApp us) and we&apos;ll erase the phone number, address and booking history tied to you.
+        Students can delete their whole account themselves from the helper account screen (Account →
+        Delete my account). Either way it&apos;s permanent, and we never sell your data. See our{' '}
+        <Link to="/privacy" className="text-primary hover:underline underline-offset-4">Privacy Policy</Link>.
+      </>
+    ),
+  },
 ];
 
 // For students — the supply side. Mirrors the real funnel, no invented steps.

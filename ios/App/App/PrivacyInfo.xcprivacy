@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Apple privacy manifest (required since May 2024).
+
+  - VANO does NOT track (no ATT, no ad SDKs, no cross-app/-site tracking), so
+    NSPrivacyTracking is false and there are no tracking domains.
+  - "Data collected" (phone, email, name, address, precise location on tap,
+    audio/photos) is declared in App Store Connect's privacy labels, not here.
+    See docs/APP-STORE-PRIVACY-LABELS.md.
+  - The required-reason API declarations below cover what the Capacitor
+    runtime + its plugins actually touch (UserDefaults for Preferences/cookies,
+    file timestamps + disk space + boot time for the WebView cache/filesystem).
+    Add a matching NSPrivacyAccessedAPIType if a new native plugin is added.
+-->
 <plist version="1.0">
 <dict>
-	<!-- Apple Privacy Manifest (required since May 2024). Declares "required
-	     reason" APIs the app/Capacitor touch, and that VANO does not track
-	     users across other companies' apps/sites for advertising.
-	     NOTE: this file must also be added to the App target in Xcode (target
-	     membership / Copy Bundle Resources) so it ships in the .app — adding it
-	     to the folder alone is not enough. -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
@@ -16,7 +23,6 @@
 	<array/>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
-		<!-- UserDefaults — Capacitor stores app config/preferences. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
@@ -25,7 +31,6 @@
 				<string>CA92.1</string>
 			</array>
 		</dict>
-		<!-- File timestamp — WebView/Capacitor file access. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
@@ -34,7 +39,6 @@
 				<string>C617.1</string>
 			</array>
 		</dict>
-		<!-- Disk space — WebKit/cache management. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
@@ -43,7 +47,6 @@
 				<string>E174.1</string>
 			</array>
 		</dict>
-		<!-- System boot time — used by web/runtime timing. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>

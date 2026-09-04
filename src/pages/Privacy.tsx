@@ -11,7 +11,7 @@ import {
   TEAM_INSTAGRAM_HANDLE,
 } from '@/lib/contact';
 
-const LAST_UPDATED = '28 July 2026';
+const LAST_UPDATED = '4 September 2026';
 
 const Privacy = () => (
   <div className="min-h-screen bg-cream pb-16 md:pb-0">
@@ -93,10 +93,11 @@ const Privacy = () => (
             <li><strong>Between Customers and Helpers</strong> — to the limited extent a booking requires (as described in section 3).</li>
             <li><strong>Service providers</strong> — trusted processors that help us operate:
               <ul className="list-disc pl-5 space-y-1 mt-1">
-                <li>Stripe — card payments and Helper payouts</li>
+                <li>Stripe — card payments, Helper payouts and ID verification</li>
+                <li>Twilio — the SMS and WhatsApp messages we send about your booking</li>
                 <li>Supabase — database, authentication and file storage</li>
                 <li>Vercel — hosting and delivery</li>
-                <li>PostHog — product analytics; Sentry — error monitoring</li>
+                <li>PostHog — product analytics (masked session replay); Sentry — error monitoring</li>
                 <li>Map providers (Google Maps and OpenStreetMap) — addresses and live tracking</li>
                 <li>Our email and SMS providers — booking notifications</li>
               </ul>
@@ -125,6 +126,17 @@ const Privacy = () => (
             collecting unnecessary personal data. You can manage non-essential choices through our
             cookie banner.
           </p>
+          <p className="mt-3">
+            <strong>We do not track you.</strong> VANO does not use advertising identifiers, does not
+            show ads, and does not track you across other apps or websites. The iOS app does not ask
+            for App Tracking Transparency permission because we do no tracking that would require it.
+          </p>
+          <p className="mt-3">
+            <strong>Voice input.</strong> If you use the &quot;Speak&quot; option to say your job instead of
+            typing, your device or browser turns your speech into text on the device — VANO only ever
+            receives the text, never an audio recording. On the iOS app, if speech-to-text isn&apos;t
+            available you simply type instead.
+          </p>
         </section>
 
         <section>
@@ -150,7 +162,13 @@ const Privacy = () => (
             <li><strong>Withdraw consent</strong> — where processing is based on consent, withdraw it at any time.</li>
           </ul>
           <p className="mt-3">
-            To exercise any of these rights, contact us at the email below. We will respond within 30 days.
+            <strong>Deleting your account or data.</strong> Helpers can delete their account and personal
+            details at any time from the helper account screen in the app (Account → Delete my account).
+            Customers have no account — to delete the phone number, address or booking history tied to
+            you, email us at <a href="mailto:vano1app@gmail.com" className="text-primary underline underline-offset-2">vano1app@gmail.com</a>{' '}
+            (or use the <a href="/support" className="text-primary underline underline-offset-2">Support</a> page) and we will erase it. We do not sell your personal
+            data to anyone. To exercise any other right above, contact us at the email below — we respond
+            within 30 days.
           </p>
         </section>
 
