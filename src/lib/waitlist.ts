@@ -20,32 +20,29 @@ export const WAITLIST_MODE = true;
 export const WAITLIST_CTA = 'Send request';
 
 /**
- * THE CALLBACK PROMISE (owner call 2026-08-27, his exact words).
+ * THE PROMISE (owner call 2026-09-04, reframed from the old "we'll ring you
+ * back within the hour" to what actually happens on the customer's side: they
+ * hear a NAME once a student says yes, and no card is taken meanwhile).
  *
- * The old ending asked for a home address and a map, then answered with
- * "Coming soon in your area" — a no, in exchange for where you live. Thirty
- * people reached it after ticking their way through the whole builder and
- * NOT ONE finished (analytics_events, 60 days). So the dead end becomes a
- * callback capture: four things, and a person rings you.
- *
- * This is a PROMISE THE OWNER KEEPS BY HAND — there is no automation behind
- * it. If the hour can't be honoured, change the words here rather than let
- * the site say something untrue; it's one constant and every surface reads
- * from it.
+ * Kept deliberately honest to the mechanism: submitting pages the OWNER
+ * (waitlist-request → notify-admin), who lines a student up — there is no
+ * auto-dispatch to students yet, so the copy must NOT claim "we're texting
+ * students". It promises the outcome (a name, no card), not a fake pipeline.
+ * One place, every surface reads from it. Change the words here if the promise
+ * ever changes, rather than let a surface say something untrue.
  */
-export const WAITLIST_FORM_HEADLINE = "We'll ring you back within the hour to confirm a helper.";
+export const WAITLIST_FORM_HEADLINE = "You'll get a name the moment a student says yes.";
 
 /** Sits under the headline. True in waitlist mode: there is no checkout at
  *  all, so no card is asked for and nothing is charged. */
-export const WAITLIST_FORM_SUB = 'No card needed — nothing is charged.';
+export const WAITLIST_FORM_SUB = 'No card yet — nothing’s charged.';
 
-/** The headline on the confirmation screen. It REPEATS the callback promise
- *  rather than announcing a wait — the last thing they read should be the
- *  thing that's about to happen. */
-export const WAITLIST_TITLE = "We'll ring you back within the hour";
+/** The headline on the confirmation screen — the thing that's about to happen,
+ *  not a wait. */
+export const WAITLIST_TITLE = "We're on it";
 
 export const WAITLIST_BODY =
-  "Your request is with us. We'll call you within the hour to confirm a helper — no card needed, and nothing is charged. If you'd rather not wait for the phone to ring, message us on WhatsApp and we'll pick it up there.";
+  "We're lining up a student for you now. You'll get a name the moment someone says yes — no card, nothing charged. Nobody free right this second? Message us on WhatsApp and we'll sort it there.";
 
 /** The pre-filled WhatsApp text on the "text us" button. */
 export function waitlistWhatsAppText(job: string, when: string, area: string): string {
