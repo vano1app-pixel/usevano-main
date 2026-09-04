@@ -123,21 +123,12 @@ export const HeroSection: React.FC = () => {
         {/* Real approved-helper faces — social proof right under the action. */}
         <HelperFacePile />
 
-        {/* Secondary door — the six category tiles, quieter than the field. For
-            people who already know the job. CategoryGrid still owns the one
-            booking sheet the field opens by event, so this is not a second
-            pipeline — just the specific-job entrance. */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-9 sm:mt-11"
-        >
-          <p className="mb-3 text-[13px] font-medium text-foreground/45">
-            …or choose a specific job
-          </p>
-          <CategoryGrid />
-        </motion.div>
+        {/* The tiles are GONE (owner call 2026-09-04: the bubble is the whole
+            front door — you say what you want, we ask only what's missing).
+            CategoryGrid stays mounted HEADLESS so it still owns the one booking
+            sheet the bubble opens by event — no tiles rendered, no second
+            pipeline. */}
+        <CategoryGrid showTiles={false} />
 
         {/* The WhatsApp door — it converted real customers, so it earns a spot
             on the hero, quiet but visible. A person books it for you. Since

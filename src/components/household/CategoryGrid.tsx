@@ -2729,7 +2729,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
 
 type Selection = { cat: Category; size?: string; note?: string; extraLabel?: string; direct?: boolean };
 
-export const CategoryGrid: React.FC = () => {
+// `showTiles={false}` keeps the sheet machinery mounted (the event listener +
+// the portal that opens the booking sheet) but renders NONE of the visible tile
+// grid — used when the hero's speak/type bubble is the only front door and the
+// four category tiles are gone.
+export const CategoryGrid: React.FC<{ showTiles?: boolean }> = ({ showTiles = true }) => {
   const [selected, setSelected] = useState<Selection | null>(null);
 
   const openSheet = useCallback(
@@ -2764,11 +2768,13 @@ export const CategoryGrid: React.FC = () => {
   // customer's words prefilled (see src/lib/generalHelp.ts).
   useEffect(() => {
     const handle = (e: Event) => {
-      const { slug, size: evSize, note, extraLabel, direct } =
-        (e as CustomEvent<{ slug: string; size?: string; note?: string; extraLabel?: string; direct?: boolean }>).detail;
+      const { slug, size: evSize, note, extraLabel, label, direct } =
+        (e as CustomEvent<{ slug: string; size?: string; note?: string; extraLabel?: string; label?: string; direct?: boolean }>).detail;
       // 'custom' isn't a grid tile — it lives as CUSTOM_TILE — so fall back to
-      // it so the describe-it / general-help door can open by slug.
-      const cat = CATEGORIES.find(c => c.slug === slug) ?? (slug === 'custom' ? CUSTOM_TILE : undefined);
+      // it so the describe-it / general-help door can open by slug. `label`
+      // (the understood job, e.g. "Deep clean") titles the sheet when given.
+      const base = CATEGORIES.find(c => c.slug === slug) ?? (slug === 'custom' ? CUSTOM_TILE : undefined);
+      const cat = base && label ? { ...base, label } : base;
       if (cat) openSheet(cat, { size: evSize, note, extraLabel, direct: direct ?? !!evSize });
     };
     window.addEventListener('vano:select-category', handle);
@@ -2777,6 +2783,7 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <>
+      {showTiles && (
       <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl sm:max-w-5xl lg:max-w-6xl scroll-mt-24">
         {/* ── The tap tiles — the one front door ──────────────────────────────
             One tap opens the booking sheet: page 1 "what kind?" (sub-services
@@ -2890,6 +2897,7 @@ export const CategoryGrid: React.FC = () => {
           </p>
         )}
       </div>
+      )}
 
       {/* Bottom sheet — a REAL portal to <body>. Rendered in place it sits in
           the hero's transform stacking context, where its z-70 can't beat the
