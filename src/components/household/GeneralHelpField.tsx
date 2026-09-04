@@ -4,7 +4,7 @@ import { Mic, Loader2, X } from 'lucide-react';
 import { track } from '@/lib/track';
 import { haptic } from '@/lib/haptics';
 import { useSpeechInput } from '@/hooks/useSpeechInput';
-import { parseJobRequest, hoursToSizeLabel, type ParsedJob } from '@/lib/parseJobRequest';
+import { parseJobRequest, peekJobRequest, hoursToSizeLabel, type ParsedJob, type PeekResult } from '@/lib/parseJobRequest';
 import { GENERAL_HELP_CATEGORY, GENERAL_HELP_LABEL, GENERAL_HELP_CHECKLIST } from '@/lib/generalHelp';
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
@@ -60,9 +60,13 @@ export const GeneralHelpField: React.FC = () => {
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<ParsedJob | null>(null);
   const parsedForRef = useRef(''); // the exact text `parsed` describes
+  // Live local read of the running transcript — drives the chips WHILE they
+  // speak/type, before the official (Gemini) parse runs. 100% local, no network.
+  const [peek, setPeek] = useState<PeekResult | null>(null);
 
   // Answers to the "ask what's missing" chips + the general-help room default.
   const [hours, setHours] = useState<number | null>(null);
+  const [durationTapped, setDurationTapped] = useState(false);
   const [tools, setTools] = useState<Tools | null>(null);
   const [rooms, setRooms] = useState<readonly string[]>(GENERAL_HELP_CHECKLIST);
   const [timing, setTiming] = useState<Timing>('today');
@@ -84,6 +88,15 @@ export const GeneralHelpField: React.FC = () => {
     return () => window.clearInterval(id);
   }, [reduce, said, parsed]);
 
+  // Live peek — debounced ~180ms so it feels instant but doesn't thrash on
+  // every keystroke / interim speech token. Local + sync, so no network cost.
+  useEffect(() => {
+    const t = said.trim();
+    if (t.length < 2) { setPeek(null); return; }
+    const id = window.setTimeout(() => setPeek(peekJobRequest(t)), 180);
+    return () => window.clearTimeout(id);
+  }, [said]);
+
   async function runParse(text: string): Promise<ParsedJob | null> {
     const t = text.trim();
     if (t.length < 3) return null;
@@ -93,8 +106,8 @@ export const GeneralHelpField: React.FC = () => {
       const p = await parseJobRequest(t);
       setParsed(p);
       parsedForRef.current = t;
-      setHours(p.hours);
-      setTools(null);
+      // Do NOT reset hours/tools here — any chip the customer already tapped
+      // during the live peek stays (official label wins, their answers keep).
       track('hero_general_help_parse', { source: p.source, jobKey: p.jobKey, confidence: p.confidence });
       return p;
     } finally {
@@ -102,10 +115,12 @@ export const GeneralHelpField: React.FC = () => {
     }
   }
 
+  const resetAnswers = () => { setHours(null); setDurationTapped(false); setTools(null); };
+
   // Editing the sentence invalidates what we understood.
   const onEdit = (v: string) => {
     setSaid(v);
-    if (parsed && v.trim() !== parsedForRef.current) { setParsed(null); setHours(null); setTools(null); }
+    if (parsed && v.trim() !== parsedForRef.current) { setParsed(null); resetAnswers(); }
   };
 
   const toggleRoom = (room: string) => {
@@ -126,11 +141,17 @@ export const GeneralHelpField: React.FC = () => {
     const p = parsed ?? await runParse(said);
     const job = p ?? await parseJobRequest(said.trim() || 'general help');
     const finalHours = hours ?? job.hours;
-    const picked = GENERAL_HELP_CHECKLIST.filter(r => rooms.includes(r));
+    // Two real jobs in one sentence ("clean the kitchen and walk the dog") →
+    // keep General help so neither is dropped; the note carries both.
+    const multi = peek?.multiSignal ?? false;
+    // The generic room default only rides the note when they named nothing at
+    // all — a stated room/job already tells the helper where to start.
+    const vagueSend = isOther(job) && !multi && !(peek?.tags.length);
+    const picked = vagueSend ? GENERAL_HELP_CHECKLIST.filter(r => rooms.includes(r)) : [];
     const note = composeNote(job, { rooms: picked, tools, timing });
-    const extraLabel = isOther(job) ? GENERAL_HELP_LABEL : job.label;
+    const extraLabel = multi || isOther(job) ? GENERAL_HELP_LABEL : job.label;
     track('hero_general_help_submit', {
-      source: job.source, jobKey: job.jobKey, hours: finalHours, tools: tools ?? 'unset', timing,
+      source: job.source, jobKey: job.jobKey, hours: finalHours, tools: tools ?? 'unset', timing, multi,
     });
     window.dispatchEvent(new CustomEvent('vano:select-category', {
       detail: {
@@ -144,7 +165,26 @@ export const GeneralHelpField: React.FC = () => {
     }));
   };
 
-  const showThinChips = parsed && (parsed.needsDurationQuestion || parsed.needsToolsQuestion);
+  // ── Derived understanding: peek WHILE talking, official once parsed ─────────
+  const understood = !!(said.trim() && (peek || parsed));
+  const multi = peek?.multiSignal ?? false;
+  const general = multi || (parsed ? isOther(parsed) : peek ? peek.jobKey === 'other' : true);
+  const primaryLabel = general ? GENERAL_HELP_LABEL : (parsed?.label ?? peek?.label ?? GENERAL_HELP_LABEL);
+  const primaryEmoji = general ? '✨' : (parsed?.emoji ?? peek?.emoji ?? '✨');
+  const extraTags = (peek?.tags ?? []).filter(t => t !== primaryLabel);
+  const shownHours = hours ?? parsed?.hours ?? peek?.hours ?? 2;
+  const whenTag = parsed?.whenText ?? peek?.whenText;
+  // A room/area was actually named → don't also offer the generic room default.
+  const vague = general && (peek?.tags.length ?? 0) === 0;
+  // Duration: always ask if none said; collapse once said or tapped (owner rule).
+  const durationHeard = (peek?.hours ?? null) != null || (parsed?.durationStated ?? false);
+  const showDuration = understood && !durationHeard && !durationTapped;
+  // Tools: kit-relevant signal not already mentioned; collapse once answered.
+  const needsTools = (peek?.needsTools ?? false) || (parsed?.needsToolsQuestion ?? false);
+  const showTools = understood && needsTools && tools === null;
+  const showRooms = understood && vague;
+
+  const clearAll = () => { setSaid(''); setParsed(null); setPeek(null); resetAnswers(); areaRef.current?.focus(); };
 
   return (
     <div className="relative mx-auto w-full max-w-xl text-left">
@@ -226,30 +266,50 @@ export const GeneralHelpField: React.FC = () => {
             </motion.div>
           )}
 
-          {parsed && !parsing && (
+          {understood && !parsing && (
             <motion.div
               key="leash"
               initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.35, ease: EXPO }}
               className="mt-3"
             >
+              {/* Only while the mic is live — a quiet listening pulse. */}
+              {speech.listening && (
+                <p className="mb-2 flex items-center gap-1.5 text-[12.5px] font-medium text-sage-dark/70">
+                  <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                    {!reduce && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sage/60" />}
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-sage" />
+                  </span>
+                  hearing you…
+                </p>
+              )}
+
+              {/* The leash — tags for what we understood. "Got it —" once the
+                  official parse lands; before that it's the live peek. */}
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[12px] font-medium text-foreground/45 mr-0.5">Got it —</span>
+                {parsed && <span className="text-[12px] font-medium text-foreground/45 mr-0.5">Got it —</span>}
                 <span className="inline-flex items-center gap-1 rounded-full bg-sage/12 border border-sage/30 px-2.5 py-1 text-[13px] font-semibold text-sage-dark">
-                  <span aria-hidden="true">{parsed.emoji}</span>
-                  {isOther(parsed) ? GENERAL_HELP_LABEL : parsed.label}
+                  <span aria-hidden="true">{primaryEmoji}</span>
+                  {primaryLabel}
                 </span>
-                <span className="inline-flex items-center rounded-full bg-cream border border-black/10 px-2.5 py-1 text-[13px] font-medium text-foreground/70">
-                  ~{hours ?? parsed.hours} {(hours ?? parsed.hours) === 1 ? 'hr' : 'hrs'}
-                </span>
-                {parsed.whenText && (
+                {extraTags.map(t => (
+                  <span key={t} className="inline-flex items-center rounded-full bg-cream border border-black/10 px-2.5 py-1 text-[13px] font-medium text-foreground/70">
+                    {t}
+                  </span>
+                ))}
+                {(durationHeard || durationTapped) && (
                   <span className="inline-flex items-center rounded-full bg-cream border border-black/10 px-2.5 py-1 text-[13px] font-medium text-foreground/70">
-                    {parsed.whenText}
+                    ~{shownHours} {shownHours === 1 ? 'hr' : 'hrs'}
+                  </span>
+                )}
+                {whenTag && (
+                  <span className="inline-flex items-center rounded-full bg-cream border border-black/10 px-2.5 py-1 text-[13px] font-medium text-foreground/70">
+                    {whenTag}
                   </span>
                 )}
                 <button
                   type="button"
-                  onClick={() => { setParsed(null); setSaid(''); setHours(null); setTools(null); areaRef.current?.focus(); }}
+                  onClick={clearAll}
                   aria-label="Start over"
                   className="ml-0.5 grid h-6 w-6 place-items-center rounded-full text-foreground/40 hover:bg-cream hover:text-foreground/70 transition-colors"
                 >
@@ -257,31 +317,27 @@ export const GeneralHelpField: React.FC = () => {
                 </button>
               </div>
 
-              {/* Only-what's-missing chips (max two). */}
-              {showThinChips && (
+              {/* Only-what's-missing chips — each collapses the moment we hear
+                  it or they tap it. */}
+              {(showDuration || showTools) && (
                 <div className="mt-2.5 space-y-2">
-                  {parsed.needsDurationQuestion && (
+                  {showDuration && (
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-[12px] font-medium text-foreground/45 mr-0.5">About how long?</span>
-                      {[1, 2, 3].map(h => {
-                        const on = (hours ?? parsed.hours) === h || (h === 3 && (hours ?? parsed.hours) >= 3);
-                        return (
-                          <button key={h} type="button" onClick={() => { haptic(6); setHours(h); }} aria-pressed={on}
-                            className={['rounded-full px-3 py-1 text-[13px] font-semibold border transition-colors duration-150 active:scale-[0.97]',
-                              on ? 'bg-sage/12 text-sage-dark border-sage/30' : 'bg-transparent text-foreground/50 border-black/10'].join(' ')}>
-                            {h === 3 ? '3 hrs+' : `${h} hr${h > 1 ? 's' : ''}`}
-                          </button>
-                        );
-                      })}
+                      {[1, 2, 3].map(h => (
+                        <button key={h} type="button" onClick={() => { haptic(6); setHours(h); setDurationTapped(true); }}
+                          className="rounded-full px-3 py-1 text-[13px] font-semibold border bg-transparent text-foreground/50 border-black/10 transition-colors duration-150 active:scale-[0.97] hover:bg-cream">
+                          {h === 3 ? '3 hrs+' : `${h} hr${h > 1 ? 's' : ''}`}
+                        </button>
+                      ))}
                     </div>
                   )}
-                  {parsed.needsToolsQuestion && (
+                  {showTools && (
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-[12px] font-medium text-foreground/45 mr-0.5">Products / tools?</span>
                       {(['have', 'bring', 'unsure'] as Tools[]).map(t => (
-                        <button key={t} type="button" onClick={() => { haptic(6); setTools(t); }} aria-pressed={tools === t}
-                          className={['rounded-full px-3 py-1 text-[13px] font-semibold border transition-colors duration-150 active:scale-[0.97]',
-                            tools === t ? 'bg-sage/12 text-sage-dark border-sage/30' : 'bg-transparent text-foreground/50 border-black/10'].join(' ')}>
+                        <button key={t} type="button" onClick={() => { haptic(6); setTools(t); }}
+                          className="rounded-full px-3 py-1 text-[13px] font-semibold border bg-transparent text-foreground/50 border-black/10 transition-colors duration-150 active:scale-[0.97] hover:bg-cream">
                           {t === 'have' ? 'I have them' : t === 'bring' ? 'Bring them' : 'Not sure'}
                         </button>
                       ))}
@@ -290,8 +346,8 @@ export const GeneralHelpField: React.FC = () => {
                 </div>
               )}
 
-              {/* General help with no specific job → the room default, editable. */}
-              {isOther(parsed) && (
+              {/* Truly vague ask (they named nothing) → the room default, editable. */}
+              {showRooms && (
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                   <span className="text-[12px] font-medium text-foreground/45 mr-0.5">Start with</span>
                   {GENERAL_HELP_CHECKLIST.map(room => {
