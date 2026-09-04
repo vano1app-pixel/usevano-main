@@ -175,7 +175,7 @@ export const HelperCards: React.FC = () => {
       <div className="px-4 max-w-5xl mx-auto mb-6">
         <p className="eyebrow mb-3">Meet the helpers</p>
         <h2 className="display-lg text-foreground">
-          Real students, ready to help
+          These are the students who show up.
         </h2>
       </div>
 

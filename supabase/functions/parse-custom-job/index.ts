@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 
 // ── Inlined CORS (same allowlist as create-household-payment-checkout) ──────
 const FALLBACK_ORIGINS = [
@@ -79,6 +81,17 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (!isOriginAllowed(req)) return json(403, { ok: false, reason: 'forbidden_origin' });
   if (req.method !== 'POST') return json(405, { ok: false, reason: 'method' });
+
+  // Per-IP throttle. This endpoint is unauthenticated and spends Gemini tokens
+  // on every call, so origin-gating alone (spoofable by a scripted client) is
+  // not enough. 30 parses / 10 min per IP is generous for a real person typing
+  // one job, and caps token-burn abuse. Fail-open inside allowRequest, so the
+  // limiter never blocks a genuine customer if the RPC hiccups. A throttled
+  // caller gets a soft miss (200), so the client just falls back to keywords.
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  if (!await allowRequest(supabase, 'parse-custom-job', clientIp(req), 30, 600)) {
+    return json(200, { ok: false, reason: 'rate_limited' });
+  }
 
   try {
     const body = await req.json().catch(() => ({}));
