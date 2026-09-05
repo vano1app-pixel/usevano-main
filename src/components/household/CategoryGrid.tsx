@@ -10,6 +10,7 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { AddressPicker } from '@/components/household/AddressPicker';
+import { SheetHelperProof } from '@/components/household/SheetHelperProof';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
@@ -619,6 +620,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // helper's job screen (and through the server's free-text safety screen).
   const [customerNote, setCustomerNote] = useState('');
   const [showNoteField, setShowNoteField] = useState(false);
+  // Slimmed sheet (owner call 2026-09-04): the essentials (phone, address,
+  // note, money, Book) stay on top; name, exact time and area fold behind
+  // "More" so the sheet reads as a couple of fields, not a form.
+  const [showMore, setShowMore] = useState(false);
   const [size,     setSize]    = useState(
     // Honour the caller's size even when no size chips are shown (custom jobs
     // already pick the duration on the first page, so the sheet doesn't re-ask).
@@ -1083,8 +1088,29 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const [fieldsUnfolded, setFieldsUnfolded] = useState(false);
   // Name — waitlist mode only (the callback needs someone to ask for).
   const [name, setName] = useState('');
-  const [nameError, setNameError] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Name (waitlist only) — optional now, and folded behind "More": the owner
+  // opens the callback with a name if given, but phone is the key and asking
+  // for it up front was friction. Rendered inside the More disclosure below.
+  const nameField = WAITLIST_MODE ? (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5 flex items-center gap-1.5">
+        Your name <span className="font-medium normal-case tracking-normal text-foreground/35">(optional)</span>
+      </p>
+      <input
+        ref={nameInputRef}
+        type="text"
+        value={name}
+        onChange={e => { setName(e.target.value); if (error) setError(null); }}
+        placeholder="First name"
+        autoComplete="given-name"
+        enterKeyHint="next"
+        className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+      />
+      <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">So we can ask for you by name</p>
+    </div>
+  ) : null;
 
   // The two identity fields (phone + address). Rendered two ways below: fresh
   // visitors get them as a normal cascade item; returning customers see them
@@ -1104,40 +1130,6 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           {/* WAITLIST_FORM_SUB ("no card needed") is NOT repeated here — the
               docked bar under the button already says it, and the trust chip
               above says it too. Three times on one screen read as nervous. */}
-        </div>
-      )}
-
-      {/* Name — waitlist mode only. Someone is going to RING them, so the
-          call opens with their name instead of "hello, is that the number
-          that filled in the website?". The booking flow doesn't ask (the
-          helper gets the address, not a name), so this stays gated. */}
-      {WAITLIST_MODE && (
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground/50 mb-2.5 flex items-center gap-1.5">
-            Your name
-            <AnimatePresence>
-              {name.trim().length > 1 && (
-                <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
-                  <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </p>
-          <input
-            ref={nameInputRef}
-            type="text"
-            value={name}
-            onChange={e => { setName(e.target.value); if (nameError) setNameError(false); if (error) setError(null); }}
-            placeholder="First name"
-            autoComplete="given-name"
-            enterKeyHint="next"
-            required
-            className={cn(
-              'w-full rounded-xl border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
-              nameError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
-            )}
-          />
-          <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">So we know who we're asking for when we ring</p>
         </div>
       )}
 
@@ -1172,7 +1164,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
           )}
         />
-        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">{WAITLIST_MODE ? "We'll ring this number within the hour" : "We'll text you when a helper says yes"} · Outside Ireland? Add your country code (+44…)</p>
+        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">We'll text you a name when a student says yes · Outside Ireland? Add your country code (+44…)</p>
       </div>
 
       {/* Address — Eircode search or current location.
@@ -1243,17 +1235,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       setError("We can't text that number — Irish mobiles (08…) work as-is; for other countries add the code, e.g. +44 7…");
       return;
     }
-    // Waitlist mode asks for a NAME (someone is going to ring them) and does
-    // NOT ask for an address (nobody is coming to the house yet). Booking mode
-    // is unchanged: address required, no name.
-    if (WAITLIST_MODE) {
-      if (name.trim().length < 2) {
-        revealFieldError();
-        setNameError(true);
-        setError('Please add your name so we know who to ask for.');
-        return;
-      }
-    } else if (!address.trim()) {
+    // Waitlist mode needs only a textable phone (name is optional, folded
+    // behind "More"; the address is deliberately not collected — nobody is
+    // coming to the house yet). Booking mode is unchanged: address required.
+    if (!WAITLIST_MODE && !address.trim()) {
       revealFieldError();
       setAddressError(true);
       setError('Please add your address so your helper can find you.');
@@ -1997,12 +1982,32 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               )
             )}
 
-            {/* When + duration + area — ONE quiet "logistics" card, two lines
-                (they were two separate rows). The soonest slot is what almost
-                everyone wants, so both lines start collapsed and unfold their
-                options in place when tapped. Fewer decisions up front = a
-                faster booking. */}
-            <motion.div variants={listItem} className="rounded-xl border border-border bg-white overflow-hidden">
+            {/* Extras behind "More" (owner call 2026-09-04) — name (optional),
+                exact time + area. The essentials above are all most people
+                touch; the defaults here (soonest slot, area from the address)
+                are right for almost everyone, so this stays folded. */}
+            <motion.div variants={listItem} className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => setShowMore(s => !s)}
+                aria-expanded={showMore}
+                className="flex w-full items-center justify-between rounded-xl border border-dashed border-border bg-white px-4 py-3 text-left text-sm font-semibold text-foreground/60 transition-colors hover:text-foreground hover:border-sage/50"
+              >
+                <span>More — {WAITLIST_MODE ? 'name, ' : ''}time &amp; area</span>
+                <span className="text-[13px] text-sage-dark">{showMore ? 'Hide' : 'Change'}</span>
+              </button>
+              <AnimatePresence initial={false}>
+                {showMore && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.28, ease: SHEET_EASE }}
+                    className="space-y-4 overflow-hidden"
+                  >
+                    {nameField}
+            {/* When + duration + area — ONE quiet "logistics" card, two lines. */}
+            <div className="rounded-xl border border-border bg-white overflow-hidden">
               <button
                 type="button"
                 onClick={() => setShowWhen(s => !s)}
@@ -2146,6 +2151,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
 
             {/* The open question — one quiet dashed line; unfolds a small box
@@ -2197,6 +2206,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 colour coding and the one-line reassurance under the total say
                 the same thing without a wall of text. */}
             <motion.div variants={listItem} className="space-y-3 pt-1">
+              {/* Reassurance at the decision point — real ID-verified faces who
+                  could take this + the 4-digit-code promise. Renders nothing if
+                  there are no real verified helpers (never invents a student). */}
+              <SheetHelperProof />
+
               {/* ── HOW YOU'LL PAY ───────────────────────────────────
                   Deliveroo's lesson: decide the payment method FIRST, then
                   read the receipt. This used to sit BELOW the numbers, so
@@ -2264,7 +2278,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     <AnimatedPrice cents={jobTotalCents} className="flex-shrink-0 text-2xl font-extrabold text-foreground" />
                   </div>
                   <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
-                    Nothing to pay now — we'll confirm the price with you when a helper's available.
+                    No card yet — nothing’s charged. You pay your student directly when the job’s done.
                   </p>
                 </div>
               )}
@@ -2443,22 +2457,19 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 be incorporated at the point of sale, not just linked in the
                 footer. */}
             <motion.div variants={listItem} className="sm:max-w-lg sm:mx-auto space-y-2 pt-1">
+              {!WAITLIST_MODE && (
+                <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
+                  Card only for the small fee when they accept. You pay the student when they finish.
+                </p>
+              )}
               <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
-                {WAITLIST_MODE
-                  // Waitlist mode: no checkout exists, so the card sentence
-                  // would contradict the "nothing is charged" promise two
-                  // lines up. Say the true thing: the price is agreed on the call.
-                  ? 'Sending a request costs nothing. We ring you, confirm who\'s coming and the price, and you pay your helper directly once the job\'s done.'
-                  : payMode === 'card'
-                  ? 'Nothing is charged until a helper accepts — then one card payment covers the job and the small VANO fee. Your helper keeps 100% of the job price.'
-                  : 'Booking only reserves the small VANO fee. You pay your helper directly (Revolut or cash) once the job\'s done.'}
-              </p>
-              <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
-                By tapping {WAITLIST_MODE ? WAITLIST_CTA : 'Book'} you agree to VANO's{' '}
+                By {WAITLIST_MODE ? 'sending this request' : 'tapping Book'} you agree to VANO's{' '}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
-                {' '}— your helper is an independent person you pay directly, and{' '}
-                <a href="/cover" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
-                {' '}is there if you add it.
+                {' '}— your helper is an independent person you pay directly{WAITLIST_MODE ? '.' : ', and '}
+                {!WAITLIST_MODE && (<>
+                  <a href="/cover" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
+                  {' '}is there if you add it.
+                </>)}
               </p>
               {/* The {COOLING_OFF_DAYS}-day distance-selling right (SI 484/2013). Same-day
                   help is "fully performed" long before it expires, but the right
