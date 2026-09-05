@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 import { approxAreaLabel } from "../_shared/serviceAreas.ts";
 import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
+import { isReviewDemoPhone } from "../_shared/reviewDemo.ts";
 
 // Waitlist request — what the booking sheet does INSTEAD of checkout while
 // there aren't enough helpers to cover a job (owner call 2026-07-31, see
@@ -71,6 +72,14 @@ serve(async (req) => {
     const phone = normalizeWaitlistPhone(rawPhone) ?? rawPhone;
     if (!normalizeWaitlistPhone(rawPhone)) {
       return json(400, { error: "That doesn't look like a mobile we can text. Irish mobiles (08…) work as-is." });
+    }
+
+    // ── App Store review demo (owner ask 2026-09-05) ─────────────────────────
+    // The reviewer books with the ONE demo number: they get the confirmed
+    // screen, and nobody is paged and no lead is stored. Only while the
+    // REVIEW_DEMO secret is "true" — see _shared/reviewDemo.ts.
+    if (isReviewDemoPhone(phone)) {
+      return json(200, { success: true, notified: true, area: 'Galway', demo: true });
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);

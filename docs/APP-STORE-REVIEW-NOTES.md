@@ -1,101 +1,80 @@
-# App Store — Review Notes (paste into App Store Connect → App Review Information → Notes)
+# App Store — Review Notes
 
-Fill the `<<…>>` placeholders before submitting. Bundle id **com.vanojobs.app**.
+Bundle id **com.vanojobs.app**. Two things to do BEFORE you press Submit:
 
----
+1. **Turn the demo on.** Supabase → Edge Functions → Secrets:
+   `REVIEW_DEMO = true` (the demo phone is hard-coded to 089 000 0000; set
+   `REVIEW_DEMO_PHONE` only if you need a different one). Turn it OFF the
+   day the review is approved.
+2. **Create the demo helper row** (once — SQL Editor, see `docs/NATIVE-TODO.md`).
 
-## Paste-ready notes
-
-VANO connects households in Galway, Ireland with ID-verified local students for
-same-day home help — cleaning, garden, dog walks, laundry and odd jobs.
-
-**No account is required to use the core of the app.** From the home screen you
-describe the job (type it, or tap the mic to say it) and tap "Send someone".
-VANO is currently in **request mode** while we grow the student supply: instead
-of taking a card, the app captures the request and we line a student up and
-message you back with a name. **No card is charged and no account is created for
-customers.** This is deliberate (see "Why no checkout" below), not missing
-functionality.
-
-HOW TO REVIEW (no login needed):
-1. On the home screen, type e.g. "clean the kitchen for two hours" (or tap the
-   mic and say it) → the app understands the job and asks only what's missing.
-2. Tap "Send someone" → the request sheet opens: phone, an optional note, and
-   "Send request". Enter a name and any Irish-format mobile (08x xxx xxxx) and
-   send — you'll see the confirmation ("We'll ring you back within the hour",
-   no card, nothing charged).
-3. Browse real ID-verified students under "Meet the helpers".
-4. Legal pages are reachable with no login from the footer and from
-   Account → Privacy / Support / Terms / Safety.
-
-PERMISSIONS (all optional, all on tap, never on launch):
-- **Location (When-In-Use):** only if you tap "use my location" to fill an
-  address. Decline and you can type the address instead.
-- **Camera / Photos:** only if you (as a student) add a profile or job photo.
-- The app does **not** use App Tracking Transparency — VANO does no tracking.
-
-WHY NO CHECKOUT (Guideline 3.1.3(e)): when a job IS booked live, the only card
-charge is a small booking fee for a real student coming to a real house — a
-physical, in-person service outside the app. Customers pay the student directly
-(cash/Revolut). There is no digital content, no IAP, and no credits.
-
-SIGN IN WITH APPLE: not applicable — on iOS the only login is a first-party
-email magic link (used by students only). No Google or third-party login is
-present in the iOS binary, so Guideline 4.8 does not apply.
-
-DELETE ACCOUNT / DATA: students can delete their account in-app
-(Account → "Already a helper? Sign in" → Delete my account). Customers have no account; to erase the phone /
-address / booking history they email vano1app@gmail.com or use Support →
-"Delete my data".
-
-CONTACT IF ANYTHING IS UNCLEAR: WhatsApp +353 89 981 7111, or vano1app@gmail.com
-— same-day response.
+Then paste everything between the lines into App Store Connect → App
+Review Information → Notes, and put the phone/code in the Sign-in fields.
 
 ---
 
-## Demo login for the student side — DECISION NEEDED before submitting
+## Sign-in information (App Review Information → Sign-in required: YES)
 
-Guideline 2.1 (App Completeness): *"If your app includes account-based
-features, provide a demo account."* The student side (`/student-account`:
-profile, payouts, delete account) is behind a texted 6-digit code the reviewer
-can't receive. Apple usually asks for it on the first pass. Three options:
+- **User name:** `0890000000`
+- **Password:** `000000`
 
-1. **Wire a secret-gated demo code (recommended, ~25 lines, server-side).**
-   In `supabase/functions/student-account-otp/index.ts`, after the helper is
-   resolved by phone: if `APPLE_REVIEW_DEMO_PHONE` matches this helper's phone
-   AND `APPLE_REVIEW_DEMO_CODE` is set, `send` returns success without
-   texting, and `verify` accepts that fixed code. Both secrets unset ⇒ dead
-   code. Needs: one dummy helper row on a number nobody owns, the two secrets in
-   Supabase → Edge Functions → Secrets, and a merge (667) — edge functions
-   deploy on merge. **Not written in this pass — it is an auth bypass on
-   production and the owner decides.**
-2. **Submit without it** and hand Apple the customer flow only (the notes above
-   already say no login is needed). Risk: a "provide demo credentials" reject
-   on the first pass, which costs a day and a resubmit, not a rewrite.
-3. **Ask Apple for a live text during review**: put "WhatsApp +353 89 981 7111
-   and we'll send you the student code within minutes" in the notes. Works only
-   if someone is awake and holding the phone when the reviewer tries (they
-   review at US hours; the owner is in India 7–25 Sep 2026).
+(It's a phone number and a one-time code, not a password — the notes below
+explain where to type them.)
 
-If you pick 1, hand the reviewer:
-- Helper demo phone: `<<DEMO PHONE>>`
-- Helper demo code:  `<<6-DIGIT CODE>>`
-- Path: Account → "Already a helper? Sign in" → enter the phone → enter the code.
-  The reviewer then sees the helper profile, payouts and **Delete my account**
-  (Guideline 5.1.1(v)).
+## Notes
 
-## Optional: full book→accept→code demo on TestFlight only
+VANO connects households in Galway, Ireland with ID-verified local students
+for same-day home help — cleaning, garden, dog walks, laundry and odd jobs.
 
-`VITE_APPLE_REVIEW_AUTOACCEPT` is reserved for a TestFlight-only simulation where
-a reviewer's booking auto-accepts and shows a 4-digit arrival code after ~10s,
-so the whole flow can be seen without a second device or a real student.
+**No account is needed for the customer side.** VANO is currently in
+"request mode" while we grow the student supply: instead of taking a card, the
+app captures the request and a real person rings the customer back to confirm
+a helper and the price. No card is charged, no account is created, and no
+in-app purchase exists. Payment for a completed job is made by the customer
+directly to the student (cash / bank app) for an in-person service outside the
+app — Guideline 3.1.3(e). Nothing is charged inside the app at any point.
 
-- It must be **OFF (unset) on the production web build** and only set on the
-  TestFlight/native build.
-- It must **never** auto-accept a real customer's booking — gate it on
-  `isNativeApp()` AND the flag AND a review-only marker.
-- It is **not implemented in this pass**: it touches the live booking/track
-  flow, which is one of the never-break flows, and in the current request
-  ("waitlist") mode no bookable job is created to accept. Decide with the owner
-  whether to (a) flip to live booking for launch, or (b) build the simulation,
-  before wiring it. Documented here so the intent isn't lost.
+HOW TO TEST — CUSTOMER (no login):
+1. Home screen: type "clean the kitchen for two hours" (or tap the mic and say
+   it). The app understands the job and shows what it heard.
+2. Tap "Send someone". The request sheet opens.
+3. Enter any first name and the phone number **0890000000**, then tap
+   "Send request".
+4. You'll see the confirmed screen: "We'll ring you back within the hour".
+   With this number nothing is sent to anyone — it is the review demo.
+5. "Meet the helpers" shows real ID-verified students. Legal pages are in the
+   footer and under Account → Privacy / Terms / Safety / Support.
+
+HOW TO TEST — STUDENT (helper) SIDE:
+1. Tap the Account tab → "Already a helper? Sign in".
+2. Enter the phone number **0890000000** → tap "Text me a code".
+3. Enter the code **000000**.
+4. You're in the helper's account: profile photo, jobs they do, payouts,
+   and at the bottom **"Delete my account"** (Guideline 5.1.1(v) — deletes
+   the account in-app, immediately, no email needed).
+
+PERMISSIONS (all optional, all requested on tap, never on launch):
+- Location (When In Use): only when you tap "use my location" to fill an
+  address. Decline and you can type the address.
+- Camera / Photos: only when a student chooses a profile photo.
+- No microphone permission is requested. The mic button uses on-device speech
+  to text where the system provides it and falls back to typing otherwise.
+- No App Tracking Transparency prompt — VANO does no tracking.
+
+SIGN IN WITH APPLE: not applicable. The only login in the iOS binary is a
+first-party one-time code sent to the student's phone (Guideline 4.8). No
+third-party login is present.
+
+ACCOUNT DELETION: students delete in-app (Account → Already a helper? Sign in
+→ Delete my account). Customers have no account; "Delete my data" under
+Account explains how to erase request history.
+
+CONTACT DURING REVIEW: WhatsApp +353 89 981 7111 or vano1app@gmail.com —
+same-day reply.
+
+---
+
+## After approval
+- Set `REVIEW_DEMO` to `false` (or delete it). The demo number then behaves
+  like any other number.
+- Optionally delete the "Apple Review" helper row.
