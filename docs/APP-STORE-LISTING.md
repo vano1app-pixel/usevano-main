@@ -25,9 +25,14 @@ Bundle id **com.vanojobs.app** · Display name **VANO**
 
 ## Promotional text (170 chars)
 Say what your home needs — a trusted local student comes and does it. Same-day
-in Galway. No card until a student says yes; you pay them directly.
+in Galway. No card, no account: send a request and a real person rings you back.
 
 ## Description
+*(Written for what the reviewer can actually reach in request mode. The live
+map, arrival code and card flow come back into this text the day
+`WAITLIST_MODE` flips to false — a listing that promises screens the reviewer
+can't open is a Guideline 2.3 "inaccurate metadata" rejection.)*
+
 VANO is the easy way to get a hand at home in Galway. Don't scroll a list of
 services or write a brief — just say what you need, out loud or in a line, and a
 trusted, ID-verified local student comes and does it.
@@ -37,12 +42,11 @@ trusted, ID-verified local student comes and does it.
 • Real students, not an agency — every helper is ID-verified, with a photo, a
   college and a rating. You see who's coming.
 • Same-day help — cleaning, garden, dog walks, laundry, odd jobs and more.
-• Safe by design — follow your helper on a live map on the way, and they show a
-  4-digit code at your door before they start.
-• Fair for everyone — no card until a student says yes, and you pay your student
-  directly. They keep what they earn.
-
-No account needed to ask for help. Students can sign up free in minutes.
+• No card, no account — send a request and a real person rings you back to
+  confirm your helper and the price. You pay your student directly; they keep
+  what they earn.
+• Students: sign up free in minutes, take small jobs near you between lectures,
+  and keep 100% of the job price.
 
 VANO is Galway-born and Irish-owned.
 
@@ -59,3 +63,7 @@ block into App Review Information → Notes.
 ## What's new (first release)
 The first VANO app — say what your home needs and a trusted local student comes
 and does it. Same-day in Galway.
+
+## Device support
+iPhone only, portrait only (set in the Xcode project on 2026-09-05). No iPad
+screenshots are needed and no landscape layout will be reviewed.

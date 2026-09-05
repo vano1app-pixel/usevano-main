@@ -6,13 +6,18 @@ TestFlight build except where noted.
 
 ---
 
-## 1. Add the privacy manifest to the Xcode target (REQUIRED)
-`ios/App/App/PrivacyInfo.xcprivacy` exists on disk but must be a member of the
-**App** target or it won't ship:
-- Open `ios/App/App.xcodeproj` in Xcode.
-- Right-click the `App` group → *Add Files to "App"…* → select
-  `PrivacyInfo.xcprivacy` → tick target **App** → Add.
-- Confirm it shows under *Build Phases → Copy Bundle Resources*.
+## 1. Privacy manifest — DONE (2026-09-05)
+`ios/App/App/PrivacyInfo.xcprivacy` is now a member of the **App** target
+(added to `project.pbxproj` by hand — Copy Bundle Resources). Verified by an
+`xcodebuild` simulator build: the file lands in `App.app/PrivacyInfo.xcprivacy`.
+Nothing to click in Xcode.
+
+Also done the same day, both in the repo:
+- **iPhone-only, portrait-only** (`TARGETED_DEVICE_FAMILY = 1`, one
+  orientation in `Info.plist`). No iPad screenshots, no landscape review.
+- **`viewport-fit=cover`** on the viewport meta in `index.html`. Without it
+  every `env(safe-area-inset-*)` in the CSS is 0 inside WKWebView, so the
+  header sat under the notch and the bottom tab bar under the home indicator.
 
 ## 2. Native push notifications (NOT wired — deliberate)
 The web push (VAPID) prompt is correctly hidden inside the native app, so iOS
@@ -49,6 +54,13 @@ export async function enableNativePush() {
 APNs branch keyed on the stored iOS token. This is an edge change — leave it for
 a dedicated PR with the owner's 667.
 
+## 2b. Student demo login for App Review — DECISION NEEDED
+See `docs/APP-STORE-REVIEW-NOTES.md` → "Demo login for the student side". If
+you choose to wire it: secrets `APPLE_REVIEW_DEMO_PHONE` (E.164, a number no
+student owns) and `APPLE_REVIEW_DEMO_CODE` (6 digits) in Supabase → Edge
+Functions → Secrets, plus one helper row on that phone. Rotate the code after
+the review.
+
 ## 3. Reviewer "auto-accept" env (optional, TestFlight only) — NOT wired
 `VITE_APPLE_REVIEW_AUTOACCEPT` is reserved but unimplemented. See
 `docs/APP-STORE-REVIEW-NOTES.md` → "Optional: full book→accept→code demo". It
@@ -76,9 +88,9 @@ Without it, a student tapping the magic link won't be returned into the app.
    listing from `docs/APP-STORE-LISTING.md`, the privacy answers from
    `docs/APP-STORE-PRIVACY-LABELS.md`, and the review notes from
    `docs/APP-STORE-REVIEW-NOTES.md`.
-3. **Build.** `npm run native:sync`, open Xcode (`npm run native:ios`), do step 1
-   above (privacy manifest), set the signing team, bump the build number,
-   Product → Archive → Distribute → App Store Connect.
+3. **Build.** `npm run native:sync`, open Xcode (`npm run native:ios`), set the
+   signing team, bump the build number, Product → Archive → Distribute → App
+   Store Connect. (Privacy manifest is already in the target.)
 4. **TestFlight on a real iPhone.** Install via TestFlight and actually test:
    - tap the **mic** and say a job (or confirm it falls back to typing),
    - tap **use my location** (location permission prompt appears on tap),

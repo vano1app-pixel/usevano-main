@@ -177,7 +177,10 @@ const App = () => {
       <SilentErrorBoundary source="BottomNav"><BottomNav /></SilentErrorBoundary>
       <Suspense fallback={null}>
         <SilentErrorBoundary source="WhatsAppFloatingButton"><WhatsAppFloatingButton /></SilentErrorBoundary>
-        <SilentErrorBoundary source="CookieConsentBanner"><CookieConsentBanner /></SilentErrorBoundary>
+        {/* Web-only: the cookie notice is a website convention — inside the
+            store app it just reads "this is a website in a box". Essential
+            cookies only, so nothing legal hangs on it. */}
+        {!isNativeApp() && <SilentErrorBoundary source="CookieConsentBanner"><CookieConsentBanner /></SilentErrorBoundary>}
         {/* Web-only: "install" / "add to home screen" prompts and the web
             service-worker auto-updater are meaningless (or would hang) inside
             the native app, which updates via the App Store / Play Store. */}

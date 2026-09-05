@@ -21,8 +21,9 @@ HOW TO REVIEW (no login needed):
 1. On the home screen, type e.g. "clean the kitchen for two hours" (or tap the
    mic and say it) → the app understands the job and asks only what's missing.
 2. Tap "Send someone" → the request sheet opens: phone, an optional note, and
-   "Send request". Enter any phone number and send — you'll see the confirmation
-   ("you'll get a name when a student says yes; no card, nothing charged").
+   "Send request". Enter a name and any Irish-format mobile (08x xxx xxxx) and
+   send — you'll see the confirmation ("We'll ring you back within the hour",
+   no card, nothing charged).
 3. Browse real ID-verified students under "Meet the helpers".
 4. Legal pages are reachable with no login from the footer and from
    Account → Privacy / Support / Terms / Safety.
@@ -43,7 +44,7 @@ email magic link (used by students only). No Google or third-party login is
 present in the iOS binary, so Guideline 4.8 does not apply.
 
 DELETE ACCOUNT / DATA: students can delete their account in-app
-(Account → Delete my account). Customers have no account; to erase the phone /
+(Account → "Already a helper? Sign in" → Delete my account). Customers have no account; to erase the phone /
 address / booking history they email vano1app@gmail.com or use Support →
 "Delete my data".
 
@@ -52,23 +53,36 @@ CONTACT IF ANYTHING IS UNCLEAR: WhatsApp +353 89 981 7111, or vano1app@gmail.com
 
 ---
 
-## Demo logins to set (only needed if the reviewer wants the STUDENT side)
+## Demo login for the student side — DECISION NEEDED before submitting
 
-Customers need no login. The student (helper) side is passwordless (email magic
-link), which a reviewer can't receive, so set up ONE of these before submitting:
+Guideline 2.1 (App Completeness): *"If your app includes account-based
+features, provide a demo account."* The student side (`/student-account`:
+profile, payouts, delete account) is behind a texted 6-digit code the reviewer
+can't receive. Apple usually asks for it on the first pass. Three options:
 
-- **Preferred — a magic-link session the reviewer can't start themselves.**
-  Since we can't hand over an inbox, either (a) leave the review to the no-login
-  household flow above (recommended — it exercises the app's core), or (b) set a
-  temporary review bypass so a named demo email signs in with a fixed code.
-  Placeholders to hand the reviewer if you enable a bypass:
-  - Helper demo email: `<<HELPER DEMO EMAIL>>`
-  - Helper demo code:  `<<6-DIGIT CODE>>`
+1. **Wire a secret-gated demo code (recommended, ~25 lines, server-side).**
+   In `supabase/functions/student-account-otp/index.ts`, after the helper is
+   resolved by phone: if `APPLE_REVIEW_DEMO_PHONE` matches this helper's phone
+   AND `APPLE_REVIEW_DEMO_CODE` is set, `send` returns success without
+   texting, and `verify` accepts that fixed code. Both secrets unset ⇒ dead
+   code. Needs: one dummy helper row on a number nobody owns, the two secrets in
+   Supabase → Edge Functions → Secrets, and a merge (667) — edge functions
+   deploy on merge. **Not written in this pass — it is an auth bypass on
+   production and the owner decides.**
+2. **Submit without it** and hand Apple the customer flow only (the notes above
+   already say no login is needed). Risk: a "provide demo credentials" reject
+   on the first pass, which costs a day and a resubmit, not a rewrite.
+3. **Ask Apple for a live text during review**: put "WhatsApp +353 89 981 7111
+   and we'll send you the student code within minutes" in the notes. Works only
+   if someone is awake and holding the phone when the reviewer tries (they
+   review at US hours; the owner is in India 7–25 Sep 2026).
 
-> A review bypass is NOT wired in this build. If you want the full
-> book → accept → 4-digit-code loop demonstrated, see
-> `VITE_APPLE_REVIEW_AUTOACCEPT` below and the note in
-> `docs/NATIVE-TODO.md`.
+If you pick 1, hand the reviewer:
+- Helper demo phone: `<<DEMO PHONE>>`
+- Helper demo code:  `<<6-DIGIT CODE>>`
+- Path: Account → "Already a helper? Sign in" → enter the phone → enter the code.
+  The reviewer then sees the helper profile, payouts and **Delete my account**
+  (Guideline 5.1.1(v)).
 
 ## Optional: full book→accept→code demo on TestFlight only
 
