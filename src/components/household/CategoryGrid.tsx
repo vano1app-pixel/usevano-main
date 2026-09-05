@@ -1164,7 +1164,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
           )}
         />
-        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">We'll text you a name when a student says yes · Outside Ireland? Add your country code (+44…)</p>
+        <p className="text-[13px] leading-relaxed text-muted-foreground mt-1.5">{WAITLIST_MODE ? "We'll ring this number within the hour" : "We'll text you a name when a student says yes"} · Outside Ireland? Add your country code (+44…)</p>
       </div>
 
       {/* Address — Eircode search or current location.

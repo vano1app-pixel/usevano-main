@@ -40,7 +40,7 @@ HOW TO TEST — CUSTOMER (no login):
 2. Tap "Send someone". The request sheet opens.
 3. Enter any first name and the phone number **0890000000**, then tap
    "Send request".
-4. You'll see the confirmed screen: "We're on it" — no card, nothing charged.
+4. You'll see the confirmed screen: "We'll ring you back within the hour" — no card, nothing charged.
    With this number nothing is sent to anyone — it is the review demo.
 5. "Meet the helpers" shows real ID-verified students. Legal pages are in the
    footer and under Account → Privacy / Terms / Safety / Support.
