@@ -1127,9 +1127,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           <p className="text-[15px] sm:text-base font-bold leading-snug text-foreground">
             {WAITLIST_FORM_HEADLINE}
           </p>
-          <p className="mt-1 text-[13px] leading-relaxed text-sage-dark font-semibold">
-            {WAITLIST_FORM_SUB}
-          </p>
+          {/* WAITLIST_FORM_SUB ("no card needed") is NOT repeated here — the
+              docked bar under the button already says it, and the trust chip
+              above says it too. Three times on one screen read as nervous. */}
         </div>
       )}
 
@@ -1557,7 +1557,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   ? [
                       { id: 'idv',   text: 'ID-verified student' },
                       { id: 'nocard', text: 'No card needed' },
-                      { id: 'queue', text: 'First in the queue' },
+                      { id: 'ring',  text: 'A real person rings you' },
                     ]
                   : [
                       { id: 'idv',   text: 'ID-verified student' },
@@ -2423,10 +2423,14 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 </p>
               )}
 
-              <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                A nearby helper usually replies in minutes
-              </p>
+              {/* Live-mode only: in waitlist mode no helper replies — a person
+                  rings — so this line would be the fake-urgency the owner bans. */}
+              {!WAITLIST_MODE && (
+                <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  A nearby helper usually replies in minutes
+                </p>
+              )}
 
               {/* Quiet WhatsApp alternative — the loud green recovery version
                   lives in the docked bar and only appears after a failed submit. */}

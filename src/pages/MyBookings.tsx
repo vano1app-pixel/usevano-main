@@ -5,6 +5,8 @@ import { Search, ArrowRight, CalendarCheck, Plus, RotateCw, WifiOff } from 'luci
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
+import { WAITLIST_MODE } from '@/lib/waitlist';
+import { teamWhatsAppHref } from '@/lib/contact';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { loadBookingMemory } from '@/lib/bookingMemory';
 import { isValidPhone } from '@/lib/validation';
@@ -186,6 +188,14 @@ const MyBookings: React.FC = () => {
                 ? "We couldn't find any bookings for that number."
                 : 'Enter the phone number you booked with to see your bookings here.'}
             </p>
+            {/* Waitlist mode: a request is not a booking, so it never shows up
+                here. Say so before they assume it got lost. */}
+            {WAITLIST_MODE && (
+              <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground/80">
+                Sent a request? It shows here once we've rung you and confirmed a helper.
+                In the meantime, <a href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! Checking on my request — ')}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-sage-dark underline underline-offset-2">message us on WhatsApp</a>.
+              </p>
+            )}
 
             <form onSubmit={handleLookup} className="mt-5 flex gap-2">
               <div className="relative flex-1">

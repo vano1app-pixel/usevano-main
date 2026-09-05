@@ -97,22 +97,34 @@ export const GeneralHelpField: React.FC = () => {
     return () => window.clearTimeout(id);
   }, [said]);
 
-  async function runParse(text: string): Promise<ParsedJob | null> {
+  // The parse that's currently in flight, keyed by the exact text. The blur
+  // parse and the Send tap race for the same sentence — Send must JOIN the
+  // running parse, never start a second one and never wait for the first to
+  // clear before it's allowed to act.
+  const inflightRef = useRef<{ t: string; p: Promise<ParsedJob | null> } | null>(null);
+
+  function runParse(text: string): Promise<ParsedJob | null> {
     const t = text.trim();
-    if (t.length < 3) return null;
-    if (parsed && parsedForRef.current === t) return parsed; // already understood this
+    if (t.length < 3) return Promise.resolve(null);
+    if (parsed && parsedForRef.current === t) return Promise.resolve(parsed); // already understood this
+    if (inflightRef.current?.t === t) return inflightRef.current.p;            // already being understood
     setParsing(true);
-    try {
-      const p = await parseJobRequest(t);
-      setParsed(p);
-      parsedForRef.current = t;
-      // Do NOT reset hours/tools here — any chip the customer already tapped
-      // during the live peek stays (official label wins, their answers keep).
-      track('hero_general_help_parse', { source: p.source, jobKey: p.jobKey, confidence: p.confidence });
-      return p;
-    } finally {
-      setParsing(false);
-    }
+    const p = (async () => {
+      try {
+        const r = await parseJobRequest(t);
+        setParsed(r);
+        parsedForRef.current = t;
+        // Do NOT reset hours/tools here — any chip the customer already tapped
+        // during the live peek stays (official label wins, their answers keep).
+        track('hero_general_help_parse', { source: r.source, jobKey: r.jobKey, confidence: r.confidence });
+        return r;
+      } finally {
+        if (inflightRef.current?.t === t) inflightRef.current = null;
+        setParsing(false);
+      }
+    })();
+    inflightRef.current = { t, p };
+    return p;
   }
 
   const resetAnswers = () => { setHours(null); setDurationTapped(false); setTools(null); };
@@ -134,8 +146,22 @@ export const GeneralHelpField: React.FC = () => {
     speech.start();
   };
 
+  // True from the Send tap until the sheet opens — the button shows it, so a
+  // tap that's waiting on the parse is visibly "working", not dead.
+  const [sending, setSending] = useState(false);
+
   const sendSomeone = async () => {
+    if (sending) return;
     haptic(12);
+    setSending(true);
+    try {
+      await sendSomeoneInner();
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendSomeoneInner = async () => {
     // Parse on send if they typed and never blurred, so we always book against
     // something real. Never blocks — worst case it's a low-confidence job.
     const p = parsed ?? await runParse(said);
@@ -378,15 +404,24 @@ export const GeneralHelpField: React.FC = () => {
             ))}
           </div>
 
+          {/* NEVER disabled while parsing. The tap that sends is the same tap
+              that blurs the textarea, and the blur starts the parse — so a
+              button disabled during parsing swallowed every first tap on a
+              phone ("I pressed it and nothing happened", 2026-09-05). The
+              handler joins the in-flight parse instead. */}
           <motion.button
             type="button"
             onClick={() => void sendSomeone()}
-            disabled={parsing}
+            onPointerDown={(e) => e.preventDefault()} // keep the tap; don't let it become a blur first
+            aria-busy={sending || undefined}
             whileTap={{ scale: 0.97 }}
-            className="ml-auto inline-flex h-12 items-center gap-2 rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground shadow-primary-glow transition-[background-color,opacity] duration-150 hover:bg-sage-dark disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="ml-auto inline-flex h-12 items-center gap-2 rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground shadow-primary-glow transition-[background-color,opacity] duration-150 hover:bg-sage-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            Send someone
-            <span aria-hidden="true" className="text-lg leading-none">→</span>
+            {sending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />One sec…</>
+            ) : (
+              <>Send someone<span aria-hidden="true" className="text-lg leading-none">→</span></>
+            )}
           </motion.button>
         </div>
       </div>

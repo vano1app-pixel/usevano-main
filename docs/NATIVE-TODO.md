@@ -6,13 +6,18 @@ TestFlight build except where noted.
 
 ---
 
-## 1. Add the privacy manifest to the Xcode target (REQUIRED)
-`ios/App/App/PrivacyInfo.xcprivacy` exists on disk but must be a member of the
-**App** target or it won't ship:
-- Open `ios/App/App.xcodeproj` in Xcode.
-- Right-click the `App` group → *Add Files to "App"…* → select
-  `PrivacyInfo.xcprivacy` → tick target **App** → Add.
-- Confirm it shows under *Build Phases → Copy Bundle Resources*.
+## 1. Privacy manifest — DONE (2026-09-05)
+`ios/App/App/PrivacyInfo.xcprivacy` is now a member of the **App** target
+(added to `project.pbxproj` by hand — Copy Bundle Resources). Verified by an
+`xcodebuild` simulator build: the file lands in `App.app/PrivacyInfo.xcprivacy`.
+Nothing to click in Xcode.
+
+Also done the same day, both in the repo:
+- **iPhone-only, portrait-only** (`TARGETED_DEVICE_FAMILY = 1`, one
+  orientation in `Info.plist`). No iPad screenshots, no landscape review.
+- **`viewport-fit=cover`** on the viewport meta in `index.html`. Without it
+  every `env(safe-area-inset-*)` in the CSS is 0 inside WKWebView, so the
+  header sat under the notch and the bottom tab bar under the home indicator.
 
 ## 2. Native push notifications (NOT wired — deliberate)
 The web push (VAPID) prompt is correctly hidden inside the native app, so iOS
@@ -49,6 +54,31 @@ export async function enableNativePush() {
 APNs branch keyed on the stored iOS token. This is an edge change — leave it for
 a dedicated PR with the owner's 667.
 
+## 2b. App Store review demo — WIRED (2026-09-05), switch it on before submitting
+Server-side, one number, behind a kill switch (`supabase/functions/_shared/reviewDemo.ts`).
+Apple reviews the exact binary that ships, so the demo can't be a build flag;
+it's keyed on the demo phone and only alive while the secret is on.
+
+**Secrets** (Supabase → Edge Functions → Secrets):
+```
+REVIEW_DEMO=true              # on for the review, off (or deleted) after
+REVIEW_DEMO_PHONE=+353890000000   # optional; this is the hard-coded default
+```
+
+**Demo helper row** (SQL Editor, run once). `is_available=false` keeps it out
+of dispatch, the public helper count and the "Meet the helpers" faces:
+```sql
+insert into household_helpers (name, phone, email, city, status, is_available, id_verified, student_email_verified)
+values ('Apple Review', '+353890000000', 'apple-review@vanojobs.com', 'Galway', 'approved', false, true, true);
+```
+
+**What the reviewer gets with 089 000 0000:**
+- Customer: "Send request" → confirmed screen. No WhatsApp/SMS to you, no row.
+- Helper: Account → "Already a helper? Sign in" → phone → code **000000** →
+  profile / payouts / **Delete my account**.
+
+With `REVIEW_DEMO` unset, both functions behave exactly as before.
+
 ## 3. Reviewer "auto-accept" env (optional, TestFlight only) — NOT wired
 `VITE_APPLE_REVIEW_AUTOACCEPT` is reserved but unimplemented. See
 `docs/APP-STORE-REVIEW-NOTES.md` → "Optional: full book→accept→code demo". It
@@ -69,21 +99,43 @@ Without it, a student tapping the magic link won't be returned into the app.
 ---
 
 ## The human clicks to ship (in order)
-1. **Apple Developer Program — $99/yr.** Enrol at developer.apple.com (needs the
-   business/individual identity). Everything below waits on this.
-2. **App Store Connect — create the app record.** New App → name **VANO**,
-   bundle id **com.vanojobs.app**, primary language English (Ireland). Paste the
-   listing from `docs/APP-STORE-LISTING.md`, the privacy answers from
-   `docs/APP-STORE-PRIVACY-LABELS.md`, and the review notes from
+1. **Apple Developer Program — $99/yr.** developer.apple.com → Enrol.
+   Everything below waits on this. Allow 24–48h for approval.
+2. **Xcode → sign in.** Xcode → Settings → Accounts → + → your Apple ID.
+3. **App Store Connect → create the app.** appstoreconnect.apple.com → My
+   Apps → + → New App: iOS, name **VANO**, primary language English (Ireland),
+   bundle id **com.vanojobs.app** (register it first at developer.apple.com →
+   Identifiers if it isn't offered), SKU `vano-ios`. Paste
+   `docs/APP-STORE-LISTING.md`, the privacy answers from
+   `docs/APP-STORE-PRIVACY-LABELS.md`, and the notes + sign-in fields from
    `docs/APP-STORE-REVIEW-NOTES.md`.
-3. **Build.** `npm run native:sync`, open Xcode (`npm run native:ios`), do step 1
-   above (privacy manifest), set the signing team, bump the build number,
-   Product → Archive → Distribute → App Store Connect.
-4. **TestFlight on a real iPhone.** Install via TestFlight and actually test:
-   - tap the **mic** and say a job (or confirm it falls back to typing),
-   - tap **use my location** (location permission prompt appears on tap),
-   - **book** (send a request) and see the confirmation,
-   - if you set a helper demo login, **accept** a job and see the **4-digit
-     code**.
-5. **Submit for Review** with the review notes pasted. Do NOT claim it's
-   submitted until you've pressed Submit — that's your action, not mine.
+4. **Supabase:** Auth → URL Configuration → Redirect URLs → add
+   `com.vanojobs.app://auth-callback`. Then the two demo secrets + the demo
+   helper row (section 2b) — do this BEFORE the reviewer opens the app.
+5. **Build the web bundle into the shell:** in the repo, `npm run native:sync`
+   (build + `cap sync`), then `npm run native:ios` to open Xcode.
+6. **Xcode:** select the **App** target → Signing & Capabilities → tick
+   "Automatically manage signing" → pick your Team. In General, set
+   Version `1.0`, Build `1` (bump Build on every upload). Top bar: choose
+   **Any iOS Device (arm64)** as the destination.
+7. **Archive:** Product → Archive. When the Organizer opens: Distribute App →
+   App Store Connect → Upload → Automatically manage signing → Upload.
+8. **TestFlight tab in App Store Connect:** the build appears after ~10 min of
+   processing. The export-compliance question is pre-answered (Info.plist).
+   Add yourself under Internal Testing → install the TestFlight app on your
+   iPhone → install VANO.
+9. **Test on the real phone, in this order:**
+   - Home loads, no white screen, header clears the notch, tab bar clears the
+     home indicator.
+   - Type a job → **one tap** on Send someone opens the sheet.
+   - Name + `0890000000` → Send request → confirmed screen. Check your
+     WhatsApp: nothing should arrive (demo).
+   - Account → Already a helper? Sign in → `0890000000` → `000000` → helper
+     account loads → scroll to Delete my account (don't press it).
+   - Account → Privacy, Terms, Support open.
+   - Tap "use my location" in the sheet → the iOS location prompt appears.
+10. **Screenshots:** on the same phone, per `docs/APP-STORE-SCREENSHOTS.md`
+    (6.9" set is enough for iPhone-only; 6.5" if ASC asks).
+11. **Submit:** App Store Connect → the 1.0 version → pick the TestFlight
+    build → fill age rating (4+) → Save → **Add for Review** → Submit.
+12. **After approval:** `REVIEW_DEMO=false`.

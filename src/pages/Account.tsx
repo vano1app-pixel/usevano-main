@@ -58,8 +58,11 @@ const Account: React.FC = () => {
 
   const links: { label: string; to?: string; href?: string; icon: React.ElementType }[] = [
     { label: 'Your bookings', to: '/bookings', icon: CalendarCheck },
-    { label: 'Become a helper', to: '/join', icon: UserPlus },
-    { label: 'Helper account — photo, payouts & profile', to: '/student-account', icon: UserCog },
+    // Two doors for students, worded from the customer's side of the counter:
+    // one to apply, one to get back in. "Helper account — photo, payouts &
+    // profile" meant nothing to a homeowner and looked like their own account.
+    { label: 'Become a helper — students earn €22/hr', to: '/join', icon: UserPlus },
+    { label: 'Already a helper? Sign in', to: '/student-account', icon: UserCog },
     { label: 'Chat to us on WhatsApp', href: `${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! ')}`, icon: MessageCircle },
     { label: 'Support', to: '/support', icon: LifeBuoy },
     { label: 'Delete my data', to: '/support', icon: Trash2 },

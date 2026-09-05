@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 import { signAccountToken, ACCOUNT_TOKEN_TTL_SECONDS, DEVICE_TOKEN_TTL_SECONDS } from "../_shared/accountToken.ts";
+import { isReviewDemoPhone, REVIEW_DEMO_OTP } from "../_shared/reviewDemo.ts";
 
 // The SMS gate on /student-account (phone-gate hardening, July 2026).
 //
@@ -224,6 +225,25 @@ serve(async (req) => {
     const acctRows = () =>
       supabase.from('helper_email_otps').select('id, code_hash, expires_at, attempts, created_at')
         .eq('helper_id', helper!.id).like('email', 'acct:%');
+
+    // ── App Store review demo (owner ask 2026-09-05) ─────────────────────────
+    // ONE hard-coded number, only while the REVIEW_DEMO secret is "true":
+    // "send" texts nothing, "verify" accepts 000000. See _shared/reviewDemo.ts.
+    // With the switch off (the default) this is dead code.
+    if (isReviewDemoPhone(helper.phone)) {
+      if (action === 'send') return json(200, { success: true, channel: 'sms' });
+      if (body.code?.trim() !== REVIEW_DEMO_OTP) return json(400, { error: 'That code is incorrect. Try again.' });
+      const account_token = await signAccountToken(helper.id);
+      const device_token = await signAccountToken(helper.id, DEVICE_TOKEN_TTL_SECONDS);
+      return json(200, {
+        success: true,
+        account_token,
+        helper_id: helper.id,
+        expires_at_ms: Date.now() + ACCOUNT_TOKEN_TTL_SECONDS * 1000,
+        device_token,
+        device_expires_at_ms: Date.now() + DEVICE_TOKEN_TTL_SECONDS * 1000,
+      });
+    }
 
     if (action === 'send') {
       const e164 = normalizeIrishPhone(helper.phone);
