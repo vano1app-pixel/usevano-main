@@ -14,6 +14,7 @@ import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
 import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { COLLEGES, STUDY_YEARS } from '@/lib/colleges';
 import { prepareJoinPhoto } from '@/lib/safeImage';
+import { isGeneralHelp, GENERAL_HELP_CHECKLIST, GENERAL_HELP_LABEL } from '@/lib/generalHelp';
 import logo from '@/assets/logo.png';
 
 // ── Profile sheet data ─────────────────────────────────────────────────────────
@@ -55,8 +56,15 @@ interface Booking {
   customer_address: string;
   price_estimate_cents: number | null;
   /** direct_pay (July 2026): the customer pays the helper the full price
-   *  directly — 100%. helper_pay_base_cents is the legacy escrow payout base. */
-  booking_data?: { helper_pay_base_cents?: number; direct_pay?: boolean } | null;
+   *  directly — 100%. helper_pay_base_cents is the legacy escrow payout base.
+   *  note + extra_label ride the booking (see create-household-payment-checkout)
+   *  — general help reads them to show the customer's words + the marker. */
+  booking_data?: {
+    helper_pay_base_cents?: number;
+    direct_pay?: boolean;
+    note?: string | null;
+    extra_label?: string | null;
+  } | null;
   student_id: string | null;
   created_at: string;
 }
@@ -134,6 +142,12 @@ const StudentDashboard = () => {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
+  // Skip = a client-side "not now" that hides the offer for this session only.
+  // It is deliberately NOT a server decline/release (dispatch has no such path
+  // and inventing one is out of scope) — the job stays available and returns
+  // on refresh, so nothing is claimed or given away.
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
+  const skipJob = (id: string) => { haptic(6); setSkipped(prev => new Set(prev).add(id)); };
 
   // Availability toggle — only shown when the user has a linked household_helpers row
   const [helperId, setHelperId] = useState<string | null>(null);
@@ -910,32 +924,42 @@ const StudentDashboard = () => {
             {/* Available jobs tab */}
             {tab === 'available' && (
               <div className="pb-10">
-                {availableJobs.length === 0 ? (
+                {availableJobs.filter(j => !skipped.has(j.id)).length === 0 ? (
                   <EmptyState
                     icon={<Inbox size={24} strokeWidth={1.5} />}
                     title="All quiet for now"
-                    message="New jobs near you land here the moment they're booked. Keep alerts on to be first."
+                    message="Small jobs near you land here the moment they're booked. Keep alerts on to be first."
                   />
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {availableJobs.map((job, i) => (
+                    {availableJobs.filter(j => !skipped.has(j.id)).map((job, i) => {
+                      // General help = a house that didn't pick a job. Show a
+                      // friendly title, their own words, and the rooms they'll
+                      // start with, so the student isn't guessing on arrival.
+                      const general = isGeneralHelp(job);
+                      const said = (job.booking_data?.note ?? '').trim();
+                      // Their sentence, stripped of the "Start with: …" prefix
+                      // the hero prepends (the rooms render as chips below).
+                      const words = general
+                        ? (said.match(/“([^”]+)”/)?.[1] ?? '').trim()
+                        : '';
+                      return (
                       <motion.div
                         key={job.id}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
                         transition={{ delay: Math.min(i, 8) * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="flex flex-col h-full rounded-2xl border border-border/60 bg-background p-4"
                       >
                         <div className="flex items-start justify-between gap-3 mb-3">
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              {CATEGORY_ICONS[job.category] && (
-                                <span className="text-muted-foreground flex-shrink-0">
-                                  {CATEGORY_ICONS[job.category]}
-                                </span>
-                              )}
+                              <span className="text-muted-foreground flex-shrink-0">
+                                {general ? <Sparkles size={13} /> : CATEGORY_ICONS[job.category]}
+                              </span>
                               <span className="text-sm font-semibold text-foreground">
-                                {CATEGORY_LABELS[job.category] ?? job.category}
+                                {general ? GENERAL_HELP_LABEL : (CATEGORY_LABELS[job.category] ?? job.category)}
                               </span>
                               {job.is_express && (
                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-express-orange/10 text-express-orange border border-express-orange/20">
@@ -944,6 +968,7 @@ const StudentDashboard = () => {
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground">
+                              {general && <span className="text-foreground/50">They didn’t pick a job · </span>}
                               {formatDate(job.scheduled_date)}{job.time_slot ? ` · ${SLOT_LABELS[job.time_slot]}` : ''}
                             </p>
                           </div>
@@ -956,25 +981,50 @@ const StudentDashboard = () => {
                               <span className="text-lg font-bold text-foreground tabular-nums">
                                 €{Math.floor(earnCentsFor(job) / 100)}
                               </span>
-                              <span className="text-[10px] text-muted-foreground font-medium">you keep</span>
+                              <span className="text-[10px] text-muted-foreground font-medium">to you</span>
                             </span>
                           )}
                         </div>
+
+                        {/* General help: their words + the rooms to start with. */}
+                        {general && words && (
+                          <p className="text-sm text-foreground/80 italic leading-snug mb-2">“{words}”</p>
+                        )}
+                        {general && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {GENERAL_HELP_CHECKLIST.map(room => (
+                              <span key={room} className="text-[11px] font-medium bg-secondary text-foreground/70 rounded-full px-2 py-0.5">
+                                {room}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
                           <MapPin size={11} className="flex-shrink-0" />
                           <span className="truncate">{job.customer_address}</span>
                         </div>
-                        <button
-                          onClick={() => void acceptJob(job.id)}
-                          disabled={accepting === job.id}
-                          className="mt-auto w-full h-11 rounded-xl bg-sage text-white font-semibold text-sm transition-[background-color,opacity] duration-150 hover:bg-sage-dark disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
-                        >
-                          {accepting === job.id ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : helperIdVerified === false ? 'Verify your ID to accept' : 'Accept job'}
-                        </button>
+                        <div className="mt-auto flex items-center gap-2">
+                          <button
+                            onClick={() => skipJob(job.id)}
+                            disabled={accepting === job.id}
+                            className="h-11 px-4 rounded-xl border border-border/70 text-foreground/60 font-semibold text-sm transition-colors duration-150 hover:bg-secondary disabled:opacity-50 active:scale-[0.98]"
+                          >
+                            Skip
+                          </button>
+                          <button
+                            onClick={() => void acceptJob(job.id)}
+                            disabled={accepting === job.id}
+                            className="flex-1 h-11 rounded-xl bg-sage text-white font-semibold text-sm transition-[background-color,opacity] duration-150 hover:bg-sage-dark disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
+                          >
+                            {accepting === job.id ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : helperIdVerified === false ? 'Verify your ID to accept' : 'Take it'}
+                          </button>
+                        </div>
                       </motion.div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

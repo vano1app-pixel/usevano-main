@@ -14,6 +14,11 @@ export const ClosingCta: React.FC = () => {
     track('closing_cta_tap');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     document.getElementById('book')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+    // Drop the reader straight into the "Send someone" field so the closing
+    // ask lands on the same front door the hero opens with.
+    const focusField = () => document.getElementById('general-help-input')?.focus({ preventScroll: true });
+    if (reduced) focusField();
+    else window.setTimeout(focusField, 520);
   };
 
   return (
@@ -25,10 +30,10 @@ export const ClosingCta: React.FC = () => {
       <div className="relative max-w-md mx-auto">
         <p className="eyebrow text-white/40 before:bg-white/25 mb-3">Ready when you are</p>
         <h2 className="display-lg text-white text-balance mb-3">
-          Book help in 30 seconds
+          You don’t have to pick a job.
         </h2>
         <p className="text-white/70 text-sm sm:text-base mb-8 text-pretty leading-relaxed">
-          Same-day in Galway. You only pay once a helper says yes.
+          Same-day in Galway. A local student comes for a few hours and starts. You only pay once they say yes.
         </p>
         <a
           href="#book"
@@ -36,7 +41,7 @@ export const ClosingCta: React.FC = () => {
           className="inline-flex h-[52px] items-center gap-2 rounded-full bg-primary px-8 text-base font-semibold text-primary-foreground shadow-primary-glow hover:bg-sage-dark active:scale-[0.97] transition-[transform,background-color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
           <Zap className="w-4 h-4" aria-hidden="true" />
-          Pick a job — takes a minute
+          Send someone
         </a>
       </div>
     </section>

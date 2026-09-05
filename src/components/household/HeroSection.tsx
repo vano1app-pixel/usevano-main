@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import { CategoryGrid } from './CategoryGrid';
+import { GeneralHelpField } from './GeneralHelpField';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ReviewBadges } from './ReviewBadges';
 import { HelperFacePile } from './HelperFacePile';
@@ -11,13 +12,13 @@ import { teamWhatsAppHref } from '@/lib/contact';
 import { track } from '@/lib/track';
 
 /**
- * Hero = one job: get a tile tapped. Minimal + warm build — one calm
- * social-proof row (Trustpilot + live presence as matching glass chips), a warm
- * heading, the six tap tiles glowing at centre under an amber halo
- * (CategoryGrid renders them + the wizard booking sheet), one gentle
- * reassurance line, and the WhatsApp door beneath. Tap-ONLY because the first
- * real bookings came from tiles + WhatsApp — the search bar brought none, so
- * it's gone; "Anything else" opens the sheet's describe-it page instead.
+ * Hero = one idea: you don't have to pick a job. The house is a bit much, so
+ * you say what's going on (or nothing) and a local student comes for a couple
+ * of hours. The "Send someone" general-help field is the front door and the
+ * only loud button; the six category tiles sit BELOW it as the quieter "or
+ * choose a specific job" path (CategoryGrid still owns the one booking sheet,
+ * which the field opens by event). WhatsApp stays as the human door, quieter
+ * than the primary action. Real approved-helper faces carry the trust.
  */
 
 export const HeroSection: React.FC = () => {
@@ -63,94 +64,71 @@ export const HeroSection: React.FC = () => {
           <ReferralWelcomeBanner />
         </div>
 
-        {/* The trust chips own the opener (Trustpilot + Google) — the old
-            helpers-online pill was removed so they get the room. */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-4 lg:mb-8 flex flex-row flex-wrap items-center justify-center gap-2"
-        >
-          <ReviewBadges inline />
-        </motion.div>
-
-        {/* Heading — the mom test (one plain sentence that says WHAT this is
-            and WHO comes; a stranger's mam should get it instantly). The
-            signature gold underline draws under the differentiator. */}
-        <motion.h1
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="display-lg text-foreground text-balance tracking-tight text-[1.75rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.8rem] mb-5 sm:mb-4"
-        >
-          {/* "at home" dropped 2026-07-23 (owner): the Business temp-staff
-              tile means shops book here too — the promise is the student. */}
-          Get help from a{' '}
-          <span className="relative inline-block">
-            trusted local student
-            <motion.span
-              aria-hidden="true"
-              className="absolute left-0 right-0 -bottom-1 h-[3px] rounded-full bg-gold/90 origin-left"
-              initial={{ scaleX: 0, opacity: 0 }}
-              animate={{ scaleX: 1, opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            />
-          </span>.
-        </motion.h1>
-
-        {/* Low-key location line under the heading — where + when, no badge.
-            Small and muted so it reads as a quiet reassurance, not a tag. */}
+        {/* Quiet location line — where + when, small and muted, above the
+            headline so the first thing read is "near me, soon". */}
         <motion.p
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-4 sm:mb-3 flex items-center justify-center gap-1.5 text-[12.5px] sm:text-sm font-medium text-foreground/55"
+          transition={{ delay: 0.06, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-3 flex items-center justify-center gap-1.5 text-[12.5px] sm:text-sm font-medium text-foreground/55"
         >
           <MapPin className="h-3.5 w-3.5 text-sage" aria-hidden="true" />
           Same-day in Galway
         </motion.p>
 
-        {/* Desktop-only subline: on a monitor the lone headline floated in
-            cream and the page read half-finished — one plain sentence gives
-            the hero mass and states the whole promise (tap → a vetted student
-            does it). Hidden on phones, where the tight stack already works. */}
+        {/* Headline — the feeling, not a feature. A tired homeowner should read
+            their own week in it. Bricolage display, tight tracking, big scale. */}
+        <motion.h1
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="display-lg text-foreground text-balance tracking-tight text-[2rem] leading-[1.05] sm:text-5xl sm:leading-[1.02] lg:text-[3.9rem] mb-3 sm:mb-4"
+        >
+          The house is a bit much.
+        </motion.h1>
+
+        {/* One subline — states the whole promise: you don't brief a job, a
+            named local student just comes and starts. */}
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.14, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="hidden sm:block text-base lg:text-lg text-foreground/70 max-w-2xl mx-auto mb-7 lg:mb-9"
+          className="text-[15px] sm:text-lg text-foreground/70 text-balance max-w-xl mx-auto mb-7 sm:mb-8"
         >
-          Tap what you need done — an ID-verified student does the job.
+          You don’t have to pick a job. A local student comes for a few hours and starts.
         </motion.p>
 
-        {/* The one front door — white search bar at centre under a warm amber
-            halo (two-stop gold→amber) so it glows as the focal point. */}
+        {/* The front door — the "text a person" general-help field. It opens
+            the existing booking sheet (custom, 2 hours) with these words
+            prefilled; it carries its own amber halo as the focal point. */}
         <motion.div
-          className="relative"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ delay: 0.18, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         >
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[240%] rounded-full blur-3xl"
-            style={{ background: 'radial-gradient(ellipse at center, hsl(43 92% 62% / 0.20), hsl(28 90% 60% / 0.10) 45%, transparent 68%)' }}
-          />
-          <div className="relative z-10">
-            {/* Phone-only micro-instruction (2026-07-24): the desktop subline
-                is hidden on phones, which left the phone hero with NO "what
-                do I do" line at all — a slow first-timer just saw five white
-                cards. One quiet line, attached to the grid (not the headline)
-                so it doesn't crowd the top the way the old phone copy did. */}
-            <p className="sm:hidden text-[13px] font-medium text-foreground/60 mb-2.5">
-              Tap the job — an ID-verified student does it today
-            </p>
-            <CategoryGrid />
-          </div>
+          <GeneralHelpField />
         </motion.div>
 
-        {/* Real approved-helper faces — social proof right under the bar. */}
+        {/* One quiet trust row under the action — Trustpilot + Google, not a
+            stack of badges. */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.24, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-5 flex flex-row flex-wrap items-center justify-center gap-2"
+        >
+          <ReviewBadges inline />
+        </motion.div>
+
+        {/* Real approved-helper faces — social proof right under the action. */}
         <HelperFacePile />
+
+        {/* The tiles are GONE (owner call 2026-09-04: the bubble is the whole
+            front door — you say what you want, we ask only what's missing).
+            CategoryGrid stays mounted HEADLESS so it still owns the one booking
+            sheet the bubble opens by event — no tiles rendered, no second
+            pipeline. */}
+        <CategoryGrid showTiles={false} />
 
         {/* The WhatsApp door — it converted real customers, so it earns a spot
             on the hero, quiet but visible. A person books it for you. Since
@@ -165,10 +143,10 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          className="mt-4 sm:mt-6 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-[#25D366]/40 bg-[#25D366]/[0.08] px-4 py-2 sm:px-5 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold text-[#128a45] hover:bg-[#25D366]/15 transition-[background-color,transform] duration-150 active:scale-[0.98]"
+          className="mt-6 sm:mt-7 inline-flex items-center gap-1.5 text-[13px] sm:text-sm font-medium text-foreground/55 hover:text-[#128a45] transition-colors duration-150"
         >
-          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
-          Prefer to text, or need something else? WhatsApp us — we sort it for you
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-[#25D366] flex-shrink-0" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4 0-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.9 2.2c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.8 1.4 1.8 2.2 1.2 1.1 2.3 1.4 2.6 1.6.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.3.6.4 0 .1 0 .7-.2 1.4Z"/></svg>
+          Rather text a person? WhatsApp us
         </motion.a>
 
         {/* Phone-only follow row — the nav carries these buttons from md up,

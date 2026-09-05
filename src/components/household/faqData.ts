@@ -5,6 +5,14 @@
  */
 export const FAQS = [
   {
+    q: 'What if I don’t know what I need?',
+    a: 'That’s the normal way to book. Tap “Send someone”, say what’s going on in a line (or nothing at all), and a student comes for a couple of hours. By default they start with the kitchen, bathroom, floors and bins — tell them anything different and they’ll follow that instead. You’re not writing a brief; you’re asking a neighbour for a hand.',
+  },
+  {
+    q: 'Who actually comes?',
+    a: 'A named, ID-verified local student — you see their photo, college and rating before they arrive, follow them on a live map on the way, and they can only start once you give them the 4-digit code on your screen. Every check is at vanojobs.com/safety.',
+  },
+  {
     q: 'Is it safe to have a student in my home?',
     a: 'Every student is ID-verified before their first job — a government photo-ID plus a live selfie check. You see their photo, name and rating before they arrive, you can follow them on a live map on the way, and they can only start the job with the 4-digit code shown on your screen. Every check is spelled out at vanojobs.com/safety.',
   },

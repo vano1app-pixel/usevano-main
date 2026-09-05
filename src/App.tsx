@@ -40,6 +40,7 @@ const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const Cover = lazyWithRetry(() => import("./pages/Cover"));
 const Safety = lazyWithRetry(() => import("./pages/Safety"));
 const HelperTerms = lazyWithRetry(() => import("./pages/HelperTerms"));
+const Support = lazyWithRetry(() => import("./pages/Support"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const ServiceLanding = lazyWithRetry(() => import("./pages/ServiceLanding"));
 const BlogIndex = lazyWithRetry(() => import("./pages/BlogIndex"));
@@ -73,6 +74,10 @@ const PwaUpdateToast = lazy(() =>
 
 import type { TransitionVariant } from "./components/PageTransition";
 import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
+// Eager (NOT lazy): when the device is offline the lazy chunk can't be fetched,
+// so the one screen whose whole job is to handle offline must already be in the
+// bundle.
+import { NativeOfflineGate } from "@/components/NativeOfflineGate";
 import { captureReferralFromUrl } from "@/lib/referral";
 import { SERVICE_LANDING_SLUGS } from "@/content/serviceSlugs";
 import { isNativeApp } from "@/lib/platform";
@@ -113,6 +118,8 @@ const App = () => {
       <SilentErrorBoundary source="ScrollProgress"><ScrollProgress /></SilentErrorBoundary>
       <SilentErrorBoundary source="ScrollToTop"><ScrollToTop /></SilentErrorBoundary>
       <SilentErrorBoundary source="InAppBrowserBanner"><InAppBrowserBanner /></SilentErrorBoundary>
+      {/* Native-only branded offline screen (4.2) — no-op on web. */}
+      <SilentErrorBoundary source="NativeOfflineGate"><NativeOfflineGate /></SilentErrorBoundary>
       <Toaster />
       <Sonner />
       {/* No transform/perspective here: any non-none perspective would make this
@@ -150,6 +157,9 @@ const App = () => {
                 FAQ, the sheet's trust row, helper profiles + accept emails. */}
             <Route path="/safety" element={<P><Safety /></P>} />
             <Route path="/helper-terms" element={<P><HelperTerms /></P>} />
+            {/* Help desk — contact channels + the household and helper FAQs.
+                Public and crawlable, like /safety; no auth, no redirect. */}
+            <Route path="/support" element={<P><Support /></P>} />
             {/* Per-service SEO landing pages (/cleaning-galway…). Slugs only —
                 the copy stays in the lazy ServiceLanding chunk. */}
             {SERVICE_LANDING_SLUGS.map((slug) => (

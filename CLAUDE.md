@@ -62,6 +62,121 @@ Hard-learned specifics (July 2026 — a real applicant hit a black screen):
 
 Run `typecheck` + `test` before pushing.
 
+## Deploying
+Vercel builds the frontend; merging to main is the deploy. Treat main as
+production — a bad merge is live on vanojobs.com within a minute.
+
+**THE 667 RULE — the gate on everything below.** Nothing merges to main and
+nothing deploys to production unless Ayush has typed the exact word **667**
+in that session. Not "ship it", not "merge it", not "yes" — the literal
+667. He wrote this rule precisely because ordinary approving phrases are
+too easy to say by accident and too easy for a model to over-read, so
+treating any of them as equivalent defeats the whole point.
+- **Always fine without 667**, no permission needed: localhost, `npm run
+  dev`, branches, commits, pushing a branch, opening a PR, the Vercel
+  preview URL. That's the entire working loop — the rule costs nothing
+  until the moment something becomes public.
+- **Needs 667**: merging any PR to main, `git push` to main, promoting a
+  Vercel deploy to production, and anything that pushes live edge functions
+  or migrations (merging to main does both — see below).
+- **If asked to merge or deploy without it: stop and ask.** Do the whole
+  job right up to the merge — branch pushed, PR open, preview verified —
+  then say what's ready and wait for 667. Don't merge and mention it after;
+  don't treat the request itself as the approval.
+- One 667 covers that session's discussed deploy, not a standing licence
+  for every future merge.
+
+- **Never push straight to main.** Work on a `claude/<task>` branch (the
+  existing convention — `claude/sos-system-brainstorm-h08lov`,
+  `claude/referral-system-setup-wsz9jp`), open a PR, **open the Vercel
+  preview URL and click the thing you changed**, and only then merge. The
+  preview is a real deploy of that branch — it is the cheapest place to
+  catch a white screen. For anything touching the never-break flows above,
+  the preview URL is what the Playwright drive should run against.
+- **Merging to main also deploys the edge functions** —
+  `.github/workflows/supabase-deploy.yml` pushes every function in
+  `supabase/functions/` to the LIVE Supabase project on merge. There is no
+  preview environment for them: the Vercel preview runs branch frontend
+  code against **production** functions and **production** data. So a
+  frontend+function change can look fine in preview and only break once
+  merged. Migrations are deliberately NOT auto-applied (run them by hand in
+  the SQL Editor, before the merge that needs them).
+- **Build config is pinned in `vercel.json`, not the dashboard** —
+  `"framework": "vite"`, `"outputDirectory": "dist"`,
+  `"buildCommand": "npm run build"`. Keep them; and if the Vercel project
+  settings ever disagree (a preset of "Other", or an output dir that isn't
+  `dist`), fix the dashboard to match the file. The failure mode is nasty
+  and silent: the **build goes green and production 404s**, because Vercel
+  publishes an empty/wrong directory while `vercel.json`'s SPA rewrite
+  (`/((?!api/).*)` → `/index.html`) has no `index.html` to serve. Green
+  checkmark ≠ working site — always load the deployed URL.
+  `npm run build` is Vite **plus** `scripts/prerender-content.ts`; if the
+  build command is ever narrowed to `vite build`, the ~31 prerendered SEO
+  pages and `llms.txt` silently stop shipping.
+- **TWO Vercel projects are linked to this ONE repo** (confirmed
+  2026-08-27) — `vanojobs.com` (`prj_bjW3TmBP…`) and `usevano-main`
+  (`prj_jykGK6fU…`), both under the team `vano1app-pixels-projects`. **Only
+  `vanojobs.com` serves the domain and is production.** Every deploy link,
+  preview URL, env var and dashboard setting in this file means THAT
+  project; `usevano-main` is a leftover that also builds on every push and
+  is safe to ignore (or delete). Editing the wrong one is the classic way
+  to "fix" an env var and see nothing change. `www.vanojobs.com` must be
+  attached to it too — `vercel.json` 308-redirects www → apex, and that
+  rule only ever fires if Vercel is answering for www in the first place.
+- **Env vars live in Vercel** (Project → Settings → Environment
+  Variables), not in the repo — only `.env.example` is committed, and
+  `.env.local` stays untracked. Add a new var to Vercel for Production
+  *and* Preview, or the preview build silently differs from production.
+  Vite inlines env at BUILD time, so changing a var needs a redeploy, not
+  just a save.
+- **Nothing `VITE_`-prefixed may hold a secret.** Every `VITE_*` value is
+  baked into the JS bundle and readable by anyone who opens devtools —
+  that's why the live set is only publishable/public things (Supabase URL +
+  publishable key, PostHog write-only token, Sentry DSN, Maps key, site
+  URL, trader details). Server secrets — `STRIPE_SECRET_KEY`,
+  `STRIPE_WEBHOOK_SECRET`, `TWILIO_AUTH_TOKEN`, `RESEND_API_KEY`,
+  `GEMINI_API_KEY`, `VAPID_PRIVATE_KEY`, the service-role key — live in
+  **Supabase → Edge Functions → Secrets** and are never prefixed, never on
+  Vercel, never read by client code. If a secret ever needs a `VITE_`
+  prefix to work, the logic is on the wrong side of the wire.
+
+### PostHog — session replay only (wired 2026-08-27, hard-won)
+An evening was lost to this; the details below are the whole map.
+- **Project 257745, EU cloud.** Dashboard `https://eu.posthog.com/project/
+  257745`, replay at `/replay`. The INGEST host is
+  **`https://eu.i.posthog.com`** — note the `i.`. `eu.posthog.com` is the
+  dashboard and accepts no data, silently. US and EU are separate clouds
+  with separate databases: an EU token posted to the US endpoint is not
+  recognised and nothing anywhere reports an error.
+- **The host comes from the CODE, not an env var.** `src/main.tsx` defaults
+  `api_host` to the EU ingest URL and `VITE_POSTHOG_HOST` is deliberately
+  NOT set in Vercel. That variable existed once, pointing at US, and
+  silently beat the code default — env vars always win. Don't re-add it;
+  with no variable there is only one place the region can be wrong.
+  `VITE_POSTHOG_KEY` (Production) is the only PostHog var.
+- **REPLAY ONLY — the events feed reading zero is CORRECT, not broken.**
+  `autocapture`, `capture_pageview` and `capture_pageleave` are all false
+  and `track.ts` no longer mirrors to PostHog (owner call: the Supabase
+  `analytics_events` table is the funnel source of truth). So **judge this
+  by the Replay tab and nothing else.** PostHog's onboarding wizard waits
+  for an EVENT to confirm installation — that check can never pass here.
+  Don't "fix" the silence by turning capture back on.
+- **Never run `npx @posthog/wizard`.** posthog-js is already a dependency
+  and already initialised; the wizard adds a SECOND `init()` with
+  autocapture back on and a US host.
+- **`window.posthog` is undefined and that is expected** — the ES-module
+  build assigns no global (only PostHog's script snippet does). Debug from
+  the Network tab: filter `posthog`, look for POSTs to `eu.i.posthog.com`.
+- **`respect_dnt: true`**, so a browser with Do Not Track on is never
+  recorded. This is the usual reason "my own test didn't show up".
+- **Masking is TWO settings, and one is not enough.** `maskAllInputs`
+  covers input VALUES only; rrweb records text rendered outside an
+  `<input>` in the clear — the callback screen printing the customer's
+  phone was a real live leak (fixed #414). `maskTextClass: 'ph-mask'` is
+  pinned in main.tsx, and **any element rendering a phone, address or
+  customer name as text must carry `className="ph-mask"`.** Grep for
+  `ph-mask` before adding a new one. Privacy.tsx §7 promises this.
+
 ## The one booking path (important — don't add a second)
 There is exactly ONE customer booking flow — **DIRECT-PAY since July 2026**
 (`booking_data.direct_pay === true`; bookings without the flag are legacy
@@ -534,12 +649,19 @@ verified-but-never-accepted, a Garda-vetting opt-in nobody actioned.
   **`application_data`** (not a column) and, before this, was read by NOTHING —
   same dead-field shape `own_kit` had. `garda_optin_unactioned` surfaces it.
 
-**The helper bench — faces at the decision moment (2026-08-18):**
-`components/household/HelperBench.tsx` + `src/lib/helperBench.ts`, mounted on
-the booking sheet's FORM step. The sheet used to answer "who's coming to my
-house?" with an abstraction ("An ID-verified student, matched to your job")
-while every other trust surface led with a face. It now shows up to 4 real
-matching helpers. **THE HONESTY RULE:** the bench query is the mirror of
+**The helper bench — faces at the decision moment (2026-08-18; UNMOUNTED
+2026-09-05):** `components/household/HelperBench.tsx` + `src/lib/helperBench.ts`.
+Built to answer "who's coming to my house?" with faces instead of an
+abstraction. **`SheetHelperProof` now owns that moment** (shipped on main in
+the slim-the-sheet pass, placed at the money line), so the bench came off the
+screen rather than give one slimmed sheet two face piles — it stays in the
+repo, unmounted, like `PhotoCropper`. The difference worth knowing:
+SheetHelperProof shows homepage-visible faces and makes NO per-job matching
+claim ("students like these"); the bench queries the real dispatch offer pool
+and can truthfully say "N ID-verified students in Galway can take this job".
+If that stronger claim is ever wanted, give SheetHelperProof the bench's
+query — don't mount both. `_shared/helperMatch.ts` is live either way
+(dispatch imports it). **THE HONESTY RULE:** the bench query is the mirror of
 dispatch's offer query — `_shared/helperMatch.ts` is the one definition
 (`dispatch-household-job` imports it) and `src/lib/helperBench.ts` mirrors it
 under `helperBench.test.ts`, so the faces shown are provably the pool that

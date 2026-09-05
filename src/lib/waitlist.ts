@@ -17,15 +17,32 @@
 export const WAITLIST_MODE = true;
 
 /** What the docked button says instead of "Book Cleaning · €44". */
-export const WAITLIST_CTA = 'Request this job';
+export const WAITLIST_CTA = 'Send request';
 
-/** The headline on the confirmation screen. Honest, not apologetic — a
- *  waiting list reads as demand, and "we're picky about who we send" is a
- *  better reason to wait than "we're not ready". */
-export const WAITLIST_TITLE = 'Coming soon in your area';
+/**
+ * THE PROMISE (owner call 2026-09-04, reframed from the old "we'll ring you
+ * back within the hour" to what actually happens on the customer's side: they
+ * hear a NAME once a student says yes, and no card is taken meanwhile).
+ *
+ * Kept deliberately honest to the mechanism: submitting pages the OWNER
+ * (waitlist-request → notify-admin), who lines a student up — there is no
+ * auto-dispatch to students yet, so the copy must NOT claim "we're texting
+ * students". It promises the outcome (a name, no card), not a fake pipeline.
+ * One place, every surface reads from it. Change the words here if the promise
+ * ever changes, rather than let a surface say something untrue.
+ */
+export const WAITLIST_FORM_HEADLINE = "You'll get a name the moment a student says yes.";
+
+/** Sits under the headline. True in waitlist mode: there is no checkout at
+ *  all, so no card is asked for and nothing is charged. */
+export const WAITLIST_FORM_SUB = 'No card yet — nothing’s charged.';
+
+/** The headline on the confirmation screen — the thing that's about to happen,
+ *  not a wait. */
+export const WAITLIST_TITLE = "We're on it";
 
 export const WAITLIST_BODY =
-  "We're signing up more helpers in Galway right now — we won't take your booking until we're sure someone brilliant can actually turn up. You're on the list, and we'll text you the moment we can cover it.";
+  "We're lining up a student for you now. You'll get a name the moment someone says yes — no card, nothing charged. Nobody free right this second? Message us on WhatsApp and we'll sort it there.";
 
 /** The pre-filled WhatsApp text on the "text us" button. */
 export function waitlistWhatsAppText(job: string, when: string, area: string): string {

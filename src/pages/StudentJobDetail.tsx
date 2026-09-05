@@ -983,7 +983,10 @@ const StudentJobDetail = () => {
               <div className="flex items-center gap-2 text-sm text-foreground">
                 <Phone size={14} className="text-muted-foreground flex-shrink-0" />
                 <a href={`tel:${booking.customer_phone}`} className="underline underline-offset-2">
-                  {formatPhone(booking.customer_phone)}
+                  {/* ph-mask: the CUSTOMER's phone, on a helper's screen —
+                      helpers are identified in replay, so their recordings
+                      are the likeliest place a customer number would surface. */}
+                  <span className="ph-mask">{formatPhone(booking.customer_phone)}</span>
                 </a>
               </div>
             )}

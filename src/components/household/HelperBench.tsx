@@ -14,6 +14,21 @@ import {
 } from '@/lib/helperBench';
 
 /**
+ * UNMOUNTED since 2026-09-05 — read this before remounting.
+ * `SheetHelperProof` (shipped on main in the "slim the booking sheet" pass)
+ * now occupies this exact moment, placed at the money line, and the sheet was
+ * deliberately trimmed in the same pass. Two face piles in one sheet is worse
+ * than either alone, so this stayed in the repo and came off the screen.
+ * The two differ in ONE way worth knowing: SheetHelperProof shows
+ * homepage-visible faces and deliberately makes no per-job matching claim
+ * ("students like these"); this component queries the REAL dispatch offer pool
+ * (category + city + id_verified + available) and can therefore say "N
+ * ID-verified students in Galway can take this job" truthfully. If that
+ * stronger claim is ever wanted, the honest path is to give SheetHelperProof
+ * this query — not to mount both.
+ * `_shared/helperMatch.ts` stays live regardless: dispatch-household-job
+ * imports it, and src/lib/helperBench.ts mirrors it under a lock-step test.
+ *
  * The faces behind "an ID-verified student" — shown INSIDE the booking sheet,
  * at the moment the customer is deciding whether to trust a stranger with
  * their home. Everything else on the site already leads with a face (homepage

@@ -1,0 +1,50 @@
+-- The column the kit feature ("we'll bring the mower", 2026-07-30) always
+-- assumed existed — and never did.
+--
+-- WHAT BROKE. That change shipped `own_kit` reads/writes across four edge
+-- functions and two pages, but no migration was ever written for the column.
+-- Edge functions auto-deploy on merge; migrations are manual by policy. So the
+-- code went live against a database that had no `own_kit`, and every query
+-- naming it died with Postgres 42703 (undefined_column).
+--
+-- The worst of it was `find-helper-by-phone`, whose SELECT list carries
+-- `own_kit`: the whole query failed, so /student-account texted a code,
+-- verified it, and then dead-ended on "Verified — but we could not load your
+-- profile." That is one of the gates CLAUDE.md marks never-break, and it was
+-- broken for EVERY helper from 2026-07-30 until this migration — five weeks,
+-- silently, because a 500 there looks like a network blip and students just
+-- give up. It surfaced only when a real applicant (ID-verified, live, ready to
+-- work) WhatsApp'd the owner on 2026-09-01 asking why he couldn't reach his
+-- account. Function logs for his session show two clean OTP verifies each
+-- immediately followed by a 500 from find-helper-by-phone.
+--
+-- Also unblocked by this column:
+--   • update-helper-profile — patches own_kit when the caller sends it, so the
+--     /verify-helper boost screen and the /student-account kit editor 500'd
+--     for any helper who actually ticked gear.
+--   • dispatch-household-job — the HARD own_kit filter on the city and
+--     platform-wide helper queries. It only runs when a booking carries
+--     `kit_required`, so ordinary jobs dispatched fine; kit jobs could not
+--     match anyone. (The one such booking on record — a €32 lawn-mower garden
+--     job, 2026-08-04 — was cancelled with no helper ever assigned. Its logs
+--     are past retention, so that is consistent with this bug, not proven.)
+--
+-- text[] and nullable to match the shape the code already reads and writes:
+-- `normalizeKit` drops unrecognised slugs, and dispatch treats NULL as "owns
+-- nothing" — a helper who has not answered simply doesn't match kit jobs, and
+-- the gap-recruit nudge invites them to tick the box. Slugs are the stored
+-- data contract from HELPER_KIT_OPTIONS (src/lib/kit.ts); renaming one
+-- silently unmatches every helper who picked it.
+--
+-- No backfill: checked live before writing this — 27 helper rows, zero with a
+-- non-empty own_kit anywhere in application_data. Nobody's answer is lost.
+
+ALTER TABLE public.household_helpers
+  ADD COLUMN IF NOT EXISTS own_kit text[];
+
+-- Deliberately NO grants. Anon reads are column-scoped (20260610) and this
+-- column is never selected by the client: helpers see their kit only through
+-- find-helper-by-phone, and write it only through update-helper-profile —
+-- both service-role. Nothing customer-facing renders it, so anon has no
+-- reason to read it, and the phone-gated editors never touch the table
+-- directly, so `authenticated` has no reason to write it.

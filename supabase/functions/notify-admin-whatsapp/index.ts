@@ -291,17 +291,19 @@ serve(async (req) => {
       // owner rings them back. Everything the sheet gathered is here so the
       // call can open with "you wanted a 2-hour clean in Salthill on Tuesday"
       // rather than "what were you after?".
-      const { customer_phone, category, size_label, when_label, city, area, note, price_euros } = body;
-      subject = `📋 Waitlist request — ${cat(category)} in ${area || city || 'Galway'}`;
+      const { customer_phone, customer_name, category, size_label, when_label, city, area, note, price_euros } = body;
+      const who = typeof customer_name === 'string' && customer_name.trim() ? customer_name.trim() : null;
+      subject = `📋 CALL BACK${who ? ` ${who}` : ''} within the hour — ${cat(category)}`;
       message =
-        `📋 *Waitlist request* — no helper available, they're waiting on you.\n` +
+        `📋 *Callback request* — the site promised a call WITHIN THE HOUR.\n` +
+        `Name: ${who ?? 'not given'}\n` +
+        `Phone: ${customer_phone ?? 'not provided'}\n` +
         `Job: ${cat(category)}${size_label ? ` (${size_label})` : ''}\n` +
         `When they wanted it: ${when_label || 'flexible'}\n` +
-        `Area: ${area || city || 'Galway'}\n` +
-        `Phone: ${customer_phone ?? 'not provided'}\n` +
+        `Area: ${area || city || 'not given — ask on the call'}\n` +
         (note ? `Notes: ${note}\n` : '') +
-        (price_euros ? `Would have been: €${price_euros}\n` : '') +
-        `\n☎️ Ring them back — they asked and nobody could take it.`;
+        (price_euros ? `Quoted: €${price_euros}\n` : '') +
+        `\n☎️ Ring ${who ?? 'them'} now — the clock started when they pressed send.`;
       contactPhone = customer_phone;
 
     } else if (type === 'helper_sos') {

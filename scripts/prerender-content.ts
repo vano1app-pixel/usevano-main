@@ -556,6 +556,7 @@ const llmsTxt = [
   "## Key pages",
   `- [Book same-day home help](${ORIGIN}/)`,
   `- [Join as a helper](${ORIGIN}/join)`,
+  `- [Help & Support](${ORIGIN}/support)`,
   `- [Terms of Service](${ORIGIN}/terms)`,
   `- [Privacy Policy](${ORIGIN}/privacy)`,
   "",
