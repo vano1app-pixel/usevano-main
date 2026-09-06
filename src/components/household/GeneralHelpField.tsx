@@ -449,7 +449,7 @@ export const GeneralHelpField: React.FC = () => {
       </div>
 
       <p className="relative z-10 mt-3 text-center text-[13px] font-medium text-foreground/55">
-        No card until a student says yes
+        Small fee held now, charged when a helper claims
         <span className="mx-1.5 text-foreground/25" aria-hidden="true">·</span>
         from <span className="font-semibold text-foreground/80">€22/hr</span>
       </p>

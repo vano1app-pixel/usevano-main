@@ -282,6 +282,12 @@
   html.native-app body {
     padding-top: env(safe-area-inset-top, 0px);
   }
+  /* The top nav is position:fixed, so the body pad above doesn't move it —
+     without this it sits under the clock / Dynamic Island (seen on the
+     iPhone 17 Pro simulator, 2026-09-06). */
+  html.native-app header.fixed.top-0 {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
 
   /* Skeleton shimmer — one soft light sweep across loading placeholders.
      Put it on the skeleton container; the grey blocks stay as they are.
