@@ -239,10 +239,12 @@ const Terms = () => (
               rights if the work is not done properly — are completely unaffected.
             </li>
             <li>
-              <strong>Before the job is done, you can still cancel.</strong> Cancel before your
-              Helper has started and you pay nothing; anything already charged is refunded. If you
-              cancel partway through a job that has already begun at your request, you pay only for
-              what was actually done up to that point.
+              <strong>Before the job is done, you can still cancel.</strong> Cancel before a
+              Helper has claimed your job and you pay nothing — the hold on your card for VANO&apos;s
+              booking fee is released. Once a Helper has claimed the job, VANO&apos;s booking fee is
+              charged and kept if you cancel, because a Helper has already committed their time; you
+              owe nothing for the job itself. If you cancel partway through a job that has already
+              begun at your request, you pay only for what was actually done up to that point.
             </li>
             <li>
               For a booking scheduled far enough ahead that the job has not happened yet, your
@@ -265,8 +267,9 @@ const Terms = () => (
               older bookings paid through VANO, we refund the job payment itself.
             </li>
             <li>
-              If a Helper never accepts your booking, or the job is cancelled before it happens,
-              anything charged to your card is refunded automatically.
+              If no Helper claims your booking, or you cancel before one does, the hold on your card
+              is released automatically and nothing is charged. After a Helper has claimed the job,
+              VANO&apos;s booking fee is kept on cancellation (section 8).
             </li>
             <li>
               <strong>Vano Cover:</strong> if you add Vano Cover to a booking (a small optional
