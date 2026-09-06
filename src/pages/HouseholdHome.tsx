@@ -13,6 +13,7 @@ import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { BlogTeaser } from '@/components/household/BlogTeaser';
 import { ScrollCue } from '@/components/household/ScrollCue';
 import { Reveal } from '@/components/Reveal';
+import { isNativeApp } from '@/lib/platform';
 
 /**
  * The hero search bar (type what you need) is the one front door. Real helper
@@ -52,6 +53,16 @@ const HouseholdHome: React.FC = () => {
       {/* Light hero (July 2026) — the nav uses its standard light treatment. */}
       <HouseholdNav />
 
+      {/* Inside the store app the home is the PRODUCT, not the marketing
+          site: hero (speak/type → post) and the real helper faces. The social
+          proof band, FAQ, closing CTA, blog teaser and SEO footer are web-only
+          — to a reviewer they read as a website in a box (Guideline 4.2). */}
+      {isNativeApp() ? (
+        <main>
+          <HeroSection />
+          <div id="helpers" className="relative pb-24"><HelperCards /></div>
+        </main>
+      ) : (
       <main>
         <HeroSection />
         <ActivityTicker />
@@ -90,6 +101,7 @@ const HouseholdHome: React.FC = () => {
         <Reveal><BlogTeaser /></Reveal>
         <HouseholdFooter />
       </main>
+      )}
     </div>
   );
 };

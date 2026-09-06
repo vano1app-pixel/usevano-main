@@ -13,6 +13,7 @@ import { SilentErrorBoundary } from "@/components/SilentErrorBoundary";
 import { AuthProvider } from "@/hooks/useAuthContext";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { BottomNav } from "@/components/household/BottomNav";
+import { getMode } from "@/lib/mode";
 // Homepage is eager (NOT lazy): it's the landing route every visitor hits
 // first and we prerender it to static HTML. If it were a lazy chunk, the SPA
 // boot would swap the prerendered page for the Suspense fallback (a blank
@@ -23,6 +24,7 @@ import HouseholdHome from "./pages/HouseholdHome";
 
 const MyBookings = lazyWithRetry(() => import("./pages/MyBookings"));
 const Account = lazyWithRetry(() => import("./pages/Account"));
+const Find = lazyWithRetry(() => import("./pages/Find"));
 const TrackBooking = lazyWithRetry(() => import("./pages/TrackBooking"));
 const StudentDashboard = lazyWithRetry(() => import("./pages/StudentDashboard"));
 const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"));
@@ -47,6 +49,11 @@ const BlogIndex = lazyWithRetry(() => import("./pages/BlogIndex"));
 const BlogPost = lazyWithRetry(() => import("./pages/BlogPost"));
 const GlossaryIndex = lazyWithRetry(() => import("./pages/GlossaryIndex"));
 const GlossaryTerm = lazyWithRetry(() => import("./pages/GlossaryTerm"));
+
+/** Render on the website; inside the native shell send the route home. */
+function webOnly(el: React.ReactElement): React.ReactElement {
+  return isNativeApp() ? <Navigate to="/" replace /> : el;
+}
 
 const WhatsAppFloatingButton = lazy(() =>
   import("./components/WhatsAppFloatingButton").then((m) => ({
@@ -129,8 +136,11 @@ const App = () => {
         <RouteErrorBoundary routeKey={location.pathname}>
         <Suspense fallback={<RouteSuspenseFallback />}>
           <Routes location={location} key={location.pathname}>
-            <Route path="/" element={<P><HouseholdHome /></P>} />
+            {/* Inside the app, "/" follows the saved mode: a helper lands on
+                Find, a buyer on the post screen. The website is unchanged. */}
+            <Route path="/" element={isNativeApp() && getMode() === 'helper' ? <Navigate to="/find" replace /> : <P><HouseholdHome /></P>} />
             <Route path="/home" element={<P><HouseholdHome /></P>} />
+            <Route path="/find" element={<P><Find /></P>} />
             <Route path="/bookings" element={<P><MyBookings /></P>} />
             <Route path="/account" element={<P><Account /></P>} />
             <Route path="/track/:bookingId" element={<P><TrackBooking /></P>} />
@@ -139,14 +149,18 @@ const App = () => {
             <Route path="/accepted" element={<P><JobAccepted /></P>} />
             <Route path="/student-account" element={<P><StudentAccount /></P>} />
             <Route path="/join" element={<P><JoinAsHelper /></P>} />
-            <Route path="/partners" element={<P><Partners /></P>} />
-            <Route path="/refer" element={<P><Refer /></P>} />
+            {/* Web-only surfaces: partner program, referral page, admin
+                console, SEO landings, blog, glossary. In the store app they
+                are either the website in a box (4.2) or an admin screen in a
+                customer app — so they go home. */}
+            <Route path="/partners" element={webOnly(<P><Partners /></P>)} />
+            <Route path="/refer" element={webOnly(<P><Refer /></P>)} />
             <Route path="/verify-helper" element={<P><VerifyHelper /></P>} />
             {/* Legacy orphan — nothing links here. Redirect to the live helper
                 home instead of rendering the stale HelperProfile page. */}
             <Route path="/helper/profile" element={<Navigate to="/student-account" replace />} />
             <Route path="/helpers/:id" element={<P><HelperPublicProfile /></P>} />
-            <Route path="/household-admin" element={<P><HouseholdAdmin /></P>} />
+            <Route path="/household-admin" element={webOnly(<P><HouseholdAdmin /></P>)} />
             <Route path="/auth" element={<P><Auth /></P>} />
             <Route path="/privacy" element={<P><Privacy /></P>} />
             <Route path="/terms" element={<P><Terms /></P>} />
@@ -163,12 +177,12 @@ const App = () => {
             {/* Per-service SEO landing pages (/cleaning-galway…). Slugs only —
                 the copy stays in the lazy ServiceLanding chunk. */}
             {SERVICE_LANDING_SLUGS.map((slug) => (
-              <Route key={slug} path={`/${slug}`} element={<P><ServiceLanding /></P>} />
+              <Route key={slug} path={`/${slug}`} element={webOnly(<P><ServiceLanding /></P>)} />
             ))}
-            <Route path="/blog" element={<P><BlogIndex /></P>} />
-            <Route path="/blog/:slug" element={<P><BlogPost /></P>} />
-            <Route path="/glossary" element={<P><GlossaryIndex /></P>} />
-            <Route path="/glossary/:slug" element={<P><GlossaryTerm /></P>} />
+            <Route path="/blog" element={webOnly(<P><BlogIndex /></P>)} />
+            <Route path="/blog/:slug" element={webOnly(<P><BlogPost /></P>)} />
+            <Route path="/glossary" element={webOnly(<P><GlossaryIndex /></P>)} />
+            <Route path="/glossary/:slug" element={webOnly(<P><GlossaryTerm /></P>)} />
             <Route path="*" element={<P><NotFound /></P>} />
           </Routes>
         </Suspense>

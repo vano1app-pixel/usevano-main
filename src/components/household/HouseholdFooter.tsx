@@ -9,6 +9,7 @@ import {
   teamMailtoHref,
 } from '@/lib/contact';
 import { traderIdentityLine } from '@/lib/legalEntity';
+import { isNativeApp } from '@/lib/platform';
 
 // Service landing pages — internal links so crawlers (and people) can reach
 // /cleaning-galway etc. from every page. Keep in step with
@@ -48,7 +49,29 @@ const FOOTER_LINK =
   'bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] hover:bg-[length:100%_1px] ' +
   'transition-[background-size,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]';
 
+// Inside the store app: legal links only. Blog, glossary, SEO landings and
+// social links are the website's business; in the binary they are exactly
+// the "website in a box" surfaces Apple rejects under 4.2.
+const APP_LINKS = [
+  { label: 'Support', href: '/support' },
+  { label: 'Safety',  href: '/safety' },
+  { label: 'Terms',   href: '/terms' },
+  { label: 'Privacy', href: '/privacy' },
+];
+
 export const HouseholdFooter: React.FC = () => {
+  if (isNativeApp()) {
+    return (
+      <footer className="px-6 pt-8 pb-28 text-center">
+        <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          {APP_LINKS.map(({ label, href }) => (
+            <li key={href}><Link to={href} className="text-sm font-medium text-foreground/60">{label}</Link></li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-foreground/45">© 2026 {traderIdentityLine()}</p>
+      </footer>
+    );
+  }
   return (
     <footer className="relative bg-navy text-white rounded-t-[2rem] sm:rounded-t-[3rem] px-4 pt-14 pb-28 md:pb-12">
       {/* Rounded-slab seam on top only (the bottom meets the screen edge) —

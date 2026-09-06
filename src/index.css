@@ -514,3 +514,7 @@
     scroll-snap-align: start;
   }
 }
+
+/* Horizontal chip rows (Find filters, chat chips): scroll, no bar. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
