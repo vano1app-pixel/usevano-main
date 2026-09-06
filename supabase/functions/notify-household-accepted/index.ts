@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isReviewDemoBooking } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
 import { releaseBookingMoney } from "../_shared/bookingMoney.ts";
@@ -201,6 +202,9 @@ serve(async (req) => {
     const { data: booking } = await bookingQuery.maybeSingle() as { data: Record<string, unknown> | null };
 
     if (!booking) return bad(404, 'Booking not found or not assigned to you');
+    // App Store review demo: claim-order already wrote the timeline row; no
+    // fee capture, no pay link, no text, no email.
+    if (isReviewDemoBooking(booking.booking_data)) return ok({ success: true, demo: true });
 
     // The assigned helper's user id: from the verified caller on the user path,
     // or from the booking row accept-job just claimed on the internal one-tap

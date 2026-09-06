@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Cron sweep for the biggest hands-off money hole: a PAID job whose helper
@@ -111,6 +112,7 @@ serve(async (_req) => {
     const pingCutoff = new Date(now - PING_MIN * 60 * 1000).toISOString();
     const { data: toPing } = await supabase.from('household_bookings')
       .select(cols)
+      .or(NOT_DEMO_FILTER)
       .in('status', ['accepted', 'on_way'])
       .not('paid_at', 'is', null)
       .not('accepted_at', 'is', null)
@@ -144,6 +146,7 @@ serve(async (_req) => {
     const graceCutoff = new Date(now - GRACE_MIN * 60 * 1000).toISOString();
     const { data: toRelease } = await supabase.from('household_bookings')
       .select(cols)
+      .or(NOT_DEMO_FILTER)
       .in('status', ['accepted', 'on_way'])
       .not('paid_at', 'is', null)
       .not('stalled_reminded_at', 'is', null)
@@ -213,6 +216,7 @@ serve(async (_req) => {
     const escalateCutoff = new Date(now - ESCALATE_MIN * 60 * 1000).toISOString();
     const { data: toEscalate } = await supabase.from('household_bookings')
       .select(cols)
+      .or(NOT_DEMO_FILTER)
       .in('status', ['accepted', 'on_way', 'pending'])
       .not('paid_at', 'is', null)
       .not('stalled_released_at', 'is', null)

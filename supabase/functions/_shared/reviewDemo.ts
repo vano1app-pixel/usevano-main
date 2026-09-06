@@ -90,3 +90,9 @@ export function isReviewDemoBooking(booking_data: unknown): boolean {
   if (!booking_data || typeof booking_data !== 'object') return false;
   return (booking_data as { demo?: unknown }).demo === true;
 }
+
+/** PostgREST filter that keeps demo rows OUT of a list query. Pass to
+ *  `.or(NOT_DEMO_FILTER)` on any household_bookings query a cron, sweep or
+ *  notifier runs; NULL booking_data (or no demo key) passes, demo:true does
+ *  not. Several .or() calls AND together in PostgREST, so it composes. */
+export const NOT_DEMO_FILTER = 'booking_data->>demo.is.null,booking_data->>demo.neq.true';

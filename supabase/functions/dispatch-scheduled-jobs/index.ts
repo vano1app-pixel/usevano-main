@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Cron (every 5 min) for book-ahead jobs. create-household-payment-checkout
@@ -81,6 +82,7 @@ serve(async (_req) => {
     const { data: due } = await supabase
       .from('household_bookings')
       .select('id, city, category, price_estimate_cents, scheduled_at, last_dispatched_at')
+      .or(NOT_DEMO_FILTER)
       .eq('status', 'pending')
       .is('student_id', null)
       .not('scheduled_at', 'is', null)
@@ -113,6 +115,7 @@ serve(async (_req) => {
     const { data: soon } = await supabase
       .from('household_bookings')
       .select('id, category, city, student_id, scheduled_at, scheduled_reminded_at')
+      .or(NOT_DEMO_FILTER)
       .in('status', ['accepted', 'on_way'])
       .not('student_id', 'is', null)
       .not('scheduled_at', 'is', null)

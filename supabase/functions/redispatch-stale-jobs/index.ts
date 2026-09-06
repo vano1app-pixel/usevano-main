@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Cron (every 15 min): finds live bookings whose offers have ALL expired and
@@ -34,6 +35,7 @@ serve(async (req) => {
     const { data: candidates, error } = await supabase
       .from('household_bookings')
       .select('id, city, category, scheduled_date, price_estimate_cents, booking_data, created_at')
+      .or(NOT_DEMO_FILTER)
       .eq('status', 'pending')
       .is('student_id', null)
       .gte('created_at', minCreated)
