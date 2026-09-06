@@ -12,6 +12,7 @@ need the owner's words **667** (merge/deploy) and **submit vano** (upload + subm
 - [ ] Privacy page + Info.plist strings match the code
 - [ ] `npm run typecheck` · `npm test` · `npm run lint` · `npm run build` all green
 - [ ] Simulator run: Post → Find → Claim → Job screen → Done, screenshots in `store/screens/`
+- [ ] `store/review-notes.md` + `store/demo-accounts.md` written
 - [ ] PR opened, Vercel preview clicked through
 
 ## B. Supabase (owner, dashboard) — BEFORE the reviewer opens the app
