@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { phonesMatch } from "../_shared/phoneMatch.ts";
 import { hasAccountAccess } from "../_shared/accountToken.ts";
+import { isReviewDemoHelperPhone } from "../_shared/reviewDemo.ts";
 
 // GDPR "right to erasure" for a household helper, from /student-account.
 // Auth: phone match + the account_token minted by student-account-otp
@@ -64,17 +65,24 @@ serve(async (req) => {
       return bad(401, 'Your secure session expired — verify your number again on the account page.');
     }
     if (helper.status === 'deleted') return ok({ deleted: true }); // idempotent
+    // App Store review demo: the reviewer is told to try this button. It must
+    // succeed on screen and change NOTHING, or the next reviewer can't sign in.
+    if (isReviewDemoHelperPhone(helper.phone)) return ok({ deleted: true, demo: true });
 
     // Guard 1 — active job in progress. Deleting mid-job would strand a paying
     // customer, so refuse until it's finished or cancelled. Bookings key the
     // helper as student_id (NOT assigned_helper_id — that column never
     // existed, so this guard silently passed on a query error and helpers
     // could delete mid-job). Fail CLOSED on a query error for the same reason.
-    const { count: activeJobs, error: activeErr } = await supabase
+    // Both guards key on the helper's AUTH user id — that is what
+    // household_bookings.student_id / household_payouts.student_id hold. (They
+    // compared household_helpers.id until 2026-09-06, so they never matched
+    // and silently passed.) No auth user ⇒ they can't have taken a job.
+    const { count: activeJobs, error: activeErr } = helper.user_id ? await supabase
       .from('household_bookings')
       .select('id', { count: 'exact', head: true })
-      .eq('student_id', helper.id)
-      .in('status', ACTIVE_JOB_STATUSES);
+      .eq('student_id', helper.user_id)
+      .in('status', ACTIVE_JOB_STATUSES) : { count: 0, error: null };
     if (activeErr) {
       console.error('[delete-helper-account] active-job guard failed', activeErr);
       return bad(500, 'Could not check your active jobs — try again in a minute.');
@@ -86,11 +94,11 @@ serve(async (req) => {
     // Guard 2 — unpaid earnings owed. Don't let a helper delete away money we
     // still owe them (and then wipe the Stripe account it would pay to).
     // household_payouts keys the helper as student_id too.
-    const { data: pendingPayouts, error: payoutsErr } = await supabase
+    const { data: pendingPayouts, error: payoutsErr } = helper.user_id ? await supabase
       .from('household_payouts')
       .select('amount_cents')
-      .eq('student_id', helper.id)
-      .eq('status', 'pending') as { data: Array<{ amount_cents: number }> | null; error: unknown };
+      .eq('student_id', helper.user_id)
+      .eq('status', 'pending') as { data: Array<{ amount_cents: number }> | null; error: unknown } : { data: [], error: null };
     if (payoutsErr) {
       console.error('[delete-helper-account] payout guard failed', payoutsErr);
       return bad(500, 'Could not check your pending earnings — try again in a minute.');
@@ -156,10 +164,16 @@ serve(async (req) => {
       return bad(500, 'Could not delete account');
     }
 
-    // Best-effort: delete the linked Supabase auth user (if any).
+    // Delete the linked Supabase auth user. Apple 5.1.1(v) means the ACCOUNT,
+    // not just the profile — so this is no longer best-effort. (The bookings /
+    // payouts FKs are ON DELETE SET NULL since migration 20260906100000, which
+    // is what used to make this fail quietly for any helper who took a job.)
     if (helper.user_id) {
-      try { await supabase.auth.admin.deleteUser(helper.user_id); }
-      catch (e) { console.warn('[delete-helper-account] auth user delete failed (non-fatal):', e); }
+      const { error: authErr } = await supabase.auth.admin.deleteUser(helper.user_id);
+      if (authErr) {
+        console.error('[delete-helper-account] auth user delete failed', authErr);
+        return bad(500, "Your profile is gone but the sign-in record wouldn't delete — WhatsApp us and we'll finish it by hand.");
+      }
     }
 
     return ok({ deleted: true });

@@ -10,6 +10,7 @@ import { ScrollCue } from './ScrollCue';
 import { SocialLinks } from './SocialLinks';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { track } from '@/lib/track';
+import { isNativeApp } from '@/lib/platform';
 
 /**
  * Hero = one idea: you don't have to pick a job. The house is a bit much, so
@@ -135,6 +136,7 @@ export const HeroSection: React.FC = () => {
             2026-07-24 it's ALSO the odd-job catch-all (the "Anything else" and
             Business tiles are parked): a job the five tiles don't name still
             has an obvious human door on the first screen. */}
+        {!isNativeApp() && (<>
         <motion.a
           href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need a hand with ')}`}
           target="_blank"
@@ -162,6 +164,7 @@ export const HeroSection: React.FC = () => {
           <span className="text-xs font-semibold tracking-wide text-foreground/55 whitespace-nowrap">Follow VANO</span>
           <SocialLinks variant="chip" className="flex" />
         </motion.div>
+        </>)}
       </div>
 
       <ScrollCue tone="dark" delay={1.2} />

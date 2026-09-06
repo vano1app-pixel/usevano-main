@@ -82,6 +82,7 @@ interface Booking {
   // Before/after job photos (uploaded via the job-photo function). Evidence
   // for Vano Cover/disputes + the customer's shareable before/after card.
   arrival_photo_url: string | null;
+  customer_photo_url?: string | null;
   finish_photo_url: string | null;
 }
 
@@ -488,7 +489,7 @@ const StudentJobDetail = () => {
       // — never select('*'): the row carries the customer's secret arrival_code
       // and this runs in the (losing) helper's browser.
       const { data: fresh } = await hdb.from('household_bookings')
-        .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, paid_at, booking_data, arrival_verified_at, job_ends_at, helper_finished_at, arrival_photo_url, finish_photo_url')
+        .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, paid_at, booking_data, arrival_verified_at, job_ends_at, helper_finished_at, arrival_photo_url, finish_photo_url, customer_photo_url')
         .eq('id', bookingId).maybeSingle();
       if (fresh) setBooking(fresh as Booking);
       setClaiming(false);
@@ -1202,6 +1203,17 @@ const StudentJobDetail = () => {
             job includes, or whether the clock matters: timed jobs deliver the
             booked hours, task jobs are simply done when the task is done.
             Hidden once the helper flags finished — its job is done too. */}
+        {/* The buyer's optional photo of the job (2026-09-06) — the helper
+            sees what they're walking into. Bounded thumbnail, never full-bleed. */}
+        {mine && booking.customer_photo_url && !isCancelled && (
+          <a href={booking.customer_photo_url} target="_blank" rel="noopener noreferrer" className="mb-4 flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-3 surface-float">
+            <img src={booking.customer_photo_url} alt="Photo of the job from the customer" className="h-16 w-16 flex-shrink-0 rounded-xl object-cover" loading="lazy" />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-foreground">The customer's photo</span>
+              <span className="block text-[12px] text-muted-foreground">Tap to open</span>
+            </span>
+          </a>
+        )}
         {mine && !isComplete && !isCancelled && !booking.helper_finished_at && (
           <div className="rounded-2xl border border-border/60 bg-background p-4 mb-4">
             <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
@@ -1843,9 +1855,16 @@ const StudentJobDetail = () => {
         </div>
       </main>
 
-      {/* Chat input — only once the job is yours */}
+      {/* Chat input — only once the job is yours. The chips are the usual
+          access messages (owner brief: chat is about access, keep it short);
+          a tap fills the box, it never sends on its own. */}
       {mine && !isComplete && !isCancelled && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
+          <div className="max-w-sm mx-auto mb-2 flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+            {['On my way', 'Outside now', 'Which door?', 'Running 5 min late'].map((t) => (
+              <button key={t} type="button" onClick={() => setDraft(t)} className="h-8 flex-shrink-0 rounded-full bg-secondary px-3 text-[12px] font-semibold text-foreground/80 active:scale-[0.97]">{t}</button>
+            ))}
+          </div>
           <div className="max-w-sm mx-auto flex items-center gap-2">
             <input
               type="text"

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveMoneyAction, releaseBookingMoney } from "../_shared/bookingMoney.ts";
 
@@ -130,6 +131,7 @@ serve(async (_req) => {
     const { data: abandoned } = await supabase
       .from('household_bookings')
       .select('id, category, customer_name, customer_email, stripe_payment_intent_id, booking_data')
+      .or(NOT_DEMO_FILTER)
       .eq('status', 'awaiting_payment')
       .is('paid_at', null)
       .lt('created_at', abandonCutoff)
@@ -174,6 +176,7 @@ serve(async (_req) => {
   const { data: bookings, error } = await supabase
     .from('household_bookings')
     .select('id, customer_name, customer_email, customer_phone, category, student_id, stripe_checkout_url, stripe_payment_intent_id, paid_at, payment_requested_at, booking_data, created_at')
+    .or(NOT_DEMO_FILTER)
     .eq('status', 'accepted')
     .is('paid_at', null)
     .order('created_at', { ascending: true })
@@ -399,6 +402,7 @@ serve(async (_req) => {
   const { data: releaseCandidates } = await supabase
     .from('household_bookings')
     .select('id, customer_name, customer_email, customer_phone, category, city, student_id, price_estimate_cents, payment_requested_at, scheduled_date, booking_data, stripe_payment_intent_id')
+    .or(NOT_DEMO_FILTER)
     .in('status', ['accepted', 'on_way'])
     .not('student_id', 'is', null)
     .is('paid_at', null)
@@ -507,6 +511,7 @@ serve(async (_req) => {
   const { data: cancelCandidates } = await supabase
     .from('household_bookings')
     .select('id, stripe_payment_intent_id, student_id, category, customer_name, customer_email')
+    .or(NOT_DEMO_FILTER)
     .is('paid_at', null)
     .in('status', ['pending', 'accepted', 'on_way'])
     .lt('created_at', cancelCutoff)

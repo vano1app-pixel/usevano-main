@@ -5,6 +5,7 @@ import { signAcceptToken } from "../_shared/acceptToken.ts";
 // Neighbourhood label — the board shows WHERE ROUGHLY, never the address
 // (owner call 2026-07-30: "not the exact house").
 import { approxAreaLabel } from "../_shared/serviceAreas.ts";
+import { isReviewDemoBooking, isReviewDemoHelperPhone } from "../_shared/reviewDemo.ts";
 
 // ── The open-jobs board (2026-07-30) ──────────────────────────────────────
 // Dispatch pings every eligible helper ONCE per round (SMS/WhatsApp/push) —
@@ -107,8 +108,17 @@ serve(async (req) => {
     // address and the customer_cancel path opens. So it NEVER goes in this
     // (unauthenticated) response. Kept server-side only, index-aligned with
     // `jobs`, purely to sign claim tokens for an eligible helper below.
-    const ids = ((rows ?? []) as Array<Record<string, unknown>>).map((r) => r.id as string);
-    const jobs: OpenJob[] = ((rows ?? []) as Array<Record<string, unknown>>).map((r) => {
+    // App Store review demo wall: the demo helper (and only the demo helper)
+    // sees demo bookings; a sessionless or real caller never does.
+    const helperIdForDemo = typeof body.helper_id === 'string' ? body.helper_id.trim() : '';
+    let demoViewer = false;
+    if (helperIdForDemo) {
+      const { data: hp } = await supabase.from('household_helpers').select('phone').eq('id', helperIdForDemo).maybeSingle() as { data: { phone: string | null } | null };
+      demoViewer = isReviewDemoHelperPhone(hp?.phone);
+    }
+    const visible = ((rows ?? []) as Array<Record<string, unknown>>).filter((r) => isReviewDemoBooking(r.booking_data) === demoViewer);
+    const ids = visible.map((r) => r.id as string);
+    const jobs: OpenJob[] = visible.map((r) => {
       const bd = (r.booking_data ?? {}) as Record<string, unknown>;
       const rep = (bd.customer_rep ?? null) as OpenJob['customer_rep'];
       return {

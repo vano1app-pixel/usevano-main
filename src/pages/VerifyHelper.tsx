@@ -11,6 +11,7 @@ import { haptic } from '@/lib/haptics';
 import { celebrateBooking } from '@/lib/celebrate';
 import { extractFnError } from '@/lib/fnError';
 import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
+import { isNativeApp } from '@/lib/platform';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
@@ -638,6 +639,10 @@ const VerifyHelper: React.FC = () => {
 
               {/* Optional extra — clearly fenced off from the free verification
                   above, so nobody thinks the €2 is needed to get jobs. */}
+              {/* NOT inside the store app: a cosmetic badge sold through Stripe
+                  in the binary is a digital good under Apple 3.1.1. The tick
+                  itself still renders for helpers who bought it on the web. */}
+              {!isNativeApp() && (<>
               <div className="flex items-center gap-2 pt-3" aria-hidden="true">
                 <span className="h-px flex-1 bg-border" />
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Optional — the blue tick</span>
@@ -676,6 +681,7 @@ const VerifyHelper: React.FC = () => {
                   </div>
                 )}
               </VerifyCard>
+              </>)}
 
               {/* Skip for now — verification is part of joining, but a helper
                   can leave and come back. The two-tap confirm makes sure they

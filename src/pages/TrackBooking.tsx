@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { extractFnError } from '@/lib/fnError';
+import { cancelRule } from '@/lib/orderStatus';
 import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert, Check, BadgeCheck, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -425,7 +426,7 @@ function LiveJourneyLayer({
 }
 
 const STATUS_STEPS: { key: UpdateStatus; label: string; detail: string }[] = [
-  { key: 'accepted',    label: 'Booking confirmed',  detail: 'A helper has accepted your job'   },
+  { key: 'accepted',    label: 'Helper on the way',  detail: 'A helper has claimed your job — you have a name'   },
   { key: 'on_way',      label: 'Helper on the way',  detail: 'Your helper is heading to you'    },
   { key: 'arrived',     label: 'Helper arrived',     detail: 'They are at your address'         },
   { key: 'in_progress', label: 'Job in progress',    detail: 'Work has started'                 },
@@ -974,11 +975,17 @@ const TrackBooking = () => {
         // cancel block silently unmounted on the next poll.
         throw new Error(await extractFnError(data, error, 'Please WhatsApp us on +353 89 981 7111'));
       }
-      const wasPaid = !!booking?.paid_at;
+      const res = (data ?? {}) as { refunded?: boolean; hold_released?: boolean; fee_kept?: boolean };
       setBooking((b) => b ? { ...b, status: 'cancelled' } : b);
       toast({
         title: 'Booking cancelled',
-        description: wasPaid ? 'Your refund will arrive in 5–7 business days.' : "You weren't charged.",
+        description: res.refunded
+          ? 'Your refund will arrive in 5–7 business days.'
+          : res.fee_kept
+          ? 'The booking fee is kept because a helper had already claimed the job. Nothing else is charged.'
+          : res.hold_released
+          ? 'The hold on your card has been released — you were never charged.'
+          : "You weren't charged.",
       });
       setCancelConfirm(false);
     } catch (e) {
@@ -1577,9 +1584,7 @@ const TrackBooking = () => {
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-                  {booking.paid_at
-                    ? 'Free cancellation with full refund (before your helper starts). Your refund arrives within 5–7 business days.'
-                    : "You haven't been charged — cancelling now is free."}
+                  {cancelRule(booking.status, booking.booking_data?.fee_due_cents).text}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -2005,11 +2010,7 @@ const TrackBooking = () => {
                         </button>
                       </div>
                       <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-                        {booking.paid_at
-                          ? "You'll receive a full refund within 5–7 business days."
-                          : booking.booking_data?.fee_auth_required
-                          ? "You haven't been charged — any hold on your card is released straight away."
-                          : "You haven't been charged — cancelling now is free."}
+                        {cancelRule(booking.status, booking.booking_data?.fee_due_cents).text}
                       </p>
                       <div className="flex gap-2">
                         <button
@@ -2593,6 +2594,13 @@ const TrackBooking = () => {
       {/* Chat input */}
       {booking.student_id && !isCompleted && !isCancelled && userId && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-cream/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
+          {/* Access chips (owner brief: chat is about getting in). A tap fills
+              the box for editing — never sends on its own. */}
+          <div className="max-w-sm md:max-w-lg mx-auto mb-2 flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+            {['Gate code is…', 'Ring the bell', 'Key is under…', 'Park on the street', 'Dog is friendly'].map((t) => (
+              <button key={t} type="button" onClick={() => setDraft(t)} className="h-8 flex-shrink-0 rounded-full bg-white border border-border/60 px-3 text-[12px] font-semibold text-foreground/80 active:scale-[0.97]">{t}</button>
+            ))}
+          </div>
           <div className="max-w-sm md:max-w-lg mx-auto flex items-center gap-2">
             <input
               type="text"

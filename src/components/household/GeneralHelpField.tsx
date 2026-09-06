@@ -4,6 +4,8 @@ import { Mic, Loader2, X } from 'lucide-react';
 import { track } from '@/lib/track';
 import { haptic } from '@/lib/haptics';
 import { useSpeechInput } from '@/hooks/useSpeechInput';
+import { isNativeApp } from '@/lib/platform';
+import { whenBucketFromText, WHEN_LABEL, WHEN_ORDER, type WhenBucket } from '@/lib/whenBucket';
 import { parseJobRequest, peekJobRequest, hoursToSizeLabel, type ParsedJob, type PeekResult } from '@/lib/parseJobRequest';
 import { GENERAL_HELP_CATEGORY, GENERAL_HELP_LABEL, GENERAL_HELP_CHECKLIST } from '@/lib/generalHelp';
 
@@ -20,8 +22,8 @@ const PLACEHOLDERS = [
 ];
 
 type Timing = 'today' | 'week';
-const TIMING_LABEL: Record<Timing, string> = { today: 'Today', week: 'This week' };
 const TIMING_NOTE: Record<Timing, string> = { today: 'Prefer today', week: 'Sometime this week' };
+
 
 type Tools = 'have' | 'bring' | 'unsure';
 const TOOLS_NOTE: Record<Tools, string> = {
@@ -69,9 +71,18 @@ export const GeneralHelpField: React.FC = () => {
   const [durationTapped, setDurationTapped] = useState(false);
   const [tools, setTools] = useState<Tools | null>(null);
   const [rooms, setRooms] = useState<readonly string[]>(GENERAL_HELP_CHECKLIST);
-  const [timing, setTiming] = useState<Timing>('today');
+  const [when, setWhen] = useState<WhenBucket>('asap');
+  const [whenTapped, setWhenTapped] = useState(false);
+  // The note still says "Prefer today" / "Sometime this week" — derived.
+  const timing: Timing = when === 'scheduled' ? 'week' : 'today';
 
   const areaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (whenTapped) return;
+    const b = whenBucketFromText(said, parsed?.whenText ?? peek?.whenText);
+    if (b) setWhen(b);
+  }, [said, parsed, peek, whenTapped]);
 
   const speech = useSpeechInput(
     // interim → mirror into the field so they watch it appear
@@ -187,6 +198,12 @@ export const GeneralHelpField: React.FC = () => {
         label: extraLabel,                     // the sheet header reads the understood job
         note,
         direct: true,                          // land on the form, skip the sub-service wizard
+        // Structured bits the sheet can prefill (2026-09-06): the buyer said
+        // when and maybe where — those become editable fields, not just note text.
+        when,
+        whenText: job.whenText ?? peek?.whenText ?? null,
+        eircode: job.eircode ?? peek?.eircode ?? null,
+        hours: finalHours,
       },
     }));
   };
@@ -278,6 +295,11 @@ export const GeneralHelpField: React.FC = () => {
 
         {speech.error === 'denied' && (
           <p className="mt-2 text-[12.5px] text-foreground/50">Mic’s off — no bother, just type it.</p>
+        )}
+        {/* In the store app there is no mic button (no microphone permission is
+            ever asked for) — the keyboard's own dictation key does the job. */}
+        {!speech.supported && isNativeApp() && !said && (
+          <p className="mt-2 text-[12.5px] text-foreground/50">Tap the mic key on your keyboard to say it.</p>
         )}
 
         {/* The leash — what we understood, shown back as editable tags. */}
@@ -394,12 +416,12 @@ export const GeneralHelpField: React.FC = () => {
 
         {/* When + the one loud action. */}
         <div className="mt-3 flex items-center gap-2">
-          <div className="flex rounded-full bg-cream/70 p-0.5" role="group" aria-label="When">
-            {(['today', 'week'] as Timing[]).map(t => (
-              <button key={t} type="button" onClick={() => { haptic(6); setTiming(t); }} aria-pressed={timing === t}
-                className={['rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150',
-                  timing === t ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50'].join(' ')}>
-                {TIMING_LABEL[t]}
+          <div className="flex min-w-0 flex-wrap rounded-full bg-cream/70 p-0.5" role="group" aria-label="When">
+            {WHEN_ORDER.map(t => (
+              <button key={t} type="button" onClick={() => { haptic(6); setWhen(t); setWhenTapped(true); }} aria-pressed={when === t}
+                className={['rounded-full px-2.5 py-1.5 text-[13px] font-semibold transition-colors duration-150 whitespace-nowrap',
+                  when === t ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50'].join(' ')}>
+                {WHEN_LABEL[t]}
               </button>
             ))}
           </div>
@@ -427,7 +449,7 @@ export const GeneralHelpField: React.FC = () => {
       </div>
 
       <p className="relative z-10 mt-3 text-center text-[13px] font-medium text-foreground/55">
-        No card until a student says yes
+        Small fee held now, charged when a helper claims
         <span className="mx-1.5 text-foreground/25" aria-hidden="true">·</span>
         from <span className="font-semibold text-foreground/80">€22/hr</span>
       </p>

@@ -93,8 +93,10 @@ const CUSTOMER_FAQS: Faq[] = [
       <>
         You don&apos;t need an account — go to{' '}
         <Link to="/bookings" className="text-primary hover:underline underline-offset-4">your bookings</Link>{' '}
-        and look it up with the phone number you booked with. To cancel or change one, message us on
-        WhatsApp and we&apos;ll sort it.
+        and look it up with the phone number you booked with. To cancel, use the cancel button on the
+        tracking page: it&apos;s free until a helper claims the job (the hold on your card is released);
+        after a claim, VANO&apos;s booking fee is kept and the helper is told. To change a booking,
+        message us on WhatsApp and we&apos;ll sort it.
       </>
     ),
   },

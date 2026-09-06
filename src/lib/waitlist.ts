@@ -1,5 +1,11 @@
-// Waitlist mode — the site takes requests instead of bookings (owner call
-// 2026-07-31: "we can't get a helper, not enough on the site").
+// Waitlist mode — OFF since 2026-09-06 (owner call: live buy orders, the
+// buyer's card is HELD for VANO's fee at post time and captured when a helper
+// claims — see create-household-payment-checkout's AUTH-AT-BOOKING path).
+// The switch and the copy stay so the site can go back to requests in one
+// line if supply dries up again.
+//
+// History: turned ON 2026-07-31 ("we can't get a helper, not enough on the
+// site") — the site took requests instead of bookings.
 //
 // Demand arrived before supply did. Taking a payment for a job no student can
 // accept is the one thing worse than saying "not yet": the customer waits,
@@ -14,7 +20,7 @@
 // the payment choice and the tracking handoff all come straight back.
 
 /** THE SWITCH. `true` = requests + "coming soon"; `false` = live bookings. */
-export const WAITLIST_MODE = true;
+export const WAITLIST_MODE = false;
 
 /** What the docked button says instead of "Book Cleaning · €44". */
 export const WAITLIST_CTA = 'Send request';

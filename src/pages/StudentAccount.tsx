@@ -11,7 +11,9 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { ReferralEntryCard } from '@/components/household/ReferralEntryCard';
-import OpenJobsBoard from '@/components/household/OpenJobsBoard';
+import { adoptHelperSession, type MintedSession } from '@/lib/helperSession';
+import { isNativeApp } from '@/lib/platform';
+import { setMode } from '@/lib/mode';
 import { useToast } from '@/hooks/use-toast';
 import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { HELPER_KIT_OPTIONS, KIT_HIRE_CENTS } from '@/lib/kit';
@@ -338,12 +340,19 @@ const StudentAccount = () => {
       const payload = data as {
         account_token?: string; expires_at_ms?: number;
         device_token?: string; device_expires_at_ms?: number;
+        session?: MintedSession;
       } | null;
       const token = payload?.account_token;
       if (error || !token) {
         setGateError(await extractFnError(data, error, 'That code is incorrect. Try again.'));
         return;
       }
+      // The same code now also signs the helper into Supabase, so Find /
+      // claim / the job screen work with no second login. Fail-soft.
+      setMode('helper');
+      const adopted = await adoptHelperSession(payload?.session);
+      const next = new URLSearchParams(window.location.search).get('next');
+      if (adopted && next && next.startsWith('/')) { navigate(next, { replace: true }); return; }
       const exp = payload?.expires_at_ms ?? Date.now() + 25 * 60_000;
       accountTokenRef.current = token;
       saveGateSession({
@@ -976,12 +985,19 @@ const StudentAccount = () => {
               button is the same signed accept link dispatch texts, so the
               whole hardened accept flow is reused untouched. Unverified
               helpers see the money but get the verify CTA. */}
-          <OpenJobsBoard
-            helperId={helper.id}
-            accountToken={accountTokenRef.current}
-            idVerified={helper.id_verified === true}
-            onVerify={() => navigate(`/verify-helper?id=${helper.id}&name=${encodeURIComponent(helper.name)}`)}
-          />
+          {/* The open board moved to /find (2026-09-06): map + search + one-tap
+              claim on the helper's own session. This is the door to it. */}
+          <button
+            type="button"
+            onClick={() => navigate('/find')}
+            className="w-full rounded-2xl bg-sage px-5 py-4 text-left text-white shadow-[0_12px_28px_-14px_hsl(var(--sage)/0.7)] active:scale-[0.99] transition-transform flex items-center justify-between gap-3"
+          >
+            <span>
+              <span className="block text-[15px] font-bold">Find jobs near you</span>
+              <span className="block text-[13px] text-white/80 mt-0.5">Open orders on a map · claim with one tap · you keep 100%</span>
+            </span>
+            <ChevronRight size={18} className="flex-shrink-0 text-white/80" />
+          </button>
 
           {/* Refer & earn — helpers recruiting friends is the network-effect
               loop. They're phone-verified here, so pass their email through and
@@ -1002,12 +1018,14 @@ const StudentAccount = () => {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
-                    {!helper.id_verified ? 'Verify your ID to get jobs' : 'Add your blue tick'}
+                    {!helper.id_verified ? 'Verify your ID to get jobs' : isNativeApp() ? 'Your verification' : 'Add your blue tick'}
                     <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
                   </span>
                   <span className="block text-xs text-muted-foreground mt-0.5">
                     {!helper.id_verified
                       ? "Free 2-minute ID check — every helper verifies before their first job, and you won't get offers until it's done. Tap to verify now."
+                      : isNativeApp()
+                      ? "You're verified and getting jobs. Manage your badge and profile here."
                       : 'You\'re verified and getting jobs. The blue tick is an optional €2/month badge (customers see it, and it bumps you up the list). Cancel anytime.'}
                   </span>
                 </span>
@@ -1119,7 +1137,7 @@ const StudentAccount = () => {
 
               {/* ✓ Verified plan — the €2/month that keeps the blue tick on.
                   Cancel-anytime lives right here, no digging. */}
-              {helper.verified_plan_active && (
+              {helper.verified_plan_active && !isNativeApp() && (
                 <div className="px-4 py-3.5 flex items-center gap-3">
                   <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Plan</span>
                   <span className="flex-1 text-sm text-foreground flex items-center gap-1.5">
