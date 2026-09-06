@@ -214,3 +214,11 @@ exposure, nothing to delete, mode switch still works.
 | 4 | Run `supabase/seed/review-demo.sql` in the SQL editor | before submit |
 | 5 | App Store Connect: create the app record, paste listing / labels / review notes, screenshots | at submit |
 | 6 | Type **667** for the merge and edge-function deploy, **submit vano** for the upload | last |
+
+---
+
+## 13. Decisions taken (2026-09-06, owner)
+- **A1** — fee hold at post, captured on claim; job price helper-direct (Revolut). No Stripe Connect requirement.
+- **B** — waitlist mode OFF everywhere (web and app). Merge still gated on 667.
+- **C** — no push in build 1. SMS + WhatsApp at every step. APNs documented for build 2.
+- **D** — buyers stay anonymous (phone + booking UUID). No buyer account, no buyer deletion obligation.
