@@ -19,6 +19,35 @@ export async function initNativeApp(): Promise<void> {
   // e.g. `html.native-ios .my-header { padding-top: env(safe-area-inset-top); }`
   document.documentElement.classList.add('native-app', `native-${platform}`);
 
+  // ── Safe areas ───────────────────────────────────────────────────────────
+  // env(safe-area-inset-*) reports 0px inside the Capacitor WKWebView even
+  // though the webview IS full-screen (measured on the iPhone 17 Pro
+  // simulator 2026-09-06: env top = 0, window.innerHeight === screen.height),
+  // so every CSS rule that trusted env() was inert and the fixed nav sat
+  // under the clock. Read the real status-bar height from the StatusBar
+  // plugin instead and publish both insets as CSS variables; index.css reads
+  // them with env() as the web fallback. Fail-soft: if the plugin can't
+  // answer we leave the variables unset and env() takes over as before.
+  void (async () => {
+    try {
+      const { StatusBar } = await import('@capacitor/status-bar');
+      const info = await StatusBar.getInfo();
+      const top = typeof info.height === 'number' && info.height > 0 ? info.height : 0;
+      if (top > 0) {
+        document.documentElement.style.setProperty('--vano-safe-top', `${top}px`);
+        // iOS gives no API for the home-indicator inset, but it is a fixed
+        // 34pt on every device that has one — and every such device also has
+        // a tall (>24pt) status bar, which is what we key on. Devices with a
+        // classic 20pt bar have a physical home button and need nothing.
+        if (platform === 'ios' && top > 24) {
+          document.documentElement.style.setProperty('--vano-safe-bottom', '34px');
+        }
+      }
+    } catch {
+      /* status-bar plugin unavailable — env() fallback stands */
+    }
+  })();
+
   // Register the OAuth / magic-link deep-link listener as early as possible so
   // a fast auth return trip isn't missed.
   await initNativeAuth();
