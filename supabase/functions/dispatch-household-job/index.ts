@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { signAcceptToken } from "../_shared/acceptToken.ts";
+import { isCatchAllCategory } from "../_shared/helperMatch.ts";
 // Neighbourhood label for the OFFER — a helper decides on the trip, and the
 // exact address is theirs only after they claim (owner call 2026-07-30).
 import { approxAreaLabel } from "../_shared/serviceAreas.ts";
@@ -528,7 +529,9 @@ serve(async (req) => {
     // 'business' (temp staff — flyers/sampling/shop cover, owner test
     // 2026-07-23) is the same shape: not a join-form skill, any approved
     // helper can do it, so it fans out too. Both auto-skip gap nudges below.
-    const isCatchAll = category === 'custom' || category === 'business';
+    // Shared with the booking sheet's helper bench so the faces the customer
+    // is shown before booking are exactly the pool that gets the offer.
+    const isCatchAll = isCatchAllCategory(category);
 
     // ── KIT MATCHING (2026-07-30) ────────────────────────────────────────
     // The customer said they have no mower and paid the hire fee for one, so
