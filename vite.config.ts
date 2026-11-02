@@ -71,9 +71,9 @@ export default defineConfig(({ mode }) => ({
         enabled: false,
       },
       manifest: {
-        name: "VANO — Same-day home help",
-        short_name: "VANO",
-        description: "Book a trusted local helper in minutes — shopping, cleaning, garden, dog walks, moving & more. Same-day across Ireland.",
+        name: "VANO Podcast",
+        short_name: "VANO Podcast",
+        description: "Founder conversations from Galway, Ireland. Listen to VANO Podcast with Ayush Puri and Michael Okocha.",
         // Non-standard but harmless; primary update signal is the SW + precache hash
         version: pwaBuildVersion,
         // Matches the navy <meta name="theme-color"> in index.html

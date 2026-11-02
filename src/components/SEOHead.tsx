@@ -1,7 +1,11 @@
-import { Helmet } from 'react-helmet-async';
-import { getCanonicalUrl, getSiteOrigin } from '@/lib/siteUrl';
+import React from "react";
+import * as HelmetPackage from "react-helmet-async";
+// Node prerender resolves the CommonJS entry; Vite resolves its ESM entry.
+const { Helmet } = (Reflect.get(HelmetPackage, "default") ||
+  HelmetPackage) as typeof HelmetPackage;
+import { getCanonicalUrl, getSiteOrigin } from "@/lib/siteUrl";
 
-type OgType = 'website' | 'article' | 'profile';
+type OgType = "website" | "article" | "profile";
 
 interface SEOHeadProps {
   title: string;
@@ -22,30 +26,32 @@ interface SEOHeadProps {
 }
 
 function toAbsoluteImage(image: string): string {
-  if (image.startsWith('http://') || image.startsWith('https://')) return image;
+  if (image.startsWith("http://") || image.startsWith("https://")) return image;
   const origin = getSiteOrigin();
-  return `${origin}${image.startsWith('/') ? image : `/${image}`}`;
+  return `${origin}${image.startsWith("/") ? image : `/${image}`}`;
 }
 
 export const SEOHead = ({
   title,
   description,
-  keywords = 'VANO, Galway, Ireland, home help, cleaning, garden help, dog walking, grocery collection, student helpers, same-day help',
+  keywords = "VANO Podcast, Irish founders, entrepreneurship, Galway, Ireland, Ayush Puri, Michael Okocha",
   // 1200×630 PNG — the spec-compliant size / format for LinkedIn /
   // Slack / WhatsApp / Facebook / Twitter previews. The old /og.svg
   // rendered inconsistently across scrapers (many silently drop SVG).
   // VERSIONED: social platforms cache a link preview by image URL and several
   // (Snapchat, iMessage) offer no way to re-scrape, so a new card needs a new
   // URL. Keep in step with index.html and scripts/generate-og-image.py.
-  image = '/og-v2.png',
+  image = "/podcast/og-podcast.png",
   url: urlProp,
   noindex = false,
-  type = 'website',
+  type = "website",
   publishedTime,
   modifiedTime,
   jsonLd,
 }: SEOHeadProps) => {
-  const fullTitle = `${title} | VANO`;
+  const fullTitle = title.includes("VANO Podcast")
+    ? title
+    : `${title} | VANO Podcast`;
   const url = urlProp ?? getCanonicalUrl();
   const ogImageAbsolute = toAbsoluteImage(image);
   const jsonLdArray = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
@@ -61,12 +67,16 @@ export const SEOHead = ({
       <link rel="canonical" href={url} />
       <meta
         name="robots"
-        content={noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1'}
+        content={
+          noindex
+            ? "noindex, nofollow"
+            : "index, follow, max-image-preview:large, max-snippet:-1"
+        }
       />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
-      <meta property="og:site_name" content="VANO" />
+      <meta property="og:site_name" content="VANO Podcast" />
       <meta property="og:locale" content="en_IE" />
       <meta property="og:url" content={url} />
       <meta property="og:title" content={fullTitle} />
@@ -77,18 +87,21 @@ export const SEOHead = ({
            the default 1200x630 card; per-page images that pass a
            different `image` prop will still work — scrapers just fall
            back to probing the file. */}
-      {image === '/og-v2.png' && (
+      {image.endsWith("/podcast/og-podcast.png") && (
         <>
           <meta property="og:image:type" content="image/png" />
           <meta property="og:image:width" content="1200" />
           <meta property="og:image:height" content="630" />
-          <meta property="og:image:alt" content="VANO — same-day home help in Galway, from €15." />
+          <meta
+            property="og:image:alt"
+            content="VANO Podcast — founders, on the record. Hosted by Ayush Puri and Michael Okocha."
+          />
         </>
       )}
-      {type === 'article' && publishedTime && (
+      {type === "article" && publishedTime && (
         <meta property="article:published_time" content={publishedTime} />
       )}
-      {type === 'article' && modifiedTime && (
+      {type === "article" && modifiedTime && (
         <meta property="article:modified_time" content={modifiedTime} />
       )}
 
@@ -98,8 +111,11 @@ export const SEOHead = ({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImageAbsolute} />
-      {image === '/og-v2.png' && (
-        <meta name="twitter:image:alt" content="VANO — same-day home help in Galway, from €15." />
+      {image.endsWith("/podcast/og-podcast.png") && (
+        <meta
+          name="twitter:image:alt"
+          content="VANO Podcast — founders, on the record. Hosted by Ayush Puri and Michael Okocha."
+        />
       )}
 
       {/* Structured data */}
