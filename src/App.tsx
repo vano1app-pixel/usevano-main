@@ -21,6 +21,7 @@ import { getMode } from "@/lib/mode";
 // "page bounces to a different screen for a millisecond" flash. Bundling it
 // with the app shell means `/` paints immediately with no Suspense gap.
 import HouseholdHome from "./pages/HouseholdHome";
+import Podcast from "./pages/Podcast";
 
 const MyBookings = lazyWithRetry(() => import("./pages/MyBookings"));
 const Account = lazyWithRetry(() => import("./pages/Account"));
@@ -43,7 +44,7 @@ const Cover = lazyWithRetry(() => import("./pages/Cover"));
 const Safety = lazyWithRetry(() => import("./pages/Safety"));
 const HelperTerms = lazyWithRetry(() => import("./pages/HelperTerms"));
 const Support = lazyWithRetry(() => import("./pages/Support"));
-const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+// NotFound import removed — every unknown route redirects to the podcast.
 const ServiceLanding = lazyWithRetry(() => import("./pages/ServiceLanding"));
 const BlogIndex = lazyWithRetry(() => import("./pages/BlogIndex"));
 const BlogPost = lazyWithRetry(() => import("./pages/BlogPost"));
@@ -138,7 +139,7 @@ const App = () => {
           <Routes location={location} key={location.pathname}>
             {/* Inside the app, "/" follows the saved mode: a helper lands on
                 Find, a buyer on the post screen. The website is unchanged. */}
-            <Route path="/" element={isNativeApp() && getMode() === 'helper' ? <Navigate to="/find" replace /> : <P><HouseholdHome /></P>} />
+            <Route path="/" element={isNativeApp() && getMode() === 'helper' ? <Navigate to="/find" replace /> : <P><Podcast /></P>} />
             <Route path="/home" element={<P><HouseholdHome /></P>} />
             <Route path="/find" element={<P><Find /></P>} />
             <Route path="/bookings" element={<P><MyBookings /></P>} />
@@ -183,7 +184,9 @@ const App = () => {
             <Route path="/blog/:slug" element={webOnly(<P><BlogPost /></P>)} />
             <Route path="/glossary" element={webOnly(<P><GlossaryIndex /></P>)} />
             <Route path="/glossary/:slug" element={webOnly(<P><GlossaryTerm /></P>)} />
-            <Route path="*" element={<P><NotFound /></P>} />
+            {/* Full rebrand 2026-11-02 (owner call, 667): vanojobs.com is the
+                VANO Podcast site now. Unknown/legacy routes land on it. */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
         </RouteErrorBoundary>
