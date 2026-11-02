@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Mic2, Play, Radio } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
-import { EPISODES, PLATFORMS, STATS, CONTACT } from '@/content/podcast';
+import { EPISODES, PLATFORMS, STATS, CONTACT, SHOW, BOOKING } from '@/content/podcast';
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
@@ -74,8 +74,7 @@ export default function Podcast() {
           Founders,<br />on the record.
         </motion.h1>
         <motion.p {...fadeUp} className="mt-6 max-w-xl text-lg leading-relaxed text-cream/70">
-          Real conversations with the people building things — how they think, what
-          broke, what they'd do again. Hosted by Ayush Puri, learning in public.
+          {SHOW.tagline} Hosted by {SHOW.hosts} in {SHOW.city}.
         </motion.p>
         <motion.div {...fadeUp} className="mt-8 flex flex-wrap gap-3">
           <CTA href={PLATFORMS[0].url}><Play className="h-4 w-4" /> Listen on Spotify</CTA>
@@ -116,15 +115,20 @@ export default function Podcast() {
               className="group flex items-center justify-between gap-4 py-5"
             >
               <div className="flex items-baseline gap-4 md:gap-6">
-                <span className="font-display text-sm font-semibold text-gold">{ep.n}</span>
+                <span className="w-10 shrink-0 font-display text-sm font-semibold text-gold">{ep.n}</span>
                 <div>
                   <div className="font-display text-lg font-semibold md:text-xl">
-                    {ep.guest || 'New episode — details soon'}
+                    {ep.title}
                   </div>
-                  {ep.topic && <div className="mt-0.5 text-sm text-cream/60">{ep.topic}</div>}
+                  <div className="mt-0.5 text-sm text-cream/60">
+                    {ep.guest} · {ep.topic}
+                  </div>
                 </div>
               </div>
-              <ArrowRight className="h-5 w-5 shrink-0 text-cream/40 transition group-hover:translate-x-1 group-hover:text-gold" />
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="hidden text-xs text-cream/40 md:block">{ep.date} · {ep.length}</span>
+                <ArrowRight className="h-5 w-5 text-cream/40 transition group-hover:translate-x-1 group-hover:text-gold" />
+              </div>
             </motion.a>
           ))}
         </div>
@@ -181,28 +185,91 @@ export default function Podcast() {
         </div>
       </section>
 
-      {/* guest + sponsor */}
-      <section className="mx-auto grid max-w-5xl gap-4 px-6 pb-20 md:grid-cols-2">
-        <motion.div {...fadeUp} className="rounded-3xl bg-sage p-8 md:p-10">
-          <h3 className="font-display text-2xl font-bold">Be a guest</h3>
-          <p className="mt-3 leading-relaxed text-cream/85">
-            Building something? I want to hear how you think — the real version,
-            not the pitch deck. Episodes are a conversation, not an interrogation.
-          </p>
-          <div className="mt-6">
-            <CTA href={guestCTA} ghost>Message me <ArrowRight className="h-4 w-4" /></CTA>
-          </div>
+      {/* booking — digital or in-person episode, €100 */}
+      <section id="book" className="mx-auto max-w-5xl px-6 pb-16 md:pb-24">
+        <motion.h2 {...fadeUp} className="font-display text-3xl font-bold md:text-4xl">
+          Book an episode
+        </motion.h2>
+        <motion.p {...fadeUp} className="mt-3 max-w-xl text-cream/70">
+          {BOOKING.price} per episode. Pick how you want to record — we handle the rest.
+        </motion.p>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          {[
+            {
+              name: 'Digital episode',
+              desc: 'Remote recording — join from anywhere. Edited episode + the clips pack for your own channels.',
+              tag: 'video call · ~1 hour',
+            },
+            {
+              name: 'In-person episode',
+              desc: `In the room in ${SHOW.city}. Full episode + clips, and the conversation's better over a table.`,
+              tag: 'Galway · ~90 min',
+            },
+          ].map((opt, i) => (
+            <motion.div
+              key={opt.name}
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: i * 0.07 }}
+              className="flex flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-8"
+            >
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">{opt.tag}</div>
+              <h3 className="mt-2 font-display text-2xl font-bold">{opt.name}</h3>
+              <p className="mt-3 flex-1 leading-relaxed text-cream/70">{opt.desc}</p>
+              <div className="mt-6 flex items-center justify-between">
+                <span className="font-display text-xl font-bold">{BOOKING.price}</span>
+                <CTA
+                  href={
+                    BOOKING.stripePaymentLink ||
+                    `https://wa.me/${BOOKING.whatsapp}?text=${encodeURIComponent(
+                      `Hey — I want to book a ${opt.name} on the VANO Podcast (${BOOKING.price}). I'm from: `,
+                    )}`
+                  }
+                >
+                  Book it <ArrowRight className="h-4 w-4" />
+                </CTA>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+        <motion.div {...fadeUp} className="mt-6 rounded-3xl border border-gold/30 bg-white/[0.03] p-6 text-center">
+          <span className="text-sm text-cream/70">
+            Want your brand on an episode instead? <a href={CONTACT.linkedin} target="_blank" rel="noreferrer" className="font-semibold text-gold underline underline-offset-4">Ask about a sponsor slot</a> — one per episode, it stays personal.
+          </span>
         </motion.div>
-        <motion.div {...fadeUp} className="rounded-3xl border border-gold/30 bg-white/[0.03] p-8 md:p-10">
-          <h3 className="font-display text-2xl font-bold text-gold">Run an ad</h3>
-          <p className="mt-3 leading-relaxed text-cream/70">
-            A read on an episode, your name on the clips, in front of founders and
-            the people who follow them. One sponsor per episode — it stays personal.
-          </p>
-          <div className="mt-6">
-            <CTA href={guestCTA}>Ask about a slot <ArrowRight className="h-4 w-4" /></CTA>
+      </section>
+
+      {/* notes — the quiet blog. Semantic, searchable, kept at the bottom. */}
+      <section className="border-t border-white/10 px-6 py-16">
+        <div className="mx-auto max-w-5xl">
+          <motion.h2 {...fadeUp} className="font-display text-2xl font-bold">Notes from the show</motion.h2>
+          <div className="mt-8 grid gap-8 md:grid-cols-3">
+            <motion.article {...fadeUp}>
+              <h3 className="font-display text-lg font-semibold">An Irish startup podcast, from Galway</h3>
+              <p className="mt-2 text-sm leading-relaxed text-cream/60">
+                The VANO Podcast is a founder-interview show recorded in Galway, Ireland —
+                long conversations with the people actually building companies here and
+                beyond. Not the highlight reel: the early decisions, the wrong turns, and
+                what they would do differently with the same hand again.
+              </p>
+            </motion.article>
+            <motion.article {...fadeUp}>
+              <h3 className="font-display text-lg font-semibold">What a guest gets</h3>
+              <p className="mt-2 text-sm leading-relaxed text-cream/60">
+                One honest hour on the record, an edited episode on Spotify and every major
+                platform, and a pack of clips cut for LinkedIn, TikTok and Shorts. Digital
+                episodes run anywhere; in-person happens in Galway. Episodes are {BOOKING.price} to record.
+              </p>
+            </motion.article>
+            <motion.article {...fadeUp}>
+              <h3 className="font-display text-lg font-semibold">The hosts</h3>
+              <p className="mt-2 text-sm leading-relaxed text-cream/60">
+                {SHOW.hosts} — two Galway-based founders who interview the founders they
+                want to learn from. Past guests include the Kríos team (AI sales training,
+                Cork), Jack Garvey (Ganzy) and Milosz Nelka.
+              </p>
+            </motion.article>
           </div>
-        </motion.div>
+        </div>
       </section>
 
       <footer className="border-t border-white/10 px-6 py-8">
