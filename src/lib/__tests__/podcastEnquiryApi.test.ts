@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
-import handler from "../podcast-enquiry";
+import handler from "../../../api/podcast-enquiry";
 const valid = {
   format: "digital",
   name: "Example Guest",

@@ -33,3 +33,5 @@ Selected source posts:
 - https://www.youtube.com/shorts/jl5HQ1lnyyA — episode 1, Team VANO.
 
 Latest local validation: typecheck passed; full suite passed 34 files / 380 tests; production build and 15-page static checks passed; focused lint passed. A subsequent isolated run exposed a test assertion racing React's focus effect; changed the assertion to await focus rather than checking immediately after the success DOM appeared. Final isolated rerun passed all 26 API/form tests.
+
+Deployment packaging: API tests live under src/lib/__tests__, outside Vercel’s auto-deployed api directory. The test move passed the 26-case isolated rerun; no test handler should be deployed.
