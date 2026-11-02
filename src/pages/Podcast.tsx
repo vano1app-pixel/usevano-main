@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Mic2, Play, Radio } from 'lucide-react';
+import { ArrowRight, Flame, Mic2, Play, Radio } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
+import logo from '@/assets/logo.png';
 import { EPISODES, PLATFORMS, STATS, CONTACT, SHOW, BOOKING } from '@/content/podcast';
 
 const fadeUp = {
@@ -53,10 +54,8 @@ export default function Podcast() {
 
       {/* nav */}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
-        <a href="/" className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
-          <span className="flex h-6 w-6 items-end justify-center gap-[2px] rounded-full bg-gold pb-1">
-            <span className="h-1.5 w-[2px] rounded bg-navy" /><span className="h-3 w-[2px] rounded bg-navy" /><span className="h-2 w-[2px] rounded bg-navy" />
-          </span>
+        <a href="/" className="flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
+          <img src={logo} alt="VANO" className="h-8 w-8 rounded-lg object-contain" />
           VANO<span className="font-normal text-cream/60">.podcast</span>
         </a>
         <CTA href={guestCTA}>Be a guest <ArrowRight className="h-4 w-4" /></CTA>
@@ -85,13 +84,44 @@ export default function Podcast() {
         </motion.div>
       </section>
 
+      {/* trending — latest episode, big and loud */}
+      {EPISODES.filter((e: any) => e.trending).map((ep: any) => (
+        <motion.section key={ep.n} {...fadeUp} className="mx-auto max-w-5xl px-6 pb-14">
+          <a
+            href={ep.link || PLATFORMS[0].url}
+            target="_blank" rel="noreferrer"
+            className="group flex flex-col gap-6 rounded-3xl border border-gold/25 bg-gradient-to-br from-white/[0.05] to-transparent p-7 transition hover:border-gold/50 md:flex-row md:items-center md:p-9"
+          >
+            <div className="relative flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gold md:h-44 md:w-44">
+              <Wave bars={9} className="absolute inset-0 items-center justify-center px-5 opacity-70 [&>span]:bg-navy/60" />
+              <span className="relative z-10 font-display text-4xl font-extrabold tracking-tight text-navy">{ep.n.replace('EP.', 'E')}</span>
+              <span className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-navy text-gold transition group-hover:scale-110">
+                <Play className="ml-0.5 h-4 w-4" fill="currentColor" />
+              </span>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+                <Flame className="h-3.5 w-3.5" /> Trending · latest episode
+              </div>
+              <h2 className="mt-2 font-display text-2xl font-bold md:text-3xl">{ep.title}</h2>
+              <p className="mt-1 text-sm font-semibold text-cream/80">
+                {ep.guest}
+                {ep.guestSite && <> · <a href={ep.guestSite} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-gold underline underline-offset-4">{ep.guestLabel}</a></>}
+                <span className="font-normal text-cream/50"> · {ep.length}</span>
+              </p>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/60">{ep.desc}</p>
+            </div>
+          </a>
+        </motion.section>
+      ))}
+
       {/* stats */}
       <motion.section {...fadeUp} className="border-y border-white/10 bg-white/[0.03]">
         <div className="mx-auto grid max-w-5xl grid-cols-3 divide-x divide-white/10 px-6">
           {[
             [STATS.viewsPerWeek, 'views a week, across episodes + clips'],
             [String(STATS.episodesReleased), 'episodes released'],
-            [String(STATS.accounts), 'accounts putting out clips'],
+            [String(STATS.accounts), 'accounts posting clips every week'],
           ].map(([num, label]) => (
             <div key={label} className="px-4 py-8 text-center md:px-8">
               <div className="font-display text-3xl font-bold text-gold md:text-4xl">{num}</div>
@@ -114,14 +144,24 @@ export default function Podcast() {
               target="_blank" rel="noreferrer"
               className="group flex items-center justify-between gap-4 py-5"
             >
-              <div className="flex items-baseline gap-4 md:gap-6">
-                <span className="w-10 shrink-0 font-display text-sm font-semibold text-gold">{ep.n}</span>
+              <div className="flex items-center gap-4 md:gap-5">
+                {/* episode thumbnail — wave art + play affordance */}
+                <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gold/15 transition group-hover:bg-gold/25">
+                  <Wave bars={5} className="opacity-80 [&>span]:bg-gold/70" />
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <Play className="h-4 w-4 text-gold opacity-0 transition group-hover:opacity-100" fill="currentColor" />
+                  </span>
+                </div>
                 <div>
                   <div className="font-display text-lg font-semibold md:text-xl">
-                    {ep.title}
+                    <span className="mr-2 text-sm font-semibold text-gold">{ep.n}</span>{ep.title}
                   </div>
                   <div className="mt-0.5 text-sm text-cream/60">
-                    {ep.guest} · {ep.topic}
+                    {(ep as any).guest}
+                    {(ep as any).guestSite && (
+                      <> · <a href={(ep as any).guestSite} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-gold/90 underline underline-offset-4 hover:text-gold">{(ep as any).guestLabel}</a></>
+                    )}
+                    {' · '}{(ep as any).topic}
                   </div>
                 </div>
               </div>
@@ -185,13 +225,33 @@ export default function Podcast() {
         </div>
       </section>
 
+      {/* hosts */}
+      <section className="mx-auto max-w-5xl px-6 pb-16 md:pb-24">
+        <motion.h2 {...fadeUp} className="font-display text-3xl font-bold md:text-4xl">Your hosts</motion.h2>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          {[
+            { init: 'AP', name: 'Ayush Puri', bio: 'Founder and entrepreneurship student in Galway. Interviews the founders he wants to learn from — the decisions, the wrong turns, the real version.' },
+            { init: 'MO', name: 'Michael Okocha', bio: 'Co-host in Galway. Asks the questions the room is thinking — keeps every conversation grounded in what building actually feels like.' },
+          ].map((h, i) => (
+            <motion.div key={h.name} {...fadeUp} transition={{ ...fadeUp.transition, delay: i * 0.07 }}
+              className="flex items-start gap-5 rounded-3xl border border-white/10 bg-white/[0.03] p-7">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold font-display text-lg font-bold text-navy">{h.init}</div>
+              <div>
+                <div className="font-display text-xl font-bold">{h.name} <span className="text-sm font-normal text-gold">· co-host</span></div>
+                <p className="mt-2 text-sm leading-relaxed text-cream/65">{h.bio}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
       {/* booking — digital or in-person episode, €100 */}
       <section id="book" className="mx-auto max-w-5xl px-6 pb-16 md:pb-24">
         <motion.h2 {...fadeUp} className="font-display text-3xl font-bold md:text-4xl">
           Book an episode
         </motion.h2>
         <motion.p {...fadeUp} className="mt-3 max-w-xl text-cream/70">
-          {BOOKING.price} per episode. Pick how you want to record — we handle the rest.
+          Pick how you want to record — we handle the rest.
         </motion.p>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {[
@@ -215,17 +275,16 @@ export default function Podcast() {
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">{opt.tag}</div>
               <h3 className="mt-2 font-display text-2xl font-bold">{opt.name}</h3>
               <p className="mt-3 flex-1 leading-relaxed text-cream/70">{opt.desc}</p>
-              <div className="mt-6 flex items-center justify-between">
-                <span className="font-display text-xl font-bold">{BOOKING.price}</span>
+              <div className="mt-6 flex items-center justify-end">
                 <CTA
                   href={
                     BOOKING.stripePaymentLink ||
                     `https://wa.me/${BOOKING.whatsapp}?text=${encodeURIComponent(
-                      `Hey — I want to book a ${opt.name} on the VANO Podcast (${BOOKING.price}). I'm from: `,
+                      `Hey — I want to book a ${opt.name} on the VANO Podcast. I'm from: `,
                     )}`
                   }
                 >
-                  Book it <ArrowRight className="h-4 w-4" />
+                  Get in touch <ArrowRight className="h-4 w-4" />
                 </CTA>
               </div>
             </motion.div>
@@ -257,7 +316,7 @@ export default function Podcast() {
               <p className="mt-2 text-sm leading-relaxed text-cream/60">
                 One honest hour on the record, an edited episode on Spotify and every major
                 platform, and a pack of clips cut for LinkedIn, TikTok and Shorts. Digital
-                episodes run anywhere; in-person happens in Galway. Episodes are {BOOKING.price} to record.
+                episodes run anywhere; in-person happens in Galway.
               </p>
             </motion.article>
             <motion.article {...fadeUp}>

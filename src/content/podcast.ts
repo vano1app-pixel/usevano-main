@@ -12,7 +12,7 @@ export const SHOW = {
 
 export const STATS = {
   viewsPerWeek: '~100k', // across episodes + clips — owner-provided 2026-11-02
-  accounts: 3,           // clip/social accounts running
+  accounts: 12,          // clip/social accounts posting — owner-provided 2026-11-02
   episodesReleased: 4,
   avgLength: '1 hr 11 min',
 };
@@ -24,37 +24,50 @@ export const EPISODES = [
     n: 'EP.4',
     title: '“Betting it all on USA”',
     guest: 'Jack Garvey — Ganzy',
+    guestSite: 'https://ganzy.ie',
+    guestLabel: 'ganzy.ie',
     topic: 'Selling to Americans from Ireland, AI tools, moving to San Francisco',
     date: 'Aug 2026',
     length: '58 min',
     link: '',
+    desc: 'Ganzy is autopilot for high schoolers — study, sports and college admissions juggled automatically. Jack talks selling to Americans from Ireland, visas and moving to San Francisco.',
+    trending: true,
   },
   {
     n: 'EP.3',
     title: '“YOU NEED TO THINK BIGGER”',
     guest: 'Ahroon & Micheal — Kríos',
+    guestSite: 'https://krios.ie',
+    guestLabel: 'krios.ie',
     topic: 'AI sales training out of Cork, vibe coding, mindset, books',
     date: 'Jul 2026',
     length: '1 hr 24',
     link: '',
+    desc: 'The 17- and 18-year-old CEO and CTO of Kríos on vibe coding, creativity, AI slop, and building something real out of Cork.',
   },
   {
     n: 'EP.2',
     title: '“Building a business at 17”',
     guest: 'Milosz Nelka',
+    guestSite: '',
+    guestLabel: '',
     topic: 'Business, boxing and college — discipline from a young founder',
     date: 'Jul 2026',
     length: '1 hr 10',
     link: '',
+    desc: 'A young Cork entrepreneur on habits, discipline and juggling business, boxing and college on the way to bigger goals.',
   },
   {
     n: 'EP.1',
     title: 'VANO and Tech Startups',
     guest: 'Ayush Puri',
+    guestSite: '',
+    guestLabel: '',
     topic: 'Where the idea came from, early pivots, building as a student',
     date: 'Jun 2026',
     length: '1 hr 12',
     link: '',
+    desc: 'The opener — Ayush breaks down VANO, the pivots, and what building a startup as a second-year student actually looks like.',
   },
 ] as const;
 
