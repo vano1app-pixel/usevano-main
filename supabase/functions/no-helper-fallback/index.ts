@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveMoneyAction, releaseBookingMoney } from "../_shared/bookingMoney.ts";
 
@@ -37,6 +38,7 @@ serve(async (_req) => {
   const { data: stuckBookings, error: queryErr } = await supabase
     .from('household_bookings')
     .select('id, customer_name, customer_email, category, city, price_estimate_cents, stripe_payment_intent_id')
+    .or(NOT_DEMO_FILTER)
     .eq('status', 'pending')
     .is('student_id', null)
     .is('paid_at', null)

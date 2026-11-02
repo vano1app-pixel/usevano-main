@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Daily cron: "need a hand again?" nudge for dormant household customers —
@@ -135,6 +136,7 @@ serve(async (_req) => {
   const { data: rows, error } = await supabase
     .from('household_bookings')
     .select('id, customer_name, customer_phone, customer_email, category, status, created_at, winback_sent_at, paid_at')
+    .or(NOT_DEMO_FILTER)
     .gte('created_at', new Date(now - STALE_DAYS * DAY_MS).toISOString())
     .order('created_at', { ascending: true })
     .limit(1000);

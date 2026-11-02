@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Safety net for jobs awaiting the customer's "mark complete":
@@ -210,6 +211,7 @@ serve(async (req) => {
     const arrivedCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data: stuckArrived } = await supabase.from('household_bookings')
       .select(cols)
+      .or(NOT_DEMO_FILTER)
       .eq('status', 'arrived')
       .not('paid_at', 'is', null)
       .not('arrived_at', 'is', null)
@@ -225,6 +227,7 @@ serve(async (req) => {
     // Stage 1: job looks done (helper finished OR timer elapsed) and not yet reminded.
     const { data: toRemind } = await supabase.from('household_bookings')
       .select(cols)
+      .or(NOT_DEMO_FILTER)
       .eq('status', 'in_progress')
       .not('paid_at', 'is', null)
       .is('completion_reminded_at', null)
@@ -257,6 +260,7 @@ serve(async (req) => {
     const cutoffIso = new Date(Date.now() - ESCALATE_MS).toISOString();
     const { data: toEscalateRaw } = await supabase.from('household_bookings')
       .select(`${cols}, completion_reminded_at, completion_escalated_at`)
+      .or(NOT_DEMO_FILTER)
       .eq('status', 'in_progress')
       .not('completion_reminded_at', 'is', null)
       .lt('completion_reminded_at', cutoffIso)
@@ -281,6 +285,7 @@ serve(async (req) => {
     const autoCutoffIso = new Date(Date.now() - AUTO_COMPLETE_MS).toISOString();
     const { data: toAutoComplete } = await supabase.from('household_bookings')
       .select(cols)
+      .or(NOT_DEMO_FILTER)
       .eq('status', 'in_progress')
       .not('paid_at', 'is', null)
       .not('completion_reminded_at', 'is', null)

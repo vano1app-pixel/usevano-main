@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isReviewDemoBooking } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
@@ -47,7 +48,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, status, student_id, customer_name, city, rating_token')
+      .select('id, status, student_id, customer_name, city, rating_token, booking_data')
       .eq('id', booking_id)
       .maybeSingle();
 
@@ -161,7 +162,7 @@ serve(async (req) => {
   </div>
 </div>
 </body></html>`;
-      fetch('https://api.resend.com/emails', {
+      if (!isReviewDemoBooking((booking as Record<string, unknown>).booking_data)) fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

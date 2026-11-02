@@ -242,4 +242,4 @@ export function computeVanoFeeCents(jobPriceCents: number): number {
 // branches on booking_data.card_pay; direct pay stays the default. Flip this
 // to false to pull the option from the sheet without touching the server —
 // in-flight card-pay bookings still complete correctly (data-driven).
-export const CARD_PAY_OFFERED = true;
+export const CARD_PAY_OFFERED = false; // 2026-09-06: one path — fee hold + helper paid direct (decision A1)

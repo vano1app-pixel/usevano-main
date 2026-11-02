@@ -250,7 +250,11 @@
     display: none;
   }
   .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* --vano-safe-* are set by the native shell (initNativeApp) because
+       env(safe-area-inset-*) reports 0 inside the Capacitor WKWebView even
+       though the webview is full-screen. On the web the variables are unset
+       and env() answers correctly, so this line works in both worlds. */
+    padding-bottom: var(--vano-safe-bottom, env(safe-area-inset-bottom, 0px));
   }
 
   /* App bottom-nav slides out of the way while a modal/sheet is open (it lives
@@ -280,7 +284,15 @@
      white strip ever clashes with a full-bleed hero, move this onto the page
      header instead. The class is set in src/lib/native/initNativeApp.ts. */
   html.native-app body {
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: var(--vano-safe-top, env(safe-area-inset-top, 0px));
+  }
+  /* The top nav is position:fixed, so the body pad above cannot move it —
+     without its own pad it sits under the clock / Dynamic Island (measured on
+     the iPhone 17 Pro simulator, 2026-09-06: the logo overlapped the time).
+     Sticky headers (the Find screen's search bar) need the same treatment. */
+  html.native-app header.fixed.top-0,
+  html.native-app .sticky.top-0 {
+    padding-top: var(--vano-safe-top, env(safe-area-inset-top, 0px));
   }
 
   /* Skeleton shimmer — one soft light sweep across loading placeholders.
@@ -514,3 +526,7 @@
     scroll-snap-align: start;
   }
 }
+
+/* Horizontal chip rows (Find filters, chat chips): scroll, no bar. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

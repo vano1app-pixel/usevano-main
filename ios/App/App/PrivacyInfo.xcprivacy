@@ -5,8 +5,9 @@
 
   - VANO does NOT track (no ATT, no ad SDKs, no cross-app/-site tracking), so
     NSPrivacyTracking is false and there are no tracking domains.
-  - "Data collected" (phone, email, name, address, precise location on tap,
-    audio/photos) is declared in App Store Connect's privacy labels, not here.
+  - "Data collected" (phone, email, name, address, precise location, photos,
+    job text) is declared in App Store Connect's privacy labels, not here.
+    Audio is NOT collected: dictation happens in the keyboard, VANO gets text.
     See docs/APP-STORE-PRIVACY-LABELS.md.
   - The required-reason API declarations below cover what the Capacitor
     runtime + its plugins actually touch (UserDefaults for Preferences/cookies,

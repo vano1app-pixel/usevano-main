@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isReviewDemoBooking } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
 
@@ -140,6 +141,19 @@ serve(async (req) => {
     }
 
     const callerId = booking.student_id as string;
+
+    // App Store review demo: the screens must move (completed + rating token
+    // + timeline row) but nothing may reach Stripe, Resend or push.
+    if (isReviewDemoBooking(booking.booking_data)) {
+      await ensureRatingToken();
+      const { data: flipped } = await supabase.from('household_bookings')
+        .update({ status: 'completed' })
+        .eq('id', bookingId)
+        .in('status', ['accepted','on_way','arrived','in_progress'])
+        .select('id').maybeSingle();
+      if (flipped) await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'completed', note: 'Job completed.' });
+      return new Response(JSON.stringify({ success: true, demo: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
     const priceCents = (booking.price_estimate_cents as number | null) ?? 0; // the job money
     let payoutRow: { id: string } | null = null;
     let holdUntil: string | null = null;

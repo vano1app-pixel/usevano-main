@@ -1,3 +1,4 @@
+import { isNativeApp } from '@/lib/platform';
 /**
  * In-app browser detection + escape.
  *
@@ -55,6 +56,9 @@ function getUA(): string {
  * heuristic so a Facebook in-app browser doesn't get tagged 'generic'.
  */
 export function detectInAppBrowser(): InAppBrowser | null {
+  // The Capacitor shell IS a WKWebView with no Safari/ token — it would
+  // trip the generic check below and tell our own users to "open in Safari".
+  if (isNativeApp()) return null;
   const ua = getUA();
   if (!ua) return null;
 

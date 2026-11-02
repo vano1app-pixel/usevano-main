@@ -6,6 +6,116 @@ Tailwind/shadcn on the front; Supabase (Postgres + Deno edge functions) on
 the back; Stripe for payments; hosted on Vercel. Also ships as native iOS +
 Android apps via Capacitor (see `src/lib/native/`).
 
+## START HERE — the 2-minute orientation
+*Everything below this section is the deep reference; it is all still true.
+Read this part first, then jump to the section you need.*
+
+**What this is.** ONE product: a same-day home-help booking flow for Galway
+households, plus the student-helper supply side that serves it. If a change
+doesn't make that single booking flow faster, clearer or more trusted, it waits.
+
+### Stack
+| Layer | What |
+|---|---|
+| Front | React 18 + Vite 5 + TypeScript, Tailwind + shadcn/ui, React Router |
+| Back | Supabase — Postgres + Deno edge functions (`supabase/functions/`) |
+| Money | Stripe, raw REST in every function (no SDK — match that style) |
+| Host | Vercel (frontend) + GitHub Actions (functions) |
+| Native | Capacitor 8 wraps the same `dist/` build into iOS + Android |
+
+### Run it locally
+```bash
+npm install
+npm run dev        # http://localhost:8080
+npm run typecheck  # tsc --noEmit
+npm test           # vitest — 318 tests, the price/fee maths lives here
+npm run lint       # eslint
+npm run build      # vite build + prerender ~45 SEO pages + llms.txt
+```
+Run `typecheck` + `test` before pushing. `/ship` runs the whole gate for you.
+
+### How it deploys — READ THIS BEFORE MERGING
+**Merging to main IS the deploy.** It publishes vanojobs.com within a minute
+*and* pushes every edge function in `supabase/functions/` to the LIVE Supabase
+project. There is no staging for functions.
+
+**The 667 rule.** Nothing merges to main and nothing goes to production unless
+Ayush has typed the literal word **667** in that session. Not "ship it", not
+"yes" — the digits. Everything else is free: localhost, branches, commits,
+pushing a branch, opening a PR, the Vercel preview.
+
+The loop: branch `claude/<task>` → commit → push → PR → **open the Vercel
+preview and click the thing you changed** → report what's ready → wait for 667.
+
+Migrations are deliberately NOT auto-applied — run them by hand in the SQL
+editor *before* the merge that needs them.
+
+### Folder map
+```
+src/pages/          one file per route; App.tsx lazy-loads all but the homepage
+src/components/household/   the product UI (CategoryGrid = the booking sheet)
+src/components/ui/  shadcn primitives — don't hand-edit
+src/lib/            pure logic + client helpers (pricing, jobBuilder, contact)
+src/content/        blog/glossary/services AS DATA — feeds pages, prerender, sitemap
+supabase/functions/ Deno edge functions; _shared/ holds the server price tables
+supabase/migrations/ SQL, applied by hand
+api/                Vercel serverless (sitemap.xml only)
+scripts/            prerender-content.ts runs after every build
+plugins/ayush-agents/  subagents (not app code — ignore when reading)
+design-references/  30MB of reference imagery (not app code — ignore)
+```
+
+### Conventions you can infer from the code
+- **Prices are recomputed server-side, always.** Client numbers are display only.
+- **Price tables are mirrored and lock-stepped**: `src/lib/householdPricing.ts`
+  (frontend) and `functions/_shared/householdPricing.ts` (server). Tests fail if
+  they drift. Change a price in both, never one.
+- **Customers are anonymous** — no accounts. Identity = phone + booking UUID.
+  Only helpers sign in, passwordless only. Don't add an account requirement.
+- **`verify_jwt=false` for every function** (pinned in `supabase/config.toml`);
+  auth is enforced *inside* each function. New function ⇒ pin it there too.
+- **Content is data.** Add a post to `src/content/blog.ts`, never as a loose page.
+- **Fail-soft everywhere**: a photo, an AI parse or an analytics call must never
+  be able to block a booking or a signup.
+- Design language: cream page, navy bands, **sage** = the one action colour,
+  gold = the single accent. Bricolage Grotesque for display headings only.
+
+### Gotchas — the things that have actually bitten
+1. **A green build ≠ a working site.** Vercel can publish an empty directory and
+   production 404s while the check is green. Always load the deployed URL.
+2. **`curl -I` proves nothing here.** The SPA rewrite answers *every* path with
+   `index.html` and a 200 — including paths that don't exist. To test a route,
+   grep the deployed bundle or load it in a browser.
+3. **TWO Vercel projects are linked to this one repo.** Only **vanojobs.com**
+   serves the domain; `usevano-main` is a leftover that also builds. Editing the
+   wrong one is the classic "I fixed the env var and nothing changed".
+4. **Never render a user-picked image unbounded.** A 48MP iPhone photo inside a
+   CSS-transformed layer black-screens iOS Safari and can crash the tab. Both
+   photo surfaces direct-set with a small bounded preview. `PhotoCropper` is
+   mounted nowhere — don't remount it.
+5. **Env vars are build-time.** Vite inlines `VITE_*` at build, so changing one
+   needs a redeploy. Nothing `VITE_`-prefixed may hold a secret — it ships in the
+   bundle. Server secrets live in Supabase → Edge Functions → Secrets.
+6. **Mobile Safari is the primary device.** Test at phone widths, treat WebKit
+   memory/canvas limits as hard constraints.
+7. **`/sitemap.xml` currently returns HTTP 500** (pre-existing, since before
+   2026-08-28). `robots.txt` points Google at it. Not yet fixed.
+8. `npm run build` is Vite **plus** the prerender script. Narrowing it to
+   `vite build` silently drops ~45 SEO pages and `llms.txt`.
+
+### Your crew
+| Use | For |
+|---|---|
+| `/ship` | full pre-deploy gate, plain-English go/no-go |
+| `reviewer` agent | read a diff for bugs, security, prod risk |
+| `shipper` agent | build + typecheck + lint gate before deploying |
+| `design-critic` agent | **all UI/taste review** — screenshots both widths |
+| `flow-guard` agent | drives the never-break flows in a real browser |
+| `money-check` agent | audits price/fee maths after any number moves |
+| `ship-doctor` agent | diagnoses a broken deploy or a silent 404 |
+
+---
+
 ## The focus (read this first)
 ONE business model: the single quick-book flow for one-off home help. The
 whole job right now is to **perfect that one flow to Uber's standard**, make

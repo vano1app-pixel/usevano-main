@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuthContext';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { isNativeApp } from '@/lib/platform';
 
 export function WhatsAppFloatingButton() {
   const { userType } = useAuth();
@@ -8,7 +9,9 @@ export function WhatsAppFloatingButton() {
   // Show for any authenticated user that has picked an account type. Previously
   // this was hidden on /students and /students/* — the exact pages where stuck
   // browsers most need a 1-tap "just text us" escape. Bringing it back there.
-  if (!userType) return null;
+  // Not inside the store app: a floating link that bounces to another app
+  // reads as "website in a box" to a reviewer. Support lives under Account.
+  if (!userType || isNativeApp()) return null;
 
   return (
     <a

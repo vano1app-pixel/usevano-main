@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Deliveroo-style progress emails — sent every ~10 minutes while a helper
@@ -65,6 +66,7 @@ serve(async (_req) => {
   const { data: bookings, error } = await supabase
     .from('household_bookings')
     .select('id, customer_name, customer_email, customer_lat, customer_lng, worker_lat, worker_lng, worker_location_updated_at, category, student_id, city, last_progress_email_at')
+    .or(NOT_DEMO_FILTER)
     .eq('status', 'on_way')
     .not('worker_lat', 'is', null)
     .not('worker_lng', 'is', null)

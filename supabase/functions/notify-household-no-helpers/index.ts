@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Booking watchdog / dead-man's switch. Runs on a short cron and, for every
@@ -42,6 +43,7 @@ serve(async (_req) => {
   const { data: bookings, error } = await supabase
     .from('household_bookings')
     .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, scheduled_at, city, price_estimate_cents, paid_at, created_at, no_helpers_email_sent_at, booking_data')
+    .or(NOT_DEMO_FILTER)
     .eq('status', 'pending')
     .is('student_id', null)
     .lt('created_at', alertCutoff)

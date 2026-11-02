@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isNativeApp } from '@/lib/platform';
 
 // Speak-to-book. Web Speech API only — no dependency, no network of ours (the
 // browser does the recognition). Deliberately FAIL-SOFT: it does not exist in
@@ -34,6 +35,10 @@ type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 function getCtor(): SpeechRecognitionCtor | null {
   if (typeof window === 'undefined') return null;
+  // Never inside the store app: the binary declares no microphone or speech
+  // usage string, so a mic button there could only end in a prompt iOS kills
+  // us for. The keyboard's own dictation key covers it (GeneralHelpField hints).
+  if (isNativeApp()) return null;
   const w = window as unknown as {
     SpeechRecognition?: SpeechRecognitionCtor;
     webkitSpeechRecognition?: SpeechRecognitionCtor;

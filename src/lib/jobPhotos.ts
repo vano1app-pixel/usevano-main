@@ -68,3 +68,21 @@ export async function uploadJobPhoto(
     return null;
   }
 }
+
+/** The BUYER's optional photo of the job, attached right after posting. No
+ *  session — the booking id is the capability (see job-photo kind='customer').
+ *  Same fail-soft contract: null on any failure, never throws. */
+export async function uploadCustomerPhoto(bookingId: string, file: File): Promise<string | null> {
+  try {
+    const blob = await resizeForUpload(file);
+    const form = new FormData();
+    form.append('booking_id', bookingId);
+    form.append('kind', 'customer');
+    form.append('photo', new File([blob], 'customer.jpg', { type: blob.type || 'image/jpeg' }));
+    const { data, error } = await supabase.functions.invoke<{ url?: string }>('job-photo', { body: form });
+    if (error || !data?.url) return null;
+    return data.url;
+  } catch {
+    return null;
+  }
+}

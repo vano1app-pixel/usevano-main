@@ -215,3 +215,11 @@ project_id = "puomfwjtpvqedwxjxogh"
 # per-function auth story stays consistent.
   [functions.job-photo]
     verify_jwt = false
+
+# --- Buy orders: the Find feed + the in-app claim (2026-09-06) --------------
+# Both verify the helper's Supabase JWT INSIDE the function and gate on
+# approved + id_verified there — same story as job-photo / household-arrival.
+  [functions.find-open-orders]
+    verify_jwt = false
+  [functions.claim-order]
+    verify_jwt = false

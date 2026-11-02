@@ -2,10 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 import { resolveMoneyAction, releaseBookingMoney } from "../_shared/bookingMoney.ts";
+import { isReviewDemoBooking } from "../_shared/reviewDemo.ts";
 
 // Three cancellation modes:
 //
-// type=customer_cancel  — no auth; booking must be 'pending'. Stripe refund + cancel.
+// type=customer_cancel  — no auth (booking UUID = capability). THE RULE
+//   (2026-09-06): free until a helper claims — the fee hold is released.
+//   After a claim the booking fee is CAPTURED and kept (a helper committed
+//   their time) and the helper is told. In-progress jobs still go via us.
 // type=helper_release   — auth required (must be the assigned student); releases
 //                         job back to 'pending' for re-dispatch, notifies customer.
 // type=admin_cancel     — auth required (vano1app@gmail.com); cancels any non-final
@@ -49,7 +53,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, status, student_id, stripe_payment_intent_id, price_estimate_cents, customer_name, customer_email, category, city, scheduled_date, paid_at')
+      .select('id, status, student_id, stripe_payment_intent_id, price_estimate_cents, customer_name, customer_email, category, city, scheduled_date, paid_at, booking_data')
       .eq('id', booking_id)
       .maybeSingle();
 
@@ -62,6 +66,8 @@ serve(async (req) => {
     }
 
     const ref       = booking_id.slice(-8).toUpperCase();
+    const bd        = (b.booking_data ?? {}) as Record<string, unknown>;
+    const demo      = isReviewDemoBooking(bd);
     const custName  = String(b.customer_name ?? 'there');
     const custEmail = b.customer_email as string | null;
     const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job';
@@ -142,23 +148,57 @@ serve(async (req) => {
         return bad(409, 'Your helper has already started — message us to sort out a cancellation.');
       }
 
-      // Booking is durably cancelled — now release its Stripe artifact. Shared
-      // money rule: refund captured money (blocks on failure), cancel an auth
-      // hold (proceeds on failure — holds self-expire), expire an open session.
-      const money = await releaseMoney();
+      // Booking is durably cancelled — now the money. THE RULE: no helper yet
+      // → release the hold (shared money rule). A helper had claimed → the
+      // fee is CAPTURED and kept: the hold (pi_, fee_authorized_at set, not
+      // yet captured) is captured now; an already-captured fee simply isn't
+      // refunded. Idempotent on the booking id, so a retry can't double-charge.
+      const claimed = !!b.student_id;
+      const holdId = b.stripe_payment_intent_id as string | null;
+      let feeKept = false;
+      let money: { refunded: boolean; holdReleased: boolean; failedRefund: boolean } = { refunded: false, holdReleased: false, failedRefund: false };
+      if (demo) {
+        // Review demo: no Stripe, no mail, no page — the status flip is enough.
+      } else if (claimed && bd.fee_authorized_at && !b.paid_at && STRIPE_SECRET && holdId?.startsWith('pi_')) {
+        try {
+          const cap = await fetch(`https://api.stripe.com/v1/payment_intents/${holdId}/capture`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${STRIPE_SECRET}`, 'Idempotency-Key': `vano_cancel_capture_${booking_id}` },
+          });
+          if (cap.ok) {
+            feeKept = true;
+            await supabase.from('household_bookings').update({ paid_at: new Date().toISOString() }).eq('id', booking_id).is('paid_at', null);
+            await supabase.rpc('merge_booking_data', { p_id: booking_id, p_patch: { cancel_fee_kept: true, cancel_fee_captured_at: new Date().toISOString() } }).then(() => {}, () => {});
+          } else {
+            // Capture failed (hold expired, card gone): fall back to releasing
+            // whatever is there — never strand a hold, never block the cancel.
+            console.warn('[cancel-household-booking] fee capture failed', cap.status, (await cap.text().catch(() => '')).slice(0, 200));
+            money = await releaseMoney();
+          }
+        } catch (e) {
+          console.warn('[cancel-household-booking] fee capture threw', e);
+          money = await releaseMoney();
+        }
+      } else if (claimed && b.paid_at) {
+        // Fee already captured at claim — kept. Nothing to release.
+        feeKept = true;
+        await supabase.rpc('merge_booking_data', { p_id: booking_id, p_patch: { cancel_fee_kept: true } }).then(() => {}, () => {});
+      } else {
+        money = await releaseMoney();
+      }
       if (money.failedRefund) {
         return bad(502, "We couldn't process your refund automatically. Please contact us on WhatsApp: +353 89 981 7111");
       }
       const refundOk = money.refunded;
 
-      await supabase.from('household_job_updates').insert({ booking_id, status: 'cancelled', note: 'Customer cancelled.' });
+      await supabase.from('household_job_updates').insert({ booking_id, status: 'cancelled', note: feeKept ? 'Customer cancelled after the helper claimed — booking fee kept.' : 'Customer cancelled.' });
 
       // If a helper was assigned, notify them so their live-subscribed screen
       // and pocket are updated. 'cancelled' isn't a valid push status, so this
       // is the job_update above (drives the realtime subscription) plus a
       // best-effort email/SMS via household_helpers. Never blocks the cancel.
       const assignedId = b.student_id as string | null;
-      if (assignedId) {
+      if (assignedId && !demo) {
         const { data: helperRow } = await supabase
           .from('household_helpers')
           .select('name, email, phone')
@@ -178,7 +218,7 @@ serve(async (req) => {
         }
       }
 
-      if (resendKey && custEmail) {
+      if (resendKey && custEmail && !demo) {
         fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -192,7 +232,7 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> booking has been cancelled.${refundOk ? ' A full refund has been issued and should appear on your card within 5–7 business days.' : money.holdReleased ? ' The hold on your card has been released — you were never charged.' : ' You weren\'t charged.'}</p>
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> booking has been cancelled.${refundOk ? ' A full refund has been issued and should appear on your card within 5–7 business days.' : money.holdReleased ? ' The hold on your card has been released — you were never charged.' : feeKept ? ' Because a helper had already claimed the job, the booking fee is kept — nothing else is charged.' : ' You weren\'t charged.'}</p>
     <p style="margin:0 0 0;color:#374151;font-size:15px;">Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
@@ -203,7 +243,7 @@ serve(async (req) => {
         }).catch(() => {});
       }
 
-      if (resendKey && adminEmail) {
+      if (resendKey && adminEmail && !demo) {
         fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -215,7 +255,7 @@ serve(async (req) => {
         }).catch(() => {});
       }
 
-      return new Response(JSON.stringify({ success: true, refunded: refundOk, hold_released: money.holdReleased }), {
+      return new Response(JSON.stringify({ success: true, refunded: refundOk, hold_released: money.holdReleased, fee_kept: feeKept }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

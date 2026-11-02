@@ -11,7 +11,7 @@ import {
   TEAM_INSTAGRAM_HANDLE,
 } from '@/lib/contact';
 
-const LAST_UPDATED = '4 September 2026';
+const LAST_UPDATED = '6 September 2026';
 
 const Privacy = () => (
   <div className="min-h-screen bg-cream pb-16 md:pb-0">
@@ -42,8 +42,9 @@ const Privacy = () => (
             VANO (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a platform that connects
             households in supported areas of Ireland with local, ID-verified student Helpers for
             same-day home tasks — for example cleaning, garden and lawn care, dog walking, laundry
-            and odd jobs — booked as one-off jobs. We are the data controller for the personal data we
-            process through the VANO platform. VANO is operated from Galway, Ireland.
+            and odd jobs — booked as one-off jobs. This policy covers both the VANO website
+            (vanojobs.com) and the VANO iOS app; they are the same service. We are the data controller
+            for the personal data we process through either. VANO is operated from Galway, Ireland.
           </p>
         </section>
 
@@ -52,6 +53,7 @@ const Privacy = () => (
           <ul className="list-disc pl-5 space-y-1.5">
             <li><strong>Account information</strong> — your name, email address, phone number, profile photo, and how you sign in (email/password or Google).</li>
             <li><strong>Booking &amp; location data</strong> — the address or <em>Eircode</em> where help is needed, the task details you provide, and approximate location used to match and dispatch nearby Helpers and to support live tracking of a job in progress.</li>
+            <li><strong>Helper location</strong> — if you&apos;re a Helper, when you open Find jobs we use your current location to show orders near you, and we store your last known position so nearby jobs can be offered to you. This only happens while the app is open on that screen or while you&apos;re on the way to a job — never in the background.</li>
             <li><strong>Helper verification</strong> — if you join as a Helper, identity verification (an ID check before your first job) and confirmation that you are a third-level student.</li>
             <li><strong>Payment &amp; payout data</strong> — the VANO booking fee is paid by card and processed by our payment provider, <strong>Stripe</strong>; you pay your Helper directly for the job itself (for example Revolut or cash). Some older bookings were paid in full by card, with Helper payouts made through Stripe Connect. We do not store your full card details.</li>
             <li><strong>Communications</strong> — messages you send through the platform, and the SMS, email and push notifications we send about your bookings (including your push token, if you opt in).</li>
@@ -67,7 +69,7 @@ const Privacy = () => (
             <li>Operate the platform and your account.</li>
             <li>Match Customers with Helpers and dispatch jobs to suitable Helpers nearby.</li>
             <li>Show each side only the details a booking needs — for example, a Helper&apos;s first name, photo and rating to the Customer, and the job address and task details to the assigned Helper.</li>
-            <li>Take payment of the booking fee (and, for older bookings, job payments and Helper payouts).</li>
+            <li>Take payment of the booking fee (and, for older bookings, job payments and Helper payouts). When you post a job your card is held for VANO&apos;s booking fee, not charged. You can cancel free of charge until a Helper claims the job, and the hold is released. Once a Helper has claimed it, the booking fee is charged and kept if you cancel, and the Helper is told.</li>
             <li>Verify Helpers and keep the platform safe for everyone.</li>
             <li>Send transactional SMS, email and push notifications about your bookings.</li>
             <li>Provide support and honour our satisfaction guarantee.</li>
@@ -98,7 +100,9 @@ const Privacy = () => (
                 <li>Supabase — database, authentication and file storage</li>
                 <li>Vercel — hosting and delivery</li>
                 <li>PostHog — product analytics (masked session replay); Sentry — error monitoring</li>
-                <li>Map providers (Google Maps and OpenStreetMap) — addresses and live tracking</li>
+                <li>Google (Gemini) — the sentence you type or dictate describing the job is sent to Google&apos;s Gemini model to work out the job type and how long it might take. It is not used to train anything by us, and we send no name, phone number or address with it.</li>
+                <li>OpenStreetMap-based services (Project OSRM public routing server, OpenStreetMap Nominatim) — to draw the route and turn an address into a map pin, we send the pin locations to these services. Google Maps is used for address lookup on the website.</li>
+                <li>Google Analytics — on the website only, not in the app</li>
                 <li>Our email and SMS providers — booking notifications</li>
               </ul>
             </li>
@@ -133,9 +137,9 @@ const Privacy = () => (
           </p>
           <p className="mt-3">
             <strong>Voice input.</strong> If you use the &quot;Speak&quot; option to say your job instead of
-            typing, your device or browser turns your speech into text on the device — VANO only ever
-            receives the text, never an audio recording. On the iOS app, if speech-to-text isn&apos;t
-            available you simply type instead.
+            typing, your keyboard or browser turns your speech into text before it reaches VANO —
+            VANO never receives a recording, only the text. The iOS app doesn&apos;t ask for microphone
+            or speech permission; you use the keyboard&apos;s own dictation or simply type.
           </p>
         </section>
 
@@ -164,8 +168,9 @@ const Privacy = () => (
           <p className="mt-3">
             <strong>Deleting your account or data.</strong> Helpers can delete their account and personal
             details at any time from the helper account screen in the app (Account → Delete my account).
-            Customers have no account — to delete the phone number, address or booking history tied to
-            you, email us at <a href="mailto:vano1app@gmail.com" className="text-primary underline underline-offset-2">vano1app@gmail.com</a>{' '}
+            Customers have no account — the name, phone number and address the app remembers for your
+            next booking are saved on your own device, and you can clear them by deleting the app or
+            clearing site data. To erase the booking records we hold, email us at <a href="mailto:vano1app@gmail.com" className="text-primary underline underline-offset-2">vano1app@gmail.com</a>{' '}
             (or use the <a href="/support" className="text-primary underline underline-offset-2">Support</a> page) and we will erase it. We do not sell your personal
             data to anyone. To exercise any other right above, contact us at the email below — we respond
             within 30 days.

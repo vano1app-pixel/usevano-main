@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NOT_DEMO_FILTER } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Public platform stats for the landing page's lowkey numbers (owner call
@@ -85,13 +86,15 @@ serve(async (req) => {
       // Real jobs, part 1: completed bookings.
       supabase.from('household_bookings')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'completed'),
+        .eq('status', 'completed')
+        .or(NOT_DEMO_FILTER),
       // Real jobs, part 2: paid and in-flight (accepted → in_progress) —
       // booked in every honest sense, just not finished yet.
       supabase.from('household_bookings')
         .select('id', { count: 'exact', head: true })
         .not('status', 'in', '(cancelled,awaiting_payment,completed)')
-        .not('paid_at', 'is', null),
+        .not('paid_at', 'is', null)
+        .or(NOT_DEMO_FILTER),
     ]);
     const jobsFailed = doneRes.error || liveRes.error;
     return new Response(

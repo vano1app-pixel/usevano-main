@@ -924,6 +924,19 @@ const StudentDashboard = () => {
             {/* Available jobs tab */}
             {tab === 'available' && (
               <div className="pb-10">
+                {/* One source of open orders (2026-09-06): /find — map, search,
+                    distance and the in-app claim. This tab is the door. */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/find')}
+                  className="mb-4 w-full rounded-2xl bg-sage px-5 py-4 text-left text-white active:scale-[0.99] transition-transform flex items-center justify-between gap-3"
+                >
+                  <span>
+                    <span className="block text-[15px] font-bold">Find jobs near you</span>
+                    <span className="block text-[13px] text-white/80 mt-0.5">Open orders on a map · search "cleaning tonight" · one tap to claim</span>
+                  </span>
+                  <span aria-hidden="true" className="text-white/80">→</span>
+                </button>
                 {availableJobs.filter(j => !skipped.has(j.id)).length === 0 ? (
                   <EmptyState
                     icon={<Inbox size={24} strokeWidth={1.5} />}

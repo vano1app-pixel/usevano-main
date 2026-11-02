@@ -23,6 +23,8 @@ import { computeVanoFeeCents, VANO_COVER_CENTS, UNPAID_STRIKE_BLOCK_THRESHOLD } 
 // Auth-at-booking: the far-future gate (card holds die ~7 days, so bookings
 // scheduled >5 days out keep pay-after-accept).
 import { isFarFuture } from "../_shared/bookingMoney.ts";
+import { buildSearchTags, areaToken } from "../_shared/searchTags.ts";
+import { isReviewDemoBuyerPhone } from "../_shared/reviewDemo.ts";
 
 // ── Inlined CORS ──────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
@@ -371,9 +373,19 @@ serve(async (req) => {
     // far-future ones (>5 days — card holds die at ~7), sub-minimum amounts
     // (Stripe won't authorize < €0.50 — possible when a referral leaves a
     // tiny fee remainder), and any run without a Stripe key.
+    // ── App Store review demo (2026-09-06) ─────────────────────────────
+    // The reviewer's buyer number posts a REAL-LOOKING order that touches no
+    // vendor: born pending, flagged booking_data.demo, paid_at stamped so the
+    // helper start gate passes, no Stripe session, no dispatch, no texts, no
+    // owner page. Only the demo helper can ever see or claim it (find-open-
+    // orders / claim-order / open-jobs / accept-job all wall on the flag).
+    const isDemoBuyer = isReviewDemoBuyerPhone(customer_phone);
     const stripeKeyForAuth = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
+    // 2026-09-06: the hold is the DEFAULT (owner decision A1 — "pay to
+    // publish"). VANO_AUTH_AT_BOOKING=0 is the explicit opt-out.
     const authPath =
-      Deno.env.get('VANO_AUTH_AT_BOOKING') === '1' &&
+      !isDemoBuyer &&
+      Deno.env.get('VANO_AUTH_AT_BOOKING') !== '0' &&
       !!stripeKeyForAuth &&
       feeDueCents >= 50 &&
       !isMonthlyPlan &&
@@ -429,6 +441,7 @@ serve(async (req) => {
       // Auth-at-booking marker: this row was born awaiting_payment behind a
       // manual-capture hold (distinguishes it from legacy awaiting_payment).
       ...(authPath ? { fee_auth_required: true } : {}),
+      ...(isDemoBuyer ? { demo: true } : {}),
     };
 
     // Resolve the address once, and geocode server-side when the client didn't
@@ -537,6 +550,7 @@ serve(async (req) => {
       }
     }
 
+    const cityVal = typeof city === 'string' && city.trim() ? city.trim() : null;
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
       .insert({
@@ -559,6 +573,11 @@ serve(async (req) => {
         customer_phone: customer_phone.trim(),
         ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
         ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
+        // Search tags + neighbourhood label for the helper's Find screen
+        // (2026-09-06). The label is neighbourhood-grained, never the street.
+        area_label: areaToken({ lat: custLat, lng: custLng, address: resolvedAddress, city: cityVal }),
+        search_tags: buildSearchTags({ category: cat, size_label: sl, extra_label: el, note: typeof note === 'string' ? note : null, area: areaToken({ lat: custLat, lng: custLng, address: resolvedAddress, city: cityVal }), city: cityVal, scheduled_at: scheduledAt ?? null }),
+        ...(isDemoBuyer ? { paid_at: new Date().toISOString() } : {}),
         booking_data: bookingData,
       })
       .select('id')
@@ -570,12 +589,24 @@ serve(async (req) => {
     }
 
     const bookingId: string = booking.id;
+    // Inside the native app the Origin is capacitor://localhost — Stripe
+    // rejects that as a success_url and the app can't receive it back. Every
+    // return URL built here resolves to the public site instead; the app opens
+    // Stripe in an in-app browser and polls the booking to know when to close.
+    const rawOrigin = req.headers.get('origin');
     const origin =
-      req.headers.get('origin') ||
+      (rawOrigin && !NATIVE_APP_ORIGINS.includes(rawOrigin.replace(/\/$/, '')) ? rawOrigin : null) ||
       Deno.env.get('SITE_URL') ||
       'https://vanojobs.com';
     const trackUrl = `${origin}/track/${bookingId}`;
-    const cityVal = typeof city === 'string' && city.trim() ? city.trim() : null;
+
+    if (isDemoBuyer) {
+      // Review demo stops here: no memory row, no hold, no dispatch, no page.
+      return new Response(
+        JSON.stringify({ booking_id: bookingId, track_url: trackUrl, checkout_url: trackUrl, hold: false, demo: true, price_cents: jobTotalCents, fee_due_cents: feeDueCents, total_cents: jobTotalCents + feeDueCents, pay_later: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     // Home memory: refresh this phone's household_homes row — the server-side
     // "the home is the account" record whatsapp-inbound reads for welcome-back
@@ -892,7 +923,7 @@ serve(async (req) => {
         booking_id: bookingId,
         track_url: trackUrl,
         checkout_url: authActive && authSessionUrl ? authSessionUrl : trackUrl,
-        ...(authActive && authSessionUrl ? { auth_required: true } : {}),
+        ...(authActive && authSessionUrl ? { auth_required: true, hold: true } : { hold: false }),
         price_cents: jobTotalCents,
         fee_due_cents: feeDueCents,
         total_cents: jobTotalCents + feeDueCents,

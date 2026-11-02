@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAcceptToken } from "../_shared/acceptToken.ts";
+import { isReviewDemoBooking, isReviewDemoHelperPhone } from "../_shared/reviewDemo.ts";
 
 // Public one-tap accept endpoint (verify_jwt = false). A helper taps the link
 // in their WhatsApp/SMS/email and claims the job in a single tap — no login.
@@ -140,9 +141,9 @@ serve(async (req) => {
   // Booking must still be open.
   const { data: booking } = await supabase
     .from('household_bookings')
-    .select('id, status, student_id, category, city')
+    .select('id, status, student_id, category, city, booking_data')
     .eq('id', bookingId)
-    .maybeSingle() as { data: { id: string; status: string; student_id: string | null; category: string; city: string | null } | null };
+    .maybeSingle() as { data: { id: string; status: string; student_id: string | null; category: string; city: string | null; booking_data: Record<string, unknown> | null } | null };
 
   if (!booking) return redirect(siteUrl, 'notfound');
   const catLabel = CATEGORY_LABELS[booking.category] ?? 'job';
@@ -155,8 +156,12 @@ serve(async (req) => {
   // claim a job. A missing row (deleted helper) is treated the same. 'expired'
   // reads honestly as "this link no longer works".
   const { data: helperRow } = await supabase
-    .from('household_helpers').select('status, id_verified').eq('id', helperId).maybeSingle() as { data: { status: string; id_verified: boolean | null } | null };
+    .from('household_helpers').select('status, id_verified, phone').eq('id', helperId).maybeSingle() as { data: { status: string; id_verified: boolean | null; phone: string | null } | null };
   if (!helperRow || helperRow.status !== 'approved' || !helperRow.id_verified) {
+    return redirect(siteUrl, 'expired');
+  }
+  // Review demo wall: demo bookings only for the demo helper, never the other way.
+  if (isReviewDemoBooking(booking.booking_data) !== isReviewDemoHelperPhone(helperRow.phone)) {
     return redirect(siteUrl, 'expired');
   }
 

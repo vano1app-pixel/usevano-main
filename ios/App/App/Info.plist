@@ -34,7 +34,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<!-- iPhone-only, portrait-only (App Store pass, 2026-09-05): the booking
 	     sheet and forms are built for a phone held upright; landscape and iPad
@@ -45,10 +45,12 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<!-- Location: customers use "use my location" to fill their address; helpers
-	     share live location while on the way to a job. -->
+	<!-- Location, both sides: customers tap "use my location" to fill their
+	     address; helpers see jobs near them on Find jobs and share position on
+	     the way to a job. When-in-use only — there is no background mode. No mic
+	     or speech strings on purpose: the Speak button is gated off on native. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>VANO uses your location only when you tap “use my location” to fill in your address, and — if you’re a helper — to show the customer you’re on the way. It is never used in the background.</string>
+	<string>VANO uses your location only while you’re using the app: as a customer, to fill in your address when you tap “use my location”; as a helper, to show jobs near you and let the customer see you’re on the way. Never in the background.</string>
 	<!-- Camera + photo library: helpers add a face/profile photo during sign-up
 	     and from their account, and before/after job photos. The upload uses a
 	     file input with capture, which opens the camera — without these strings

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useDragControls, useReducedMotion, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, ArrowLeft, Clock, Phone, MapPin } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, ArrowLeft, Clock, Phone, MapPin, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -20,6 +20,9 @@ import { searchCustomJobs, isShortVisit, customJobByKey, type CustomJob } from '
 import { BUILDER_TASKS, SIZING_QUESTIONS, EQUIPMENT_QUESTIONS, builderMinutes, builderSizeLabel, builderMarketCents, builderNote, builderShortLabel, minutesLabel, minutesText, taskMinutes, hoursFromSizeLabel, bookedMinutes, durationText, type SizingOption, type EquipmentOption } from '@/lib/jobBuilder';
 import { KIT_HIRE_CENTS, kitHireCents, kitLabel } from '@/lib/kit';
 import { WAITLIST_MODE, WAITLIST_CTA, WAITLIST_TITLE, WAITLIST_BODY, WAITLIST_FORM_HEADLINE, WAITLIST_FORM_SUB, waitlistWhatsAppText } from '@/lib/waitlist';
+import { openExternalCheckout } from '@/lib/nativeCheckout';
+import { uploadCustomerPhoto } from '@/lib/jobPhotos';
+import type { WhenBucket } from '@/lib/whenBucket';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 import { track } from '@/lib/track';
 
@@ -522,9 +525,24 @@ interface SheetProps {
   /** Skip the sub-service wizard page — the entry already carries a choice
    *  (usual rebook, podium tile with a size, deep link). */
   direct?:      boolean;
+  /** Spoken/typed "when" (2026-09-06) — prefills the time chips, editable. */
+  when?:        WhenBucket;
+  /** An Eircode heard in the sentence — prefills the address, editable. */
+  eircode?:     string;
 }
 
-const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note: entryNote, extraLabel: entryExtraLabel, direct }) => {
+/** Map a spoken when-bucket onto the sheet's slot labels. 'scheduled' keeps
+ *  the default and opens the picker so they choose. */
+function slotForBucket(bucket: WhenBucket | undefined, slots: string[]): string | null {
+  if (!bucket || bucket === 'scheduled') return null;
+  if (bucket === 'tonight') {
+    const evening = slots.find(s => { const m = s.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)$/i); return !!m && m[3].toLowerCase() === 'pm' && Number(m[1]) >= 6 && Number(m[1]) !== 12; });
+    return evening ?? TOMORROW_SLOTS[3];
+  }
+  return slots[0] ?? TOMORROW_SLOTS[0];
+}
+
+const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note: entryNote, extraLabel: entryExtraLabel, direct, when: entryWhen, eircode: entryEircode }) => {
   const navigate   = useNavigate();
   const timeSlots  = useMemo(() => getTimeSlots(), []);
   const remembered = useMemo(() => loadBookingMemory(), []);
@@ -592,10 +610,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Default to the earliest bookable slot rather than the old 'Now' — and to
   // tomorrow morning once today's window has closed, so the collapsed row
   // never shows a time nobody can actually book.
-  const [when,     setWhen]    = useState(() => getTimeSlots()[0] ?? TOMORROW_SLOTS[0]);
+  const [when,     setWhen]    = useState(() => slotForBucket(entryWhen, getTimeSlots()) ?? getTimeSlots()[0] ?? TOMORROW_SLOTS[0]);
   // When + duration collapse to a single "Today 2pm · change" line by default —
   // most people want it now, so we don't make them wade through time chips.
-  const [showWhen, setShowWhen] = useState(false);
+  // A spoken "pick a time" opens them straight away.
+  const [showWhen, setShowWhen] = useState(entryWhen === 'scheduled');
   // Area also collapses to a compact line — Galway is the only live area and
   // it's usually auto-detected from the address, so the city chips are tucked
   // behind "Change".
@@ -631,7 +650,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       ?? DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '',
   );
   const [phone,    setPhone]   = useState(remembered?.phone ?? '');
-  const [address,  setAddress] = useState(remembered?.address ?? '');
+  const [address,  setAddress] = useState(remembered?.address ?? entryEircode ?? '');
   const [coords,   setCoords]  = useState<{ lat: number; lng: number } | null>(
     remembered?.lat != null && remembered?.lng != null
       ? { lat: remembered.lat, lng: remembered.lng }
@@ -642,6 +661,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const [cityAuto, setCityAuto] = useState(false);
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
+  // One optional photo of the job (2026-09-06). Kept as the File; uploaded
+  // AFTER the booking exists, fail-soft — a photo can never block a post.
+  const [photo,    setPhoto]   = useState<File | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   // Success beat: the booking landed — the button confirms it for a moment
   // before the tracking page takes over, so the handoff reads as one flow.
   const [bookedOk, setBookedOk] = useState(false);
@@ -1068,8 +1091,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // In waitlist mode the button can't promise a booking — it asks. The price
   // stays off it too: quoting a total next to a button that takes no money
   // reads as a charge that never arrives.
+  // Live orders: the button POSTS the job and holds the fee — say so.
   const ctaLabel = WAITLIST_MODE ? WAITLIST_CTA : [
-    cat.label.length <= 12 ? `Book ${cat.label}` : 'Book',
+    'Post job',
     sizeText || null,
     priceLabel,
   ].filter(Boolean).join(' · ');
@@ -1360,6 +1384,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       // baton — teleporting mid-spinner read as a glitch. Anything external
       // (a real Stripe URL) still hard-navigates immediately.
       const dest = data.checkout_url as string;
+      const newBookingId = typeof data.booking_id === 'string' ? data.booking_id : null;
+      // The optional photo rides after the booking exists. Fail-soft.
+      if (photo && newBookingId) void uploadCustomerPhoto(newBookingId, photo);
       try {
         const u = new URL(dest, window.location.origin);
         if (u.origin === window.location.origin) {
@@ -1376,7 +1403,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       setLoading(false);
       setSecuring(true);
       haptic(15);
-      window.setTimeout(() => { window.location.href = dest; }, 650);
+      // Web: hard navigation to Stripe. Native: in-app browser + poll, then
+      // back to /track (src/lib/nativeCheckout.ts).
+      window.setTimeout(() => {
+        void openExternalCheckout({
+          url: dest,
+          bookingId: newBookingId ?? '',
+          onSettled: (path) => { setSecuring(false); navigate(path); },
+        });
+      }, 650);
     } catch (err: unknown) {
       submitLock.current = false; // allow a retry after a failure
       setLoading(false);
@@ -2128,17 +2163,11 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         // Galway-first: dispatch is live in Galway today. Other cities
                         // read as "soon" — but a remembered or address-derived area
                         // stays selectable so returning customers aren't locked out.
+                        // Only Galway is live. Other cities are simply not
+                        // offered (no "soon" pills — nothing in the app
+                        // promises what it can't do today).
                         const comingSoon = c !== 'Galway' && c !== city;
-                        if (comingSoon) {
-                          return (
-                            <span
-                              key={c}
-                              className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
-                            >
-                              {c} · soon
-                            </span>
-                          );
-                        }
+                        if (comingSoon) return null;
                         return (
                           // A manual pick overrides the geocoder — clear the
                           // "from your address" claim so the row stays honest.
@@ -2456,14 +2485,45 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 copy). Plain reassurance + the contract moment: the Terms must
                 be incorporated at the point of sale, not just linked in the
                 footer. */}
+            {/* One optional photo (2026-09-06). Bounded preview only — a raw
+                48 MP photo in a transformed layer black-screens iOS Safari. */}
+            {!WAITLIST_MODE && (
+              <motion.div variants={listItem} className="sm:max-w-lg sm:mx-auto">
+                <label className="flex items-center gap-3 rounded-2xl border border-dashed border-border bg-white px-4 py-3 cursor-pointer active:scale-[0.99] transition-transform">
+                  {photoUrl ? (
+                    <img src={photoUrl} alt="" className="h-12 w-12 flex-shrink-0 rounded-lg object-cover" onError={() => setPhotoUrl(null)} />
+                  ) : (
+                    <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground/50" aria-hidden="true">
+                      <Camera className="w-5 h-5" />
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-foreground">{photo ? 'Photo added' : 'Add a photo (optional)'}</span>
+                    <span className="block text-[12px] text-muted-foreground">{photo ? 'Tap to change' : 'Shows your helper what they\'re walking into'}</span>
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      setPhoto(f);
+                      if (photoUrl) URL.revokeObjectURL(photoUrl);
+                      setPhotoUrl(f ? URL.createObjectURL(f) : null);
+                    }}
+                  />
+                </label>
+              </motion.div>
+            )}
             <motion.div variants={listItem} className="sm:max-w-lg sm:mx-auto space-y-2 pt-1">
               {!WAITLIST_MODE && (
                 <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
-                  Card only for the small fee when they accept. You pay the student when they finish.
+                  {priceCents ? <>€{(computeVanoFeeCents(priceCents) / 100).toFixed(2)} booking fee is held on your card now and only charged when a helper claims. Free to cancel until then. </> : null}
+                  You pay your helper {jobTotalCents != null ? fmt(jobTotalCents) : ''} directly when the job's done — they keep 100%.
                 </p>
               )}
               <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
-                By {WAITLIST_MODE ? 'sending this request' : 'tapping Book'} you agree to VANO's{' '}
+                By {WAITLIST_MODE ? 'sending this request' : 'posting this job'} you agree to VANO's{' '}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
                 {' '}— your helper is an independent person you pay directly{WAITLIST_MODE ? '.' : ', and '}
                 {!WAITLIST_MODE && (<>
@@ -2747,7 +2807,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
 // them. Six tiles open the booking sheet; its wizard page 1 asks "what kind?"
 // (or describe-it for the Anything-else tile), page 2 is the form.
 
-type Selection = { cat: Category; size?: string; note?: string; extraLabel?: string; direct?: boolean };
+type Selection = { cat: Category; size?: string; note?: string; extraLabel?: string; direct?: boolean; when?: WhenBucket; eircode?: string };
 
 // `showTiles={false}` keeps the sheet machinery mounted (the event listener +
 // the portal that opens the booking sheet) but renders NONE of the visible tile
@@ -2757,8 +2817,8 @@ export const CategoryGrid: React.FC<{ showTiles?: boolean }> = ({ showTiles = tr
   const [selected, setSelected] = useState<Selection | null>(null);
 
   const openSheet = useCallback(
-    (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string; direct?: boolean }) =>
-      setSelected({ cat, size: opts?.size, note: opts?.note, extraLabel: opts?.extraLabel, direct: opts?.direct }),
+    (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string; direct?: boolean; when?: WhenBucket; eircode?: string }) =>
+      setSelected({ cat, size: opts?.size, note: opts?.note, extraLabel: opts?.extraLabel, direct: opts?.direct, when: opts?.when, eircode: opts?.eircode }),
     [],
   );
   const closeSheet = useCallback(() => setSelected(null), []);
@@ -2788,14 +2848,14 @@ export const CategoryGrid: React.FC<{ showTiles?: boolean }> = ({ showTiles = tr
   // customer's words prefilled (see src/lib/generalHelp.ts).
   useEffect(() => {
     const handle = (e: Event) => {
-      const { slug, size: evSize, note, extraLabel, label, direct } =
-        (e as CustomEvent<{ slug: string; size?: string; note?: string; extraLabel?: string; label?: string; direct?: boolean }>).detail;
+      const { slug, size: evSize, note, extraLabel, label, direct, when: evWhen, eircode: evEircode } =
+        (e as CustomEvent<{ slug: string; size?: string; note?: string; extraLabel?: string; label?: string; direct?: boolean; when?: WhenBucket; eircode?: string | null }>).detail;
       // 'custom' isn't a grid tile — it lives as CUSTOM_TILE — so fall back to
       // it so the describe-it / general-help door can open by slug. `label`
       // (the understood job, e.g. "Deep clean") titles the sheet when given.
       const base = CATEGORIES.find(c => c.slug === slug) ?? (slug === 'custom' ? CUSTOM_TILE : undefined);
       const cat = base && label ? { ...base, label } : base;
-      if (cat) openSheet(cat, { size: evSize, note, extraLabel, direct: direct ?? !!evSize });
+      if (cat) openSheet(cat, { size: evSize, note, extraLabel, direct: direct ?? !!evSize, when: evWhen, eircode: evEircode ?? undefined });
     };
     window.addEventListener('vano:select-category', handle);
     return () => window.removeEventListener('vano:select-category', handle);
@@ -2930,6 +2990,8 @@ export const CategoryGrid: React.FC<{ showTiles?: boolean }> = ({ showTiles = tr
             note={selected.note}
             extraLabel={selected.extraLabel}
             direct={selected.direct}
+            when={selected.when}
+            eircode={selected.eircode}
             onClose={closeSheet}
           />
         )}

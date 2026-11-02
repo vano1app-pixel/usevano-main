@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Phone, MapPin, CalendarCheck, MessageCircle, FileText, Shield, UserPlus, UserCog, ChevronRight, Pencil,
-  LifeBuoy, Trash2,
+  LifeBuoy,
 } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { ReferralEntryCard } from '@/components/household/ReferralEntryCard';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { setMode, useMode } from '@/lib/mode';
+import { isNativeApp } from '@/lib/platform';
+import { cn } from '@/lib/utils';
 
 const Account: React.FC = () => {
   const [mem, setMem] = useState(() => loadBookingMemory());
+  const navigate = useNavigate();
+  const mode = useMode();
 
   // Inline edit — lets you fix a wrong number, add a missing address, or set
   // your details up front before your first booking.
@@ -63,9 +68,13 @@ const Account: React.FC = () => {
     // profile" meant nothing to a homeowner and looked like their own account.
     { label: 'Become a helper — students earn €22/hr', to: '/join', icon: UserPlus },
     { label: 'Already a helper? Sign in', to: '/student-account', icon: UserCog },
-    { label: 'Chat to us on WhatsApp', href: `${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! ')}`, icon: MessageCircle },
+    // WhatsApp is the website's human door; in the store app support has its
+    // own page (a link that leaves the app reads as unfinished to a reviewer).
+    ...(isNativeApp() ? [] : [{ label: 'Chat to us on WhatsApp', href: `${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! ')}`, icon: MessageCircle }]),
     { label: 'Support', to: '/support', icon: LifeBuoy },
-    { label: 'Delete my data', to: '/support', icon: Trash2 },
+    // "Delete my data" used to point at an FAQ — customers have no account, so
+    // there's nothing to delete beyond the device-saved details ("Clear saved
+    // details" above) and the booking records, which /support explains.
     { label: 'Terms', to: '/terms', icon: FileText },
     { label: 'Privacy', to: '/privacy', icon: Shield },
   ];
@@ -84,6 +93,29 @@ const Account: React.FC = () => {
           <p className="eyebrow mb-3">Account</p>
           <h1 className="display-lg text-foreground">Your details</h1>
         </header>
+
+        {/* Buyer ↔ Helper. ONE app, two sides (owner call 2026-09-06). The
+            switch only changes which tabs the bottom bar shows; the helper
+            side still asks the helper to sign in with their phone. */}
+        <div className="mb-4 flex rounded-full bg-secondary p-1" role="group" aria-label="I am here to">
+          {([['buyer', 'I need help'], ['helper', "I'm a helper"]] as const).map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={mode === m}
+              onClick={() => {
+                setMode(m);
+                if (m === 'helper') navigate('/find');
+              }}
+              className={cn(
+                'flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors duration-150 active:scale-[0.98]',
+                mode === m ? 'bg-white text-foreground shadow-sm' : 'text-foreground/55',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* Saved details — device-local, editable */}
         {editing ? (

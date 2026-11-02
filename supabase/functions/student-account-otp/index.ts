@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 import { signAccountToken, ACCOUNT_TOKEN_TTL_SECONDS, DEVICE_TOKEN_TTL_SECONDS } from "../_shared/accountToken.ts";
-import { isReviewDemoPhone, REVIEW_DEMO_OTP } from "../_shared/reviewDemo.ts";
+import { isReviewDemoHelperPhone, REVIEW_DEMO_OTP } from "../_shared/reviewDemo.ts";
+import { ensureHelperAuthUser, mintHelperSession } from "../_shared/helperAuth.ts";
 
 // The SMS gate on /student-account (phone-gate hardening, July 2026).
 //
@@ -20,6 +21,19 @@ import { isReviewDemoPhone, REVIEW_DEMO_OTP } from "../_shared/reviewDemo.ts";
 // Codes live in helper_email_otps with an 'acct:' prefix in the (NOT NULL)
 // email column and an 'acct:'-salted hash, so they can never be confused with
 // (or validated by) the student-email verification flow sharing the table.
+
+type HelperRow = { id: string; phone: string | null; user_id: string | null; email: string | null; name: string | null; student_email_verified: boolean | null };
+
+// A verified phone now ALSO yields a Supabase session (2026-09-06): the Find
+// screen, the claim and the job screen all key on auth.uid(), so a helper who
+// signs in with their phone works a whole job inside the app with no second
+// login. Fail-soft: no session → the account page still works as before.
+// deno-lint-ignore no-explicit-any
+async function sessionFor(supabase: any, helper: HelperRow) {
+  const userId = await ensureHelperAuthUser(supabase, helper);
+  if (!userId) return null;
+  return mintHelperSession(supabase, userId, helper.id);
+}
 
 const OTP_TTL_MS    = 10 * 60 * 1000; // codes last 10 minutes
 const RESEND_GAP_MS = 30 * 1000;      // min gap between sends per helper
@@ -206,18 +220,18 @@ serve(async (req) => {
 
     let { data: helper } = await supabase
       .from('household_helpers')
-      .select('id, phone')
+      .select('id, phone, user_id, email, name, student_email_verified')
       .in('phone', [...variants])
       .neq('status', 'suspended')
       .limit(1)
-      .maybeSingle() as { data: { id: string; phone: string | null } | null };
+      .maybeSingle() as { data: HelperRow | null };
     if (!helper) {
       const last9 = digits.slice(-9);
       const { data: rows } = await supabase
         .from('household_helpers')
-        .select('id, phone')
+        .select('id, phone, user_id, email, name, student_email_verified')
         .neq('status', 'suspended');
-      helper = (rows ?? []).find((r: { id: string; phone: string | null }) =>
+      helper = (rows ?? []).find((r: HelperRow) =>
         (r.phone ?? '').replace(/\D/g, '').endsWith(last9)) ?? null;
     }
     if (!helper) return json(404, { error: "That number doesn't match any helper account." });
@@ -230,11 +244,12 @@ serve(async (req) => {
     // ONE hard-coded number, only while the REVIEW_DEMO secret is "true":
     // "send" texts nothing, "verify" accepts 000000. See _shared/reviewDemo.ts.
     // With the switch off (the default) this is dead code.
-    if (isReviewDemoPhone(helper.phone)) {
+    if (isReviewDemoHelperPhone(helper.phone)) {
       if (action === 'send') return json(200, { success: true, channel: 'sms' });
       if (body.code?.trim() !== REVIEW_DEMO_OTP) return json(400, { error: 'That code is incorrect. Try again.' });
       const account_token = await signAccountToken(helper.id);
       const device_token = await signAccountToken(helper.id, DEVICE_TOKEN_TTL_SECONDS);
+      const session = await sessionFor(supabase, helper);
       return json(200, {
         success: true,
         account_token,
@@ -242,6 +257,7 @@ serve(async (req) => {
         expires_at_ms: Date.now() + ACCOUNT_TOKEN_TTL_SECONDS * 1000,
         device_token,
         device_expires_at_ms: Date.now() + DEVICE_TOKEN_TTL_SECONDS * 1000,
+        ...(session ? { session } : {}),
       });
     }
 
@@ -305,6 +321,7 @@ serve(async (req) => {
     // family (verifiers just check the embedded expiry); a 401 anywhere makes
     // the client drop it and fall back to the code step.
     const device_token = await signAccountToken(helper.id, DEVICE_TOKEN_TTL_SECONDS);
+    const session = await sessionFor(supabase, helper);
     return json(200, {
       success: true,
       account_token,
@@ -312,6 +329,7 @@ serve(async (req) => {
       expires_at_ms: Date.now() + ACCOUNT_TOKEN_TTL_SECONDS * 1000,
       device_token,
       device_expires_at_ms: Date.now() + DEVICE_TOKEN_TTL_SECONDS * 1000,
+      ...(session ? { session } : {}),
     });
   } catch (err) {
     console.error('[student-account-otp] unhandled', err);

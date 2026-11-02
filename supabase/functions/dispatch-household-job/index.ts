@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isReviewDemoBooking } from "../_shared/reviewDemo.ts";
+import { haversineKm } from "../_shared/geo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { signAcceptToken } from "../_shared/acceptToken.ts";
 // Neighbourhood label for the OFFER — a helper decides on the trip, and the
@@ -35,7 +37,10 @@ const MAX_OFFERS = Number(Deno.env.get('DISPATCH_MAX_OFFERS')) || 50;
 // unaccepted at the old 20-minute TTL — students simply don't see email that
 // fast. 60 min keeps urgency but gives a realistic window, and still fits
 // inside no-helper-fallback's 2-hour auto-refund cutoff.
-const OFFER_TTL_MINUTES = 60;
+// 2026-09-06: 20 min. Offers now land in the app's Find feed as well as
+// SMS/WhatsApp, and redispatch-stale-jobs re-pings nearby helpers as soon as
+// a round expires — a shorter round means a faster second wave.
+const OFFER_TTL_MINUTES = Number(Deno.env.get('DISPATCH_OFFER_TTL_MINUTES')) || 20;
 
 // Gap-recruit nudges (see sendGapRecruitNudges): only fire when coverage is
 // thin — if plenty of matching helpers already got the offer there's no gap
@@ -466,6 +471,10 @@ serve(async (req) => {
     if (status !== 'pending') {
       return new Response('Not a pending booking — skipping', { status: 200 });
     }
+    // App Store review demo rows never reach a real helper's pocket.
+    if (isReviewDemoBooking(bookingDataForPay)) {
+      return new Response('Review demo booking — not dispatched', { status: 200 });
+    }
 
     // Atomic dispatch claim: two invocations for the same booking arriving
     // within seconds (checkout dispatch racing a retry, admin button racing the
@@ -544,11 +553,11 @@ serve(async (req) => {
 
     // Find helpers in the booking city first (bookings without a city skip
     // straight to the platform-wide search below).
-    let helpers: Array<{ id: string; name: string; phone: string; email?: string; user_id?: string }> | null = null;
+    let helpers: Array<{ id: string; name: string; phone: string; email?: string; user_id?: string; last_lat?: number | null; last_lng?: number | null }> | null = null;
     if (city) {
       let cityQuery = supabase
         .from('household_helpers')
-        .select('id, name, phone, email, user_id')
+        .select('id, name, phone, email, user_id, last_lat, last_lng')
         .eq('city', city)
         .eq('status', 'approved')
         .eq('is_available', true)
@@ -581,7 +590,7 @@ serve(async (req) => {
       console.warn(`[dispatch] no helpers in ${city ?? 'unknown city'} for ${bookingId} — expanding to platform-wide search`);
       let allQuery = supabase
         .from('household_helpers')
-        .select('id, name, phone, email, user_id')
+        .select('id, name, phone, email, user_id, last_lat, last_lng')
         .eq('status', 'approved')
         .eq('is_available', true)
         .eq('id_verified', true); // first-job gate — same as the city query
@@ -596,6 +605,19 @@ serve(async (req) => {
         helpers = allHelpers;
         expandedSearch = true;
         console.log(`[dispatch] platform-wide search found ${helpers.length} helper(s)`);
+      }
+    }
+
+    // Nearest first (2026-09-06): helpers who opened Find recently carry a
+    // last-known position; sort those by distance to the job, unknown last.
+    // Stable, so the verified-then-rotation order survives among equals.
+    {
+      const jLat = (dbBooking as { customer_lat?: number | null }).customer_lat ?? null;
+      const jLng = (dbBooking as { customer_lng?: number | null }).customer_lng ?? null;
+      if (helpers && helpers.length > 1 && typeof jLat === 'number' && typeof jLng === 'number') {
+        const dist = (h: { last_lat?: number | null; last_lng?: number | null }) =>
+          typeof h.last_lat === 'number' && typeof h.last_lng === 'number' ? haversineKm(jLat, jLng, h.last_lat, h.last_lng) : Infinity;
+        helpers = [...helpers].sort((a, b) => dist(a) - dist(b));
       }
     }
 

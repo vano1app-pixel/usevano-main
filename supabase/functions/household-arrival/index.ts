@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isReviewDemoBooking } from "../_shared/reviewDemo.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isTimedCategory, bookedDurationMinutes } from "../_shared/householdJob.ts";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
@@ -139,6 +140,9 @@ serve(async (req) => {
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
+    // App Store review demo: every status write below happens, every call to
+    // Twilio / Resend / push / the owner's WhatsApp is skipped.
+    const demo = isReviewDemoBooking(booking.booking_data);
 
     // The arrival code lives in the service-role-only household_booking_secrets
     // table (never on the booking row, so the assigned helper can't read it via
@@ -188,7 +192,7 @@ serve(async (req) => {
           .eq('helper_id', callerId)
           .eq('status', 'active');
         if (resolveErr) { console.error('[household-arrival] sos resolve failed', resolveErr); return bad(500, 'Could not update — the team will still check on you'); }
-        void fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        if (!demo) void fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -229,8 +233,9 @@ serve(async (req) => {
       // Page the owner on every channel and AWAIT the answer — the helper's
       // screen tells them honestly whether a human was reached, and falls
       // back to direct WhatsApp + 999 when not.
-      let alerted = false;
+      let alerted = demo; // demo: nobody is paged, the screen still shows "alerted"
       try {
+        if (demo) throw new Error('demo — no page');
         const resp = await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
@@ -315,8 +320,8 @@ serve(async (req) => {
       const { data: reqHelper } = await supabase
         .from('household_helpers').select('name').eq('user_id', callerId).maybeSingle() as { data: { name?: string | null } | null };
       if (reqHelper?.name) helperFirst = String(reqHelper.name).split(' ')[0];
-      void sendHouseholdPush(bookingId, 'extra_time');
-      void sendPocketMessage(
+      if (!demo) void sendHouseholdPush(bookingId, 'extra_time');
+      if (!demo) void sendPocketMessage(
         booking.customer_phone,
         `⏱ ${helperFirst} says your job needs ${extraTimeText(minutes)} more (€${(check.cents / 100).toFixed(2)}, paid straight to them — no Vano fee). ` +
         `Approve or decline here: ${siteUrl}/track/${bookingId}`,
@@ -360,9 +365,9 @@ serve(async (req) => {
       // without the tracking link the customer never sees the start code and
       // the helper is stuck at the door. Never blocks the flow.
       if (booking.status !== 'arrived') {
-        void sendHouseholdPush(bookingId, 'arrived');
+        if (!demo) void sendHouseholdPush(bookingId, 'arrived');
         const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
-        void sendPocketMessage(
+        if (!demo) void sendPocketMessage(
           booking.customer_phone,
           `👋 Your VANO helper is at the door! Open your booking to get the 4-digit start code and read it out to them: ${siteUrl}/track/${bookingId}`,
         );
@@ -451,11 +456,11 @@ serve(async (req) => {
           `A second strike blocks this number from booking.`,
         ].filter(Boolean).join('\n');
         const adminPhone = Deno.env.get('ADMIN_WHATSAPP_TO')?.trim() || Deno.env.get('ADMIN_PHONE')?.trim() || null;
-        if (adminPhone) void sendPocketMessage(adminPhone, alertText);
+        if (adminPhone && !demo) void sendPocketMessage(adminPhone, alertText);
         try {
           const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
           const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
-          if (resendKey && adminEmail) {
+          if (resendKey && adminEmail && !demo) {
             await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -517,9 +522,9 @@ serve(async (req) => {
 
       // Tell the customer their helper is there and the job's underway — with
       // the tracking link so a surprised customer can see (or report) it.
-      void sendHouseholdPush(bookingId, 'arrived');
+      if (!demo) void sendHouseholdPush(bookingId, 'arrived');
       const gpsSiteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
-      void sendPocketMessage(
+      if (!demo) void sendPocketMessage(
         booking.customer_phone,
         `👋 Your VANO helper has arrived — their location matched your address, so the job has started. Follow along or flag anything here: ${gpsSiteUrl}/track/${bookingId}`,
       );
@@ -553,13 +558,13 @@ serve(async (req) => {
 
       // Customer: the 'arrived' push already fired when they tapped "I've
       // reached"; reuse it so the tracking screen surfaces the change. Best-effort.
-      void sendHouseholdPush(bookingId, 'arrived');
+      if (!demo) void sendHouseholdPush(bookingId, 'arrived');
 
       // Admin: flag the unverified start so the owner can keep an eye on it.
       // Best-effort — never block the helper's flow on the alert.
       const catLabel = booking.category ?? 'job';
       const ref = bookingId.slice(-8).toUpperCase();
-      void fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+      if (!demo) void fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
