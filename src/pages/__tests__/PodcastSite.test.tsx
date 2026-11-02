@@ -98,7 +98,12 @@ describe("public podcast journeys", () => {
   });
   it("filters actual clips and restores the full selection", () => {
     const { container } = open("/clips");
-    expect(container.querySelectorAll("a.vp-clip")).toHaveLength(4);
+    expect(container.querySelectorAll("a.vp-clip")).toHaveLength(3);
+    for (const guest of ["Jack Garvey", "Milosz Nelka", "Ayush Puri"]) {
+      expect(container.querySelector(".vp-clip-grid")?.textContent).toContain(
+        guest,
+      );
+    }
     fireEvent.click(screen.getByRole("button", { name: "Mindset" }));
     expect(container.querySelectorAll("a.vp-clip")).toHaveLength(1);
     expect(container.querySelector("a.vp-clip")).toHaveAttribute(
@@ -106,7 +111,7 @@ describe("public podcast journeys", () => {
       "https://www.youtube.com/shorts/28nOfX6ZkM4",
     );
     fireEvent.click(screen.getByRole("button", { name: "All" }));
-    expect(container.querySelectorAll("a.vp-clip")).toHaveLength(4);
+    expect(container.querySelectorAll("a.vp-clip")).toHaveLength(3);
   });
   it("replaces old blog entry points with podcast notes, with no jobs navigation", () => {
     open("/blog/how-to-hire-a-cleaner");
@@ -125,17 +130,13 @@ describe("public podcast journeys", () => {
   });
   it("prepares a recording enquiry without submitting a booking or charging", () => {
     open("/contact");
-    const links = screen.getAllByRole("link", { name: /discuss an episode/i });
-    expect(links).toHaveLength(2);
-    expect(links[0].getAttribute("href")).toContain(
-      "https://wa.me/353899817111?text=",
-    );
-    expect(decodeURIComponent(links[0].getAttribute("href")!)).toContain(
-      "remote episode",
-    );
-    expect(decodeURIComponent(links[1].getAttribute("href")!)).toContain(
-      "Galway in-person episode",
-    );
+    expect(screen.getByRole("radio", { name: /digital/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /in person/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /send episode enquiry/i }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("€100")).toBeNull();
   });
   it("only advertises real podcast routes to search and answer engines", () => {

@@ -1,82 +1,122 @@
-{
-  "pages": [
-    {
-      "file": "dist/index.html",
-      "canonical": "https://vanojobs.com/",
-      "schemas": 1
-    },
-    {
-      "file": "dist/404.html",
-      "canonical": "https://vanojobs.com/",
-      "schemas": 0
-    },
-    {
-      "file": "dist/contact/index.html",
-      "canonical": "https://vanojobs.com/contact",
-      "schemas": 0
-    },
-    {
-      "file": "dist/clips/index.html",
-      "canonical": "https://vanojobs.com/clips",
-      "schemas": 0
-    },
-    {
-      "file": "dist/episodes/index.html",
-      "canonical": "https://vanojobs.com/episodes",
-      "schemas": 1
-    },
-    {
-      "file": "dist/about/index.html",
-      "canonical": "https://vanojobs.com/about",
-      "schemas": 0
-    },
-    {
-      "file": "dist/notes/index.html",
-      "canonical": "https://vanojobs.com/notes",
-      "schemas": 0
-    },
-    {
-      "file": "dist/site-terms/index.html",
-      "canonical": "https://vanojobs.com/site-terms",
-      "schemas": 0
-    },
-    {
-      "file": "dist/site-privacy/index.html",
-      "canonical": "https://vanojobs.com/site-privacy",
-      "schemas": 0
-    },
-    {
-      "file": "dist/notes/krios-founders/index.html",
-      "canonical": "https://vanojobs.com/notes/krios-founders",
-      "schemas": 1
-    },
-    {
-      "file": "dist/notes/jack-garvey-ganzy/index.html",
-      "canonical": "https://vanojobs.com/notes/jack-garvey-ganzy",
-      "schemas": 1
-    },
-    {
-      "file": "dist/episodes/jack-garvey-ganzy/index.html",
-      "canonical": "https://vanojobs.com/episodes/jack-garvey-ganzy",
-      "schemas": 2
-    },
-    {
-      "file": "dist/episodes/krios-ahroon-michael/index.html",
-      "canonical": "https://vanojobs.com/episodes/krios-ahroon-michael",
-      "schemas": 2
-    },
-    {
-      "file": "dist/episodes/milosz-nelka-business-at-17/index.html",
-      "canonical": "https://vanojobs.com/episodes/milosz-nelka-business-at-17",
-      "schemas": 2
-    },
-    {
-      "file": "dist/episodes/vano-and-tech-startups/index.html",
-      "canonical": "https://vanojobs.com/episodes/vano-and-tech-startups",
-      "schemas": 2
-    }
-  ],
-  "sitemapUrls": 14,
-  "oldBlogPagesGenerated": false,
-  "visualQA": "blocked by saved browser origin permission"
-}
+[
+  {
+    "path": "dist/404.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/about/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/clips/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/contact/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/episodes/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 1
+  },
+  {
+    "path": "dist/episodes/jack-garvey-ganzy/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/episodes/krios-ahroon-michael/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/episodes/milosz-nelka-business-at-17/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/episodes/vano-and-tech-startups/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 1
+  },
+  {
+    "path": "dist/notes/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/notes/jack-garvey-ganzy/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 1
+  },
+  {
+    "path": "dist/notes/krios-founders/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 1
+  },
+  {
+    "path": "dist/site-privacy/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/site-terms/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  }
+]

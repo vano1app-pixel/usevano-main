@@ -37,7 +37,7 @@ export function podcastLlms() {
     "## Selected clips",
     ...CLIPS.map(
       (c) =>
-        `- [${c.title}](https://www.youtube.com/shorts/${c.id}): ${c.caption}`,
+        `- [${c.title}](https://www.youtube.com/shorts/${c.id}): Episode ${c.episode}, ${c.guest}. ${c.caption}`,
     ),
     "",
     "## Show notes",

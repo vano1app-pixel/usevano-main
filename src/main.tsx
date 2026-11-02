@@ -110,6 +110,7 @@ deferToIdle(() => {
           // Add `ph-mask` to ANY element that renders a phone, address or
           // customer name as text. Grep for it before adding a new one.
           maskTextClass: 'ph-mask',
+          blockClass: 'ph-no-capture',
         },
         respect_dnt: true,
         persistence: 'localStorage+cookie',

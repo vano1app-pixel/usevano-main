@@ -191,40 +191,34 @@ export const EPISODES: Episode[] = [
     ],
   },
 ];
-// Editorial picks, checked against the public VANO.shorts feed on 2026-11-02.
-// These are real published clips, not an all-time performance ranking.
+// Published Shorts checked against @VANO.shortz's catalogue on 2026-11-02.
+// Guest/episode attribution checked against the original episode artwork.
+// A varied editorial selection, not an all-time performance ranking.
 export const CLIPS = [
   {
     id: "28nOfX6ZkM4",
     title: "Committing to your own path.",
     topic: "Founder mindset",
-    caption:
-      "Following society’s plan feels safe. Committing to your own path is the scary part.",
-    date: "2026-11-01",
+    caption: "Jack Garvey on choosing your own direction.",
+    episode: 4,
+    guest: "Jack Garvey · Ganzy",
   },
   {
-    id: "aNnQ5Cof6m8",
-    title: "Three books. A different way to think.",
-    topic: "Books & strategy",
-    caption:
-      "Three books worth reading if you want to think better about strategy.",
-    date: "2026-10-30",
+    id: "Rp_ECuzP0ic",
+    title: "How an AI agency began.",
+    topic: "Building a business",
+    caption: "Milosz Nelka on how his AI agency came about.",
+    episode: 2,
+    guest: "Milosz Nelka",
   },
   {
-    id: "KpWCeDt3b5g",
-    title: "Nobody warns you about selling.",
+    id: "jl5HQ1lnyyA",
+    title: "Create value first.",
     topic: "Building a business",
     caption:
-      "Nobody warns you how hard selling really is until you’re the one doing it.",
-    date: "2026-10-31",
-  },
-  {
-    id: "6B9SOdKJoHY",
-    title: "Who gets to build now?",
-    topic: "AI & making things",
-    caption:
-      "You don’t need a team of engineers anymore. AI lets anyone build the product.",
-    date: "2026-11-01",
+      "A moment from our first conversation about creating value for people.",
+    episode: 1,
+    guest: "Ayush Puri · Team VANO",
   },
 ];
 export const NOTES = [

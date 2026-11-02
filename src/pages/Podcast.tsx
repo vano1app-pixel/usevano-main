@@ -8,6 +8,7 @@ import {
   X,
   Headphones,
 } from "lucide-react";
+import GuestEnquiryForm from "@/components/podcast/GuestEnquiryForm";
 import { SEOHead } from "@/components/SEOHead";
 import {
   CLIPS,
@@ -17,7 +18,6 @@ import {
   ORIGIN,
   PLATFORMS,
   SHOW,
-  contactUrl,
   episodeSchema,
   episodeUrl,
   formatDate,
@@ -184,7 +184,9 @@ export function ClipShelf({ full = false }: { full?: boolean }) {
                 </span>
               </div>
               <div className="vp-clip-copy">
-                <span>{c.topic}</span>
+                <span>
+                  EP. {String(c.episode).padStart(2, "0")} / {c.guest}
+                </span>
                 <h3>{c.title}</h3>
                 <p>
                   Watch clip <ArrowUpRight size={14} />
@@ -638,7 +640,7 @@ export function ClipsPage() {
     <>
       <PodcastMeta
         title="Clips — VANO Podcast"
-        description="Watch selected VANO Podcast clips on founder mindset, books, sales and AI, with direct links to the original YouTube posts."
+        description="Watch VANO Podcast moments from episodes one, two and four: founder choices, starting an AI agency and creating value, linked to the original YouTube posts."
         path="/clips"
       />
       <ClipShelf full />
@@ -687,7 +689,7 @@ export function ContactPage() {
     <>
       <PodcastMeta
         title="Be a guest — VANO Podcast"
-        description="Discuss a VANO Podcast guest episode, remote or in Galway, or contact the hosts about collaborations and sponsorship."
+        description="Pitch your VANO Podcast episode. Choose digital or in-person recording in Galway and send your idea directly to the hosts."
         path="/contact"
       />
       <section className="vp-wrap vp-page-heading">
@@ -699,32 +701,7 @@ export function ContactPage() {
           anything is booked.
         </p>
       </section>
-      <section className="vp-wrap vp-contact-options">
-        {[
-          {
-            name: "Join from anywhere.",
-            format: "remote",
-            label: "Remote recording",
-            text: "A conversation over a video call. Talk to us about recording an episode and creating clips for your channels.",
-          },
-          {
-            name: "Meet us in Galway.",
-            format: "Galway in-person",
-            label: "In-person recording",
-            text: "Sit down with Ayush and Michael in Galway. Get in touch to discuss a location, date and the story you want to tell.",
-          },
-        ].map((o) => (
-          <article key={o.format}>
-            <p className="vp-kicker">{o.label}</p>
-            <h2>{o.name}</h2>
-            <p>{o.text}</p>
-            <External className="vp-button" href={contactUrl(o.format)}>
-              Discuss an episode <ArrowUpRight size={17} />
-            </External>
-            <small>Opens a WhatsApp draft. You choose whether to send.</small>
-          </article>
-        ))}
-      </section>
+      <GuestEnquiryForm />
       <section className="vp-wrap vp-prose">
         <h2>Something else in mind?</h2>
         <p>
@@ -892,8 +869,12 @@ export function PolicyPage({ kind }: { kind: "privacy" | "terms" }) {
             </p>
             <h2>Contact and requests</h2>
             <p>
-              If you contact the hosts, the details you choose to share are used
-              to reply and discuss your enquiry. For privacy questions, contact
+              If you submit a guest enquiry, we use your name, email, recording
+              preference and the details you choose to share to reply and
+              discuss your episode. The form sends these details to the hosts by
+              email through Resend. It does not subscribe you to marketing.
+              Please avoid sharing sensitive information. You can ask us to
+              access or delete your enquiry. For privacy questions, contact
               Ayush using the link below.
             </p>
           </>
