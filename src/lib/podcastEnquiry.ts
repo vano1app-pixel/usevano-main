@@ -1,4 +1,4 @@
-import { BOOKING } from "../content/podcast";
+import { BOOKING } from "../content/podcast.js";
 
 export const RECORDING_OPTIONS = [
   {

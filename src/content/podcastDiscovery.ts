@@ -1,4 +1,11 @@
-import { CLIPS, EPISODES, NOTES, ORIGIN, PODCAST_PATHS, SHOW } from "./podcast";
+import {
+  CLIPS,
+  EPISODES,
+  NOTES,
+  ORIGIN,
+  PODCAST_PATHS,
+  SHOW,
+} from "./podcast.js";
 const xmlEscape = (s: string) =>
   s
     .replace(/&/g, "&amp;")

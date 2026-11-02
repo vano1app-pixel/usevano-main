@@ -3,7 +3,7 @@ import {
   enquiryMessage,
   recordingLabel,
   validateEnquiry,
-} from "../src/lib/podcastEnquiry";
+} from "../src/lib/podcastEnquiry.js";
 
 type Request = {
   method?: string;
@@ -71,23 +71,19 @@ export default async function handler(req: Request, res: Response) {
   }
   if (limited(req)) {
     res.setHeader("Retry-After", "900");
-    res
-      .status(429)
-      .json({
-        error:
-          "Too many attempts. Please wait a little or contact us on WhatsApp.",
-      });
+    res.status(429).json({
+      error:
+        "Too many attempts. Please wait a little or contact us on WhatsApp.",
+    });
     return;
   }
   let body: unknown = req.body;
   try {
     const raw = typeof body === "string" ? body : JSON.stringify(body);
     if (!raw || Buffer.byteLength(raw, "utf8") > 12_000) {
-      res
-        .status(413)
-        .json({
-          error: "Your enquiry is too long. Please shorten the episode idea.",
-        });
+      res.status(413).json({
+        error: "Your enquiry is too long. Please shorten the episode idea.",
+      });
       return;
     }
     if (typeof body === "string") body = JSON.parse(body);
@@ -106,12 +102,10 @@ export default async function handler(req: Request, res: Response) {
   }
   const result = validateEnquiry(body);
   if (!result.valid) {
-    res
-      .status(400)
-      .json({
-        error: "Please check the highlighted fields.",
-        fields: result.errors,
-      });
+    res.status(400).json({
+      error: "Please check the highlighted fields.",
+      fields: result.errors,
+    });
     return;
   }
   const submissionId = header(req, "idempotency-key");
@@ -125,12 +119,10 @@ export default async function handler(req: Request, res: Response) {
   }
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
-    res
-      .status(503)
-      .json({
-        error:
-          "Email enquiries are temporarily unavailable. Your details are still here; please use WhatsApp below.",
-      });
+    res.status(503).json({
+      error:
+        "Email enquiries are temporarily unavailable. Your details are still here; please use WhatsApp below.",
+    });
     return;
   }
   const to =
@@ -166,12 +158,10 @@ export default async function handler(req: Request, res: Response) {
         "[podcast-enquiry] provider did not accept enquiry",
         response.status,
       );
-      res
-        .status(503)
-        .json({
-          error:
-            "We couldn’t submit your enquiry just now. Your details are still here. Try again or send it on WhatsApp.",
-        });
+      res.status(503).json({
+        error:
+          "We couldn’t submit your enquiry just now. Your details are still here. Try again or send it on WhatsApp.",
+      });
       return;
     }
     // Provider acceptance is not a booking confirmation or proof of inbox delivery.
@@ -180,11 +170,9 @@ export default async function handler(req: Request, res: Response) {
       .json({ status: "accepted", reference: submissionId.slice(0, 8) });
   } catch {
     console.warn("[podcast-enquiry] provider request failed");
-    res
-      .status(503)
-      .json({
-        error:
-          "The connection didn’t complete. Your details are still here. Try again or use WhatsApp below.",
-      });
+    res.status(503).json({
+      error:
+        "The connection didn’t complete. Your details are still here. Try again or use WhatsApp below.",
+    });
   }
 }

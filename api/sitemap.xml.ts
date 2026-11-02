@@ -1,4 +1,4 @@
-import { podcastSitemap } from "../src/content/podcastDiscovery";
+import { podcastSitemap } from "../src/content/podcastDiscovery.js";
 type Req = { method?: string };
 type Res = {
   status: (code: number) => Res;

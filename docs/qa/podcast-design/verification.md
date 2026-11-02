@@ -35,3 +35,7 @@ Selected source posts:
 Latest local validation: typecheck passed; full suite passed 34 files / 380 tests; production build and 15-page static checks passed; focused lint passed. A subsequent isolated run exposed a test assertion racing React's focus effect; changed the assertion to await focus rather than checking immediately after the success DOM appeared. Final isolated rerun passed all 26 API/form tests.
 
 Deployment packaging: API tests live under src/lib/__tests__, outside Vercel’s auto-deployed api directory. The test move passed the 26-case isolated rerun; no test handler should be deployed.
+
+Remote build-log review caught TS2835 errors despite Vercel's Ready status: NodeNext server imports need explicit .js extensions. Fixed the enquiry and sitemap dependency chains and added tsconfig.api.json to the normal typecheck command so server imports are checked before deployment. Final corrected preview must be checked again for clean build logs.
+
+Corrected import validation: strict NodeNext API compilation and emitted Node ESM loading passed for both enquiry and sitemap handlers. GET method guard and sitemap output were exercised locally without network/provider calls. All 34 focused podcast/form/API tests passed after the fix.
