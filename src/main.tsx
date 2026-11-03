@@ -7,6 +7,7 @@ import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { getSupabaseUrl } from "@/lib/supabaseEnv";
 import "./index.css";
+import "./pages/podcast.css";
 
 window.googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
@@ -109,6 +110,7 @@ deferToIdle(() => {
           // Add `ph-mask` to ANY element that renders a phone, address or
           // customer name as text. Grep for it before adding a new one.
           maskTextClass: 'ph-mask',
+          blockClass: 'ph-no-capture',
         },
         respect_dnt: true,
         persistence: 'localStorage+cookie',

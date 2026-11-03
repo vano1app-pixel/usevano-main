@@ -1,342 +1,891 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight, Flame, Mic2, Play, Radio } from 'lucide-react';
-import { SEOHead } from '@/components/SEOHead';
-import logo from '@/assets/logo.png';
-import { EPISODES, PLATFORMS, STATS, CONTACT, SHOW, BOOKING } from '@/content/podcast';
+import React, { useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { ArrowRight, ArrowUpRight, Play, X, Headphones } from "lucide-react";
+import ListenerComments from "@/components/podcast/ListenerComments";
+import EpisodeCarousel from "@/components/podcast/EpisodeCarousel";
+import GuestEnquiryForm from "@/components/podcast/GuestEnquiryForm";
+import { SEOHead } from "@/components/SEOHead";
+import {
+  CLIPS,
+  CONTACT,
+  EPISODES,
+  NOTES,
+  ORIGIN,
+  PLATFORMS,
+  SHOW,
+  episodeSchema,
+  episodeUrl,
+  formatDate,
+  seriesSchema,
+  type Episode,
+} from "@/content/podcast";
 
-const fadeUp = {
-  initial: { opacity: 0, y: 24 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: '-60px' },
-  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
-};
-
-// The motif: a waveform that breathes. Echoed small in the logo dot, big in the
-// hero, tiny in the footer — one thing at every scale.
-const Wave = ({ bars = 48, className = '' }: { bars?: number; className?: string }) => (
-  <div className={`flex items-end gap-[3px] ${className}`} aria-hidden>
-    {Array.from({ length: bars }).map((_, i) => (
-      <motion.span
-        key={i}
-        className="w-[3px] rounded-full bg-gold"
-        animate={{ height: [8, 14 + Math.abs(Math.sin(i * 1.7)) * 34, 8] }}
-        transition={{ duration: 1.6 + (i % 5) * 0.22, repeat: Infinity, ease: 'easeInOut', delay: i * 0.05 }}
-        style={{ height: 8 }}
-      />
-    ))}
-  </div>
-);
-
-const CTA = ({ href, children, ghost = false }: { href: string; children: React.ReactNode; ghost?: boolean }) => (
+export const External = ({
+  href,
+  children,
+  className = "",
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+}) => (
   <a
     href={href}
-    target={href.startsWith('http') ? '_blank' : undefined}
-    rel="noreferrer"
-    className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition ${
-      ghost
-        ? 'border border-white/25 text-white hover:border-gold hover:text-gold'
-        : 'bg-sage text-cream hover:bg-sage-dark shadow-lg shadow-sage/25'
-    }`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className={className}
   >
     {children}
   </a>
 );
-
-export default function Podcast() {
-  const guestCTA = CONTACT.linkedin;
+export function PodcastMeta({
+  title,
+  description,
+  path = "/",
+  jsonLd,
+  noindex = false,
+  article,
+}: {
+  title: string;
+  description: string;
+  path?: string;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  noindex?: boolean;
+  article?: { published: string; modified: string };
+}) {
   return (
-    <div className="min-h-screen bg-navy text-cream antialiased">
-      <SEOHead
-        title="The VANO Podcast — founders, on the record"
-        description="Ayush Puri interviews founders about how they actually think and build. New episodes weekly — Spotify, Apple, YouTube and everywhere else."
+    <SEOHead
+      title={title}
+      description={description}
+      url={ORIGIN + path}
+      image={ORIGIN + "/podcast/og-podcast.png"}
+      keywords="VANO Podcast, podcasts in Ireland, Irish podcasts, Galway podcast, Irish business podcast, founder interviews, entrepreneurship, Ayush Puri, Michael Okocha, Kríos, Ganzy, Frank Forde"
+      type={article ? "article" : "website"}
+      publishedTime={article?.published}
+      modifiedTime={article?.modified}
+      jsonLd={jsonLd}
+      noindex={noindex}
+    />
+  );
+}
+export const Wave = () => (
+  <span className="vp-wave" aria-hidden="true">
+    {Array.from({ length: 13 }, (_, i) => (
+      <i
+        key={i}
+        style={{
+          height: `${8 + Math.abs(Math.sin(i * 1.8)) * 20}px`,
+          animationDelay: `${i * 45}ms`,
+        }}
       />
-
-      {/* nav */}
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
-        <a href="/" className="flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
-          <img src={logo} alt="VANO" className="h-8 w-8 rounded-lg object-contain" />
-          VANO<span className="font-normal text-cream/60">.podcast</span>
-        </a>
-        <CTA href={guestCTA}>Be a guest <ArrowRight className="h-4 w-4" /></CTA>
-      </header>
-
-      {/* hero */}
-      <section className="mx-auto max-w-5xl px-6 pb-16 pt-10 md:pt-20">
-        <motion.p {...fadeUp} className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-gold">
-          Founder interviews · Galway → the world
-        </motion.p>
-        <motion.h1
-          {...fadeUp}
-          className="font-display text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl"
-        >
-          Founders,<br />on the record.
-        </motion.h1>
-        <motion.p {...fadeUp} className="mt-6 max-w-xl text-lg leading-relaxed text-cream/70">
-          {SHOW.tagline} Hosted by {SHOW.hosts} in {SHOW.city}.
-        </motion.p>
-        <motion.div {...fadeUp} className="mt-8 flex flex-wrap gap-3">
-          <CTA href={PLATFORMS[0].url}><Play className="h-4 w-4" /> Listen on Spotify</CTA>
-          <CTA href={guestCTA} ghost><Mic2 className="h-4 w-4" /> Book an episode</CTA>
-        </motion.div>
-        <motion.div {...fadeUp} className="mt-14 h-16 overflow-hidden">
-          <Wave />
-        </motion.div>
-      </section>
-
-      {/* trending — latest episode, big and loud */}
-      {EPISODES.filter((e: any) => e.trending).map((ep: any) => (
-        <motion.section key={ep.n} {...fadeUp} className="mx-auto max-w-5xl px-6 pb-14">
-          <a
-            href={ep.link || PLATFORMS[0].url}
-            target="_blank" rel="noreferrer"
-            className="group flex flex-col gap-6 rounded-3xl border border-gold/25 bg-gradient-to-br from-white/[0.05] to-transparent p-7 transition hover:border-gold/50 md:flex-row md:items-center md:p-9"
-          >
-            <div className="relative flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gold md:h-44 md:w-44">
-              <Wave bars={9} className="absolute inset-0 items-center justify-center px-5 opacity-70 [&>span]:bg-navy/60" />
-              <span className="relative z-10 font-display text-4xl font-extrabold tracking-tight text-navy">{ep.n.replace('EP.', 'E')}</span>
-              <span className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-navy text-gold transition group-hover:scale-110">
-                <Play className="ml-0.5 h-4 w-4" fill="currentColor" />
-              </span>
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-                <Flame className="h-3.5 w-3.5" /> Trending · latest episode
-              </div>
-              <h2 className="mt-2 font-display text-2xl font-bold md:text-3xl">{ep.title}</h2>
-              <p className="mt-1 text-sm font-semibold text-cream/80">
-                {ep.guest}
-                {ep.guestSite && <> · <a href={ep.guestSite} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-gold underline underline-offset-4">{ep.guestLabel}</a></>}
-                <span className="font-normal text-cream/50"> · {ep.length}</span>
-              </p>
-              <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/60">{ep.desc}</p>
-            </div>
-          </a>
-        </motion.section>
-      ))}
-
-      {/* stats */}
-      <motion.section {...fadeUp} className="border-y border-white/10 bg-white/[0.03]">
-        <div className="mx-auto grid max-w-5xl grid-cols-3 divide-x divide-white/10 px-6">
-          {[
-            [STATS.viewsPerWeek, 'views a week, across episodes + clips'],
-            [String(STATS.episodesReleased), 'episodes released'],
-            [String(STATS.accounts), 'accounts posting clips every week'],
-          ].map(([num, label]) => (
-            <div key={label} className="px-4 py-8 text-center md:px-8">
-              <div className="font-display text-3xl font-bold text-gold md:text-4xl">{num}</div>
-              <div className="mt-1 text-xs leading-snug text-cream/60 md:text-sm">{label}</div>
-            </div>
-          ))}
+    ))}
+  </span>
+);
+export function EpisodeCard({ episode: e }: { episode: Episode }) {
+  return (
+    <article className="vp-episode">
+      <Link
+        to={`/episodes/${e.slug}`}
+        className="vp-art"
+        aria-label={`Episode ${e.number}: ${e.title}`}
+      >
+        <img
+          src={e.image}
+          alt={`${e.guest}, VANO Podcast episode ${e.number}`}
+          width="1280"
+          height="720"
+          loading="lazy"
+        />
+        <span className="vp-play">
+          <Play size={18} fill="currentColor" />
+        </span>
+      </Link>
+      <div className="vp-meta">
+        EP. {String(e.number).padStart(2, "0")}
+        <span>{e.length}</span>
+      </div>
+      <h3>
+        <Link to={`/episodes/${e.slug}`}>{e.title}</Link>
+      </h3>
+      <p>
+        {e.guest}
+        {e.company && ` · ${e.company}`}
+      </p>
+      <Link to={`/episodes/${e.slug}`} className="vp-text-link">
+        Episode & guest links <ArrowUpRight size={15} />
+      </Link>
+    </article>
+  );
+}
+export function ClipShelf({ full = false }: { full?: boolean }) {
+  const [filter, setFilter] = useState("All");
+  const Heading = full ? "h1" : "h2";
+  const visible = CLIPS.filter(
+    (c) =>
+      filter === "All" ||
+      (filter === "Mindset"
+        ? c.topic === "Founder mindset"
+        : c.topic !== "Founder mindset"),
+  );
+  return (
+    <section className={`vp-clips ${full ? "vp-clips-full" : ""}`} id="clips">
+      <div className="vp-wrap">
+        <div className="vp-section-top">
+          <div>
+            <p className="vp-kicker">VANO / CLIPS</p>
+            <Heading>
+              {full ? "Clips from the show." : "From the conversations."}
+            </Heading>
+          </div>
+          {!full && (
+            <Link to="/clips" className="vp-text-link">
+              Explore the clips <ArrowUpRight size={17} />
+            </Link>
+          )}
         </div>
-      </motion.section>
-
-      {/* episodes */}
-      <section className="mx-auto max-w-5xl px-6 py-16 md:py-24">
-        <motion.h2 {...fadeUp} className="font-display text-3xl font-bold md:text-4xl">The episodes</motion.h2>
-        <div className="mt-8 divide-y divide-white/10 border-y border-white/10">
-          {EPISODES.map((ep, i) => (
-            <motion.a
-              key={ep.n}
-              {...fadeUp}
-              transition={{ ...fadeUp.transition, delay: i * 0.06 }}
-              href={ep.link || PLATFORMS[0].url}
-              target="_blank" rel="noreferrer"
-              className="group flex items-center justify-between gap-4 py-5"
-            >
-              <div className="flex items-center gap-4 md:gap-5">
-                {/* episode thumbnail — wave art + play affordance */}
-                <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gold/15 transition group-hover:bg-gold/25">
-                  <Wave bars={5} className="opacity-80 [&>span]:bg-gold/70" />
-                  <span className="absolute inset-0 flex items-center justify-center">
-                    <Play className="h-4 w-4 text-gold opacity-0 transition group-hover:opacity-100" fill="currentColor" />
-                  </span>
-                </div>
-                <div>
-                  <div className="font-display text-lg font-semibold md:text-xl">
-                    <span className="mr-2 text-sm font-semibold text-gold">{ep.n}</span>{ep.title}
-                  </div>
-                  <div className="mt-0.5 text-sm text-cream/60">
-                    {(ep as any).guest}
-                    {(ep as any).guestSite && (
-                      <> · <a href={(ep as any).guestSite} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-gold/90 underline underline-offset-4 hover:text-gold">{(ep as any).guestLabel}</a></>
-                    )}
-                    {' · '}{(ep as any).topic}
-                  </div>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="hidden text-xs text-cream/40 md:block">{ep.date} · {ep.length}</span>
-                <ArrowRight className="h-5 w-5 text-cream/40 transition group-hover:translate-x-1 group-hover:text-gold" />
-              </div>
-            </motion.a>
-          ))}
-        </div>
-      </section>
-
-      {/* clips */}
-      <section className="border-y border-white/10 bg-white/[0.03] px-6 py-16 md:py-24">
-        <div className="mx-auto max-w-5xl">
-          <motion.h2 {...fadeUp} className="font-display text-3xl font-bold md:text-4xl">The clips</motion.h2>
-          <motion.p {...fadeUp} className="mt-3 max-w-xl text-cream/70">
-            The best 30 seconds of every conversation — cut for your feed.
-          </motion.p>
-          <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <motion.div
-                key={i}
-                {...fadeUp}
-                transition={{ ...fadeUp.transition, delay: i * 0.07 }}
-                whileHover={{ y: -6 }}
-                className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-navy to-[hsl(var(--navy)/0.6)]"
+        <p className="vp-section-intro">
+          Pick a moment from the show and watch it on YouTube.
+        </p>
+        {full && (
+          <div className="vp-filters" aria-label="Filter clips">
+            {["All", "Mindset", "Building & ideas"].map((f) => (
+              <button
+                type="button"
+                key={f}
+                aria-pressed={filter === f}
+                onClick={() => setFilter(f)}
               >
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Wave bars={7} className="opacity-60" />
-                </div>
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy to-transparent p-4 pt-10">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-navy transition group-hover:scale-110">
-                    <Play className="ml-0.5 h-4 w-4" fill="currentColor" />
-                  </div>
-                </div>
-              </motion.div>
+                {f}
+              </button>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* platforms */}
-      <section className="mx-auto max-w-5xl px-6 py-16 md:py-24">
-        <motion.h2 {...fadeUp} className="font-display text-3xl font-bold md:text-4xl">Wherever you listen</motion.h2>
-        <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {PLATFORMS.map((p, i) => (
-            <motion.a
-              key={p.name}
-              {...fadeUp}
-              transition={{ ...fadeUp.transition, delay: i * 0.05 }}
-              href={p.url || PLATFORMS[0].url}
-              target="_blank" rel="noreferrer"
-              className="group rounded-2xl border border-white/10 p-5 transition hover:border-gold/50 hover:bg-white/[0.04]"
+        )}
+        <div className="vp-clip-grid">
+          {visible.map((c, i) => (
+            <External
+              key={c.id}
+              href={`https://www.youtube.com/shorts/${c.id}`}
+              className="vp-clip"
             >
-              <Radio className="h-5 w-5 text-gold" />
-              <div className="mt-3 font-display font-semibold">{p.name}</div>
-              <div className="mt-0.5 text-xs text-cream/50">{p.note}</div>
-            </motion.a>
-          ))}
-        </div>
-      </section>
-
-      {/* hosts */}
-      <section className="mx-auto max-w-5xl px-6 pb-16 md:pb-24">
-        <motion.h2 {...fadeUp} className="font-display text-3xl font-bold md:text-4xl">Your hosts</motion.h2>
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {[
-            { init: 'AP', name: 'Ayush Puri', bio: 'Founder and entrepreneurship student in Galway. Interviews the founders he wants to learn from — the decisions, the wrong turns, the real version.' },
-            { init: 'MO', name: 'Michael Okocha', bio: 'Co-host in Galway. Asks the questions the room is thinking — keeps every conversation grounded in what building actually feels like.' },
-          ].map((h, i) => (
-            <motion.div key={h.name} {...fadeUp} transition={{ ...fadeUp.transition, delay: i * 0.07 }}
-              className="flex items-start gap-5 rounded-3xl border border-white/10 bg-white/[0.03] p-7">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold font-display text-lg font-bold text-navy">{h.init}</div>
-              <div>
-                <div className="font-display text-xl font-bold">{h.name} <span className="text-sm font-normal text-gold">· co-host</span></div>
-                <p className="mt-2 text-sm leading-relaxed text-cream/65">{h.bio}</p>
+              <div className="vp-clip-image">
+                <img
+                  src={`/podcast/clip-${c.id}.jpg`}
+                  alt=""
+                  width="480"
+                  height="360"
+                  loading="lazy"
+                />
+                <span className="vp-clip-number">0{i + 1} / SELECTED</span>
+                <span className="vp-play">
+                  <Play size={21} fill="currentColor" />
+                </span>
               </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* booking — digital or in-person episode, €100 */}
-      <section id="book" className="mx-auto max-w-5xl px-6 pb-16 md:pb-24">
-        <motion.h2 {...fadeUp} className="font-display text-3xl font-bold md:text-4xl">
-          Book an episode
-        </motion.h2>
-        <motion.p {...fadeUp} className="mt-3 max-w-xl text-cream/70">
-          Pick how you want to record — we handle the rest.
-        </motion.p>
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {[
-            {
-              name: 'Digital episode',
-              desc: 'Remote recording — join from anywhere. Edited episode + the clips pack for your own channels.',
-              tag: 'video call · ~1 hour',
-            },
-            {
-              name: 'In-person episode',
-              desc: `In the room in ${SHOW.city}. Full episode + clips, and the conversation's better over a table.`,
-              tag: 'Galway · ~90 min',
-            },
-          ].map((opt, i) => (
-            <motion.div
-              key={opt.name}
-              {...fadeUp}
-              transition={{ ...fadeUp.transition, delay: i * 0.07 }}
-              className="flex flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-8"
-            >
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">{opt.tag}</div>
-              <h3 className="mt-2 font-display text-2xl font-bold">{opt.name}</h3>
-              <p className="mt-3 flex-1 leading-relaxed text-cream/70">{opt.desc}</p>
-              <div className="mt-6 flex items-center justify-end">
-                <CTA
-                  href={
-                    BOOKING.stripePaymentLink ||
-                    `https://wa.me/${BOOKING.whatsapp}?text=${encodeURIComponent(
-                      `Hey — I want to book a ${opt.name} on the VANO Podcast. I'm from: `,
-                    )}`
-                  }
-                >
-                  Get in touch <ArrowRight className="h-4 w-4" />
-                </CTA>
+              <div className="vp-clip-copy">
+                <span>
+                  EP. {String(c.episode).padStart(2, "0")} / {c.guest}
+                </span>
+                <h3>{c.title}</h3>
+                <p>
+                  Watch clip <ArrowUpRight size={14} />
+                </p>
               </div>
-            </motion.div>
+            </External>
           ))}
         </div>
-        <motion.div {...fadeUp} className="mt-6 rounded-3xl border border-gold/30 bg-white/[0.03] p-6 text-center">
-          <span className="text-sm text-cream/70">
-            Want your brand on an episode instead? <a href={CONTACT.linkedin} target="_blank" rel="noreferrer" className="font-semibold text-gold underline underline-offset-4">Ask about a sponsor slot</a> — one per episode, it stays personal.
-          </span>
-        </motion.div>
+        <div className="vp-clip-bottom">
+          <span>Selected moments. Full conversations always available.</span>
+          <External href={`${SHOW.youtube}/shorts`}>
+            More on @VANO.shortz <ArrowUpRight size={16} />
+          </External>
+        </div>
+      </div>
+    </section>
+  );
+}
+export function Platforms({ primary = false }: { primary?: boolean }) {
+  const Heading = primary ? "h1" : "h2";
+  return (
+    <section
+      className="vp-distribution vp-wrap"
+      aria-labelledby="platforms-heading"
+    >
+      <Heading id="platforms-heading">Watch & listen.</Heading>
+      <div className="vp-distribution-links">
+        {PLATFORMS.map((platform) => (
+          <External
+            key={platform.name}
+            href={platform.url}
+            className="vp-distribution-link"
+          >
+            <img
+              src={`/podcast/platforms/${platform.icon}.svg`}
+              alt=""
+              width="28"
+              height="28"
+            />
+            <span>{platform.name}</span>
+            <ArrowUpRight size={12} aria-hidden="true" />
+          </External>
+        ))}
+      </div>
+    </section>
+  );
+}
+export function GuestInvite() {
+  return (
+    <section className="vp-invite vp-wrap">
+      <div>
+        <p className="vp-kicker">Pull up a chair.</p>
+        <h2>
+          Building something?
+          <br />
+          Let’s talk about it.
+        </h2>
+      </div>
+      <div>
+        <p>
+          Tell us what you’re working on. Record remotely or join us in Galway.
+          Start a conversation about your episode, your business and the clips
+          that come from it.
+        </p>
+        <Link to="/contact" className="vp-button">
+          Be a guest <ArrowUpRight size={18} />
+        </Link>
+        <small>Talk to the hosts. Agree the details together.</small>
+      </div>
+    </section>
+  );
+}
+export function HostSection() {
+  return (
+    <section className="vp-hosts vp-wrap">
+      <div>
+        <p className="vp-kicker">Two hosts. Plenty of questions.</p>
+        <h2>
+          Curiosity is
+          <br />
+          the whole point.
+        </h2>
+      </div>
+      <div>
+        <p className="vp-host-intro">
+          We’re Ayush Puri and Michael Okocha. From Galway, we sit down with
+          founders to hear how they think, what they’re making and what it took
+          to get here.
+        </p>
+        <div className="vp-host-names">
+          <div>
+            <span>01 / CO-HOST</span>
+            <h3>Ayush Puri</h3>
+            <External href={CONTACT.linkedin}>
+              Connect on LinkedIn <ArrowUpRight size={14} />
+            </External>
+          </div>
+          <div>
+            <span>02 / CO-HOST</span>
+            <h3>Michael Okocha</h3>
+            <p>VANO Podcast · Galway</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+export default function Podcast() {
+  return (
+    <>
+      <PodcastMeta
+        title="VANO Podcast — Irish founder interviews from Galway, Ireland"
+        description="An Irish business podcast from Galway with Ayush Puri and Michael Okocha. Watch founder interviews, explore episode clips and apply to be a guest."
+        jsonLd={seriesSchema()}
+      />
+      <Platforms primary />
+      <EpisodeCarousel />
+      <section id="episodes" className="vp-episodes vp-wrap">
+        <div className="vp-section-top">
+          <div>
+            <p className="vp-kicker">The show so far.</p>
+            <h2>All episodes.</h2>
+          </div>
+          <Link to="/episodes" className="vp-text-link">
+            All {EPISODES.length} episodes <ArrowUpRight size={17} />
+          </Link>
+        </div>
+        <div className="vp-episode-grid">
+          {EPISODES.map((ep) => (
+            <EpisodeCard key={ep.number} episode={ep} />
+          ))}
+        </div>
       </section>
-
-      {/* notes — the quiet blog. Semantic, searchable, kept at the bottom. */}
-      <section className="border-t border-white/10 px-6 py-16">
-        <div className="mx-auto max-w-5xl">
-          <motion.h2 {...fadeUp} className="font-display text-2xl font-bold">Notes from the show</motion.h2>
-          <div className="mt-8 grid gap-8 md:grid-cols-3">
-            <motion.article {...fadeUp}>
-              <h3 className="font-display text-lg font-semibold">An Irish startup podcast, from Galway</h3>
-              <p className="mt-2 text-sm leading-relaxed text-cream/60">
-                The VANO Podcast is a founder-interview show recorded in Galway, Ireland —
-                long conversations with the people actually building companies here and
-                beyond. Not the highlight reel: the early decisions, the wrong turns, and
-                what they would do differently with the same hand again.
-              </p>
-            </motion.article>
-            <motion.article {...fadeUp}>
-              <h3 className="font-display text-lg font-semibold">What a guest gets</h3>
-              <p className="mt-2 text-sm leading-relaxed text-cream/60">
-                One honest hour on the record, an edited episode on Spotify and every major
-                platform, and a pack of clips cut for LinkedIn, TikTok and Shorts. Digital
-                episodes run anywhere; in-person happens in Galway.
-              </p>
-            </motion.article>
-            <motion.article {...fadeUp}>
-              <h3 className="font-display text-lg font-semibold">The hosts</h3>
-              <p className="mt-2 text-sm leading-relaxed text-cream/60">
-                {SHOW.hosts} — two Galway-based founders who interview the founders they
-                want to learn from. Past guests include the Kríos team (AI sales training,
-                Cork), Jack Garvey (Ganzy) and Milosz Nelka.
-              </p>
-            </motion.article>
+      <ClipShelf />
+      <ListenerComments />
+      <section className="vp-businesses vp-wrap">
+        <p className="vp-kicker">
+          Meet the businesses behind the conversations
+        </p>
+        <div className="vp-business-grid">
+          <div>
+            <h2>Kríos</h2>
+            <p>
+              AI sales practice, built in Cork. Meet Ahroon Santhosh and Michael
+              Sweeney Heffernan in episode three.
+            </p>
+            <Link to="/episodes/krios-ahroon-michael" className="vp-text-link">
+              Meet the team & their work <ArrowUpRight size={16} />
+            </Link>
+            <External href="https://www.krios.ie/" className="vp-company-url">
+              krios.ie <ArrowUpRight size={14} />
+            </External>
+          </div>
+          <div>
+            <h2>Ganzy</h2>
+            <p>
+              Jack Garvey on students, study and taking an Irish startup towards
+              America. Get the story in episode four.
+            </p>
+            <Link to="/episodes/jack-garvey-ganzy" className="vp-text-link">
+              Meet Jack & explore Ganzy <ArrowUpRight size={16} />
+            </Link>
+            <External href="https://ganzy.ie" className="vp-company-url">
+              ganzy.ie <ArrowUpRight size={14} />
+            </External>
           </div>
         </div>
       </section>
-
-      <footer className="border-t border-white/10 px-6 py-8">
-        <div className="mx-auto flex max-w-5xl items-center justify-between text-xs text-cream/40">
-          <span>© 2026 VANO Podcast · Galway, Ireland</span>
-          <Wave bars={12} className="opacity-40" />
+      <HostSection />
+      <GuestInvite />
+    </>
+  );
+}
+export function EpisodesPage() {
+  return (
+    <>
+      <PodcastMeta
+        title="Episodes — VANO Podcast"
+        description="Every VANO Podcast conversation: Frank Forde of Saudade & Sláinte, Jack Garvey of Ganzy, the Kríos team, Milosz Nelka and the original VANO story."
+        path="/episodes"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "VANO Podcast episodes",
+          url: ORIGIN + "/episodes",
+          mainEntity: seriesSchema(),
+        }}
+      />
+      <section className="vp-wrap vp-page-heading">
+        <p className="vp-kicker">The conversations, in full.</p>
+        <h1>
+          Get to know
+          <br />
+          the people building.
+        </h1>
+        <p>
+          {EPISODES.length} conversations from Ireland. Pick a person, follow an
+          idea.
+        </p>
+      </section>
+      <section className="vp-wrap vp-episodes">
+        <div className="vp-episode-grid vp-episode-grid-large">
+          {EPISODES.map((e) => (
+            <EpisodeCard key={e.number} episode={e} />
+          ))}
         </div>
-      </footer>
+      </section>
+      <GuestInvite />
+    </>
+  );
+}
+function EpisodePlayer({ episode: e }: { episode: Episode }) {
+  const [open, setOpen] = useState(false);
+  if (!e.youtubeId || e.youtubeAgeRestricted)
+    return (
+      <div className="vp-player">
+        <External
+          className="vp-player-cover"
+          href={
+            e.youtubeId
+              ? `https://www.youtube.com/watch?v=${e.youtubeId}`
+              : episodeUrl(e)
+          }
+        >
+          <img src={e.image} alt="" width="1280" height="720" />
+          <span className="vp-feature-watch">
+            <Play size={20} fill="currentColor" /> Watch on{" "}
+            {e.youtubeId ? "YouTube" : "Spotify"} <ArrowUpRight size={16} />
+          </span>
+        </External>
+      </div>
+    );
+  return (
+    <div className="vp-player">
+      <button
+        className="vp-player-cover"
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls="episode-video"
+      >
+        <img src={e.image} alt="" width="1280" height="720" />
+        <span className="vp-feature-watch">
+          {open ? <X size={20} /> : <Play size={20} fill="currentColor" />}
+          {open ? "Close video" : "Play the full episode"}
+        </span>
+      </button>
+      {open && (
+        <div id="episode-video" className="vp-embed">
+          <iframe
+            title={`${e.title} — full VANO Podcast episode`}
+            src={`https://www.youtube-nocookie.com/embed/${e.youtubeId}?autoplay=1`}
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+          <p>
+            Player not loading?{" "}
+            <External href={`https://www.youtube.com/watch?v=${e.youtubeId}`}>
+              Watch directly on YouTube <ArrowUpRight size={14} />
+            </External>
+          </p>
+        </div>
+      )}
     </div>
+  );
+}
+export function EpisodePage() {
+  const { slug } = useParams();
+  const e = EPISODES.find((ep) => ep.slug === slug);
+  if (!e) return <MissingPage />;
+  return (
+    <>
+      <PodcastMeta
+        title={`${e.title} with ${e.guest} — Ep. ${e.number}`}
+        description={e.description}
+        path={`/episodes/${e.slug}`}
+        jsonLd={[
+          episodeSchema(e),
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Episodes",
+                item: ORIGIN + "/episodes",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: e.title,
+                item: `${ORIGIN}/episodes/${e.slug}`,
+              },
+            ],
+          },
+        ]}
+      />
+      <article className="vp-wrap vp-episode-detail">
+        <Link to="/episodes" className="vp-text-link">
+          ← All episodes
+        </Link>
+        <div className="vp-detail-heading">
+          <div>
+            <p className="vp-kicker">
+              EPISODE {String(e.number).padStart(2, "0")} / {e.length}
+            </p>
+            <h1>{e.title}.</h1>
+            <p className="vp-detail-guest">
+              With {e.guest}
+              {e.company && ` · ${e.company}`}
+            </p>
+          </div>
+          <p className="vp-detail-date">
+            {formatDate(e.date)}
+            <br />
+            Hosted by Ayush & Michael
+          </p>
+        </div>
+        <EpisodePlayer episode={e} />
+        <div className="vp-detail-body">
+          <div>
+            <p className="vp-kicker">In this conversation</p>
+            <h2>
+              The story behind
+              <br />
+              the ambition.
+            </h2>
+            <p>{e.description}</p>
+            <div className="vp-topic-list">
+              {e.topics.map((t) => (
+                <span key={t}>{t}</span>
+              ))}
+            </div>
+            <External href={episodeUrl(e)} className="vp-button">
+              <Headphones size={17} /> Listen on Spotify{" "}
+              <ArrowUpRight size={16} />
+            </External>
+          </div>
+          <aside>
+            <p className="vp-kicker">
+              {e.company ? "Meet the business" : "Meet the guest"}
+            </p>
+            <h2>{e.company || e.guest}</h2>
+            {e.companyDescription && <p>{e.companyDescription}</p>}
+            {e.number === 4 && (
+              <p className="vp-source-note">
+                Ganzy’s domain was unavailable when checked on 2 November 2026.
+                Jack’s own site is another way to explore his work.
+              </p>
+            )}
+            <div className="vp-guest-links">
+              {e.links.map((l) => (
+                <External key={l.url} href={l.url}>
+                  {l.label}
+                  <ArrowUpRight size={16} />
+                </External>
+              ))}
+            </div>
+            <details className="vp-sources">
+              <summary>Sources & episode details</summary>
+              <p>
+                Episode details from the published Spotify feed. Company context
+                checked 2 November 2026; it may have evolved since recording.
+              </p>
+              {e.sources.map((s) => (
+                <External key={s.url} href={s.url}>
+                  {s.label}
+                  <ArrowUpRight size={13} />
+                </External>
+              ))}
+            </details>
+          </aside>
+        </div>
+      </article>
+      <section className="vp-wrap vp-episodes">
+        <div className="vp-section-top">
+          <h2>Keep the conversation going.</h2>
+        </div>
+        <div className="vp-episode-grid">
+          {EPISODES.filter((x) => x.number !== e.number)
+            .slice(0, 2)
+            .map((ep) => (
+              <EpisodeCard key={ep.number} episode={ep} />
+            ))}
+        </div>
+      </section>
+    </>
+  );
+}
+export function ClipsPage() {
+  return (
+    <>
+      <PodcastMeta
+        title="Clips — VANO Podcast"
+        description="Watch VANO Podcast moments from episodes one, two and four: founder choices, starting an AI agency and creating value, linked to the original YouTube posts."
+        path="/clips"
+      />
+      <ClipShelf full />
+      <Platforms />
+    </>
+  );
+}
+export function AboutPage() {
+  return (
+    <>
+      <PodcastMeta
+        title="About Ayush & Michael — VANO Podcast"
+        description="Meet VANO Podcast hosts Ayush Puri and Michael Okocha. Founder interviews and conversations from Galway, Ireland."
+        path="/about"
+      />
+      <section className="vp-wrap vp-page-heading">
+        <p className="vp-kicker">An Irish podcast. A curious outlook.</p>
+        <h1>
+          Behind every business,
+          <br />
+          there’s a person.
+        </h1>
+        <p>
+          That’s who we want to talk to. VANO is a podcast about founders, the
+          decisions they make and the things they learn along the way.
+        </p>
+      </section>
+      <HostSection />
+      <section className="vp-wrap vp-prose">
+        <h2>From Galway, with questions.</h2>
+        <p>
+          {SHOW.tagline} The archive includes Frank Forde of Saudade & Sláinte,
+          Jack Garvey of Ganzy, Ahroon Santhosh and Michael Sweeney Heffernan of
+          Kríos, Milosz Nelka, and the story behind the original VANO venture.
+        </p>
+        <Link className="vp-text-link" to="/episodes">
+          Explore the conversations <ArrowRight size={16} />
+        </Link>
+      </section>
+      <GuestInvite />
+    </>
+  );
+}
+export function ContactPage() {
+  return (
+    <>
+      <PodcastMeta
+        title="Be a guest — VANO Podcast"
+        description="Pitch your VANO Podcast episode. Choose digital or in-person recording in Galway and send your idea directly to the hosts."
+        path="/contact"
+      />
+      <section className="vp-wrap vp-page-heading">
+        <p className="vp-kicker">Your story, on the record.</p>
+        <h1>Pull up a chair.</h1>
+        <p>
+          Tell us who you are, what you’re building and what you’d like to talk
+          about. We’ll discuss the format, timing, clips and any costs before
+          anything is booked.
+        </p>
+      </section>
+      <GuestEnquiryForm />
+      <section className="vp-wrap vp-prose">
+        <h2>Something else in mind?</h2>
+        <p>
+          For sponsorship, a collaboration, a correction or a question about the
+          show, reach Ayush directly.
+        </p>
+        <External className="vp-text-link" href={CONTACT.linkedin}>
+          Contact Ayush on LinkedIn <ArrowUpRight size={16} />
+        </External>
+      </section>
+    </>
+  );
+}
+export function NotesPage() {
+  return (
+    <>
+      <PodcastMeta
+        title="Irish podcast notes & founder stories — VANO Podcast"
+        description="Explore VANO Podcast show notes from Galway, Ireland: Irish founders, guest businesses, episode links and sources for Kríos, Ganzy and Saudade & Sláinte."
+        path="/notes"
+      />
+      <section className="vp-wrap vp-page-heading">
+        <p className="vp-kicker">Notes from the show</p>
+        <h1>Follow the story.</h1>
+        <p>
+          Irish founders, guest businesses and useful links from our podcast
+          conversations in Galway, Ireland.
+        </p>
+      </section>
+      <div className="vp-wrap vp-notes">
+        {NOTES.map((n) => (
+          <article key={n.slug}>
+            <span>EPISODE {n.episode}</span>
+            <h2>
+              <Link to={`/notes/${n.slug}`}>{n.title}</Link>
+            </h2>
+            <p>{n.description}</p>
+            <Link to={`/notes/${n.slug}`} className="vp-text-link">
+              Read the notes <ArrowUpRight size={16} />
+            </Link>
+          </article>
+        ))}
+      </div>
+    </>
+  );
+}
+export function NotePage() {
+  const { slug } = useParams();
+  const n = NOTES.find((x) => x.slug === slug);
+  const e = EPISODES.find((x) => x.number === n?.episode);
+  if (!n || !e) return <MissingPage />;
+  return (
+    <>
+      <PodcastMeta
+        title={`${n.title} — VANO Podcast notes`}
+        description={n.description}
+        path={`/notes/${n.slug}`}
+        article={{ published: n.published, modified: n.modified }}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: n.title,
+          description: n.description,
+          datePublished: n.published,
+          dateModified: n.modified,
+          author: { "@type": "Organization", name: SHOW.name, url: ORIGIN },
+          mainEntityOfPage: `${ORIGIN}/notes/${n.slug}`,
+          about: e.company
+            ? { "@type": "Organization", name: e.company, url: e.companyUrl }
+            : undefined,
+          image: ORIGIN + e.image,
+        }}
+      />
+      <article className="vp-wrap vp-prose vp-note-detail">
+        <Link to="/notes" className="vp-text-link">
+          ← Notes from the show
+        </Link>
+        <p className="vp-kicker">
+          EPISODE {e.number} / UPDATED {formatDate(n.modified)}
+        </p>
+        <h1>{n.title}.</h1>
+        <p className="vp-lead">{n.introduction}</p>
+        <img
+          src={e.image}
+          alt={`${e.guest} on the VANO Podcast`}
+          width="1280"
+          height="720"
+        />
+        <h2>Inside this Irish founder interview</h2>
+        <p>{e.description}</p>
+        <h2>The business behind the conversation</h2>
+        <p>{e.companyDescription}</p>
+        <h2>What we talked about</h2>
+        <ul>
+          {e.topics.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+        <h2>Explore their work</h2>
+        <div className="vp-guest-links">
+          {e.links.map((l) => (
+            <External key={l.url} href={l.url}>
+              {l.label}
+              <ArrowUpRight size={16} />
+            </External>
+          ))}
+        </div>
+        <p className="vp-source-note">
+          Company information is based on the linked public sources checked on 2
+          November 2026. It is context alongside the episode, rather than a
+          transcript.{" "}
+          {e.number === 4
+            ? "Ganzy’s domain was unavailable when checked; Jack’s website is an alternative source."
+            : ""}
+        </p>
+        <h2>Listen to the episode</h2>
+        <Link className="vp-button" to={`/episodes/${e.slug}`}>
+          <Play size={16} /> Watch & listen <ArrowRight size={16} />
+        </Link>
+        <h2>More from VANO Podcast in Ireland</h2>
+        <p>
+          Watch more <Link to="/episodes">Irish founder interviews</Link>,
+          explore <Link to="/clips">podcast clips</Link>, or{" "}
+          <Link to="/contact">apply to be a podcast guest</Link>. Record
+          digitally from anywhere or join us in person in Galway, Ireland.
+        </p>
+        <h2>Sources</h2>
+        <div className="vp-guest-links">
+          {e.sources.map((l) => (
+            <External key={l.url} href={l.url}>
+              {l.label}
+              <ArrowUpRight size={16} />
+            </External>
+          ))}
+        </div>
+      </article>
+    </>
+  );
+}
+export function PolicyPage({ kind }: { kind: "privacy" | "terms" }) {
+  const privacy = kind === "privacy";
+  return (
+    <>
+      <PodcastMeta
+        title={`${privacy ? "Privacy" : "Website terms"} — VANO Podcast`}
+        description={
+          privacy
+            ? "How the VANO Podcast website uses information, analytics and links to third-party listening and contact platforms."
+            : "Information about the VANO Podcast website, its episodes, external links and guest enquiries."
+        }
+        path={`/site-${kind}`}
+      />
+      <article className="vp-wrap vp-prose vp-note-detail">
+        <p className="vp-kicker">VANO Podcast / UPDATED 2 NOVEMBER 2026</p>
+        <h1>{privacy ? "Privacy, plainly." : "Using this site."}</h1>
+        {privacy ? (
+          <>
+            <p>
+              This website introduces the VANO Podcast, its episodes, clips and
+              guests. You can browse without creating an account.
+            </p>
+            <h2>Information and analytics</h2>
+            <p>
+              The site uses Google Analytics to understand visits. Where
+              configured, PostHog may collect usage information and session
+              recordings, with input values masked, and Sentry may receive
+              technical error information. Browser and network services may
+              process device information, IP addresses and request logs. This
+              page does not ask you for payment or account details.
+            </p>
+            <h2>Video, fonts and external links</h2>
+            <p>
+              Episode videos connect to YouTube only after you choose to load
+              the player. Fonts may load from Google Fonts. Following a Spotify,
+              YouTube, Instagram, LinkedIn or guest link opens a service with
+              its own privacy policy. Choosing a WhatsApp enquiry opens a
+              prepared message; it does not send it automatically.
+            </p>
+            <h2>Contact and requests</h2>
+            <p>
+              If you submit a guest enquiry, we use your name, email, recording
+              preference and the details you choose to share to reply and
+              discuss your episode. The form sends these details to the hosts by
+              email through Resend. It does not subscribe you to marketing.
+              Please avoid sharing sensitive information. You can ask us to
+              access or delete your enquiry. For privacy questions, contact
+              Ayush using the link below.
+            </p>
+          </>
+        ) : (
+          <>
+            <p>
+              VANO Podcast is a founder-interview show hosted by Ayush Puri and
+              Michael Okocha in Galway, Ireland. The website provides episode
+              information and links to listening platforms, clips and guest
+              businesses.
+            </p>
+            <h2>Episodes and guest information</h2>
+            <p>
+              Conversations reflect the participants’ views and the context of
+              recording. Company descriptions may change over time. Source links
+              help you check current information. The content is for general
+              information.
+            </p>
+            <h2>Guest enquiries</h2>
+            <p>
+              Contacting the show does not confirm a booking. Recording
+              arrangements, deliverables, timing and any costs are agreed
+              directly with the hosts before a commitment.
+            </p>
+            <h2>Links and corrections</h2>
+            <p>
+              External services operate independently. If a link breaks or a
+              detail needs correction, please contact the hosts. No home-help
+              services or jobs are offered through this podcast website.
+            </p>
+          </>
+        )}
+        <External href={CONTACT.linkedin} className="vp-text-link">
+          Contact Ayush <ArrowUpRight size={16} />
+        </External>
+      </article>
+    </>
+  );
+}
+export function MissingPage() {
+  return (
+    <>
+      <PodcastMeta
+        title="Page not found — VANO Podcast"
+        description="Find your next VANO Podcast conversation in the episode archive."
+        noindex
+      />
+      <section className="vp-wrap vp-page-heading">
+        <p className="vp-kicker">404 / A quiet moment.</p>
+        <h1>Lost the thread?</h1>
+        <p>
+          That page isn’t here. There’s a good conversation waiting in the
+          archive.
+        </p>
+        <Link to="/episodes" className="vp-button">
+          Find an episode <ArrowRight size={16} />
+        </Link>
+      </section>
+    </>
   );
 }

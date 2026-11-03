@@ -1,0 +1,130 @@
+[
+  {
+    "path": "dist/404.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/about/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/clips/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/contact/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/episodes/frank-forde-whiskey-born-from-love/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/episodes/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 1
+  },
+  {
+    "path": "dist/episodes/jack-garvey-ganzy/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/episodes/krios-ahroon-michael/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/episodes/milosz-nelka-business-at-17/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/episodes/vano-and-tech-startups/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 2
+  },
+  {
+    "path": "dist/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 1
+  },
+  {
+    "path": "dist/notes/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/notes/jack-garvey-ganzy/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 1
+  },
+  {
+    "path": "dist/notes/krios-founders/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 1
+  },
+  {
+    "path": "dist/site-privacy/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  },
+  {
+    "path": "dist/site-terms/index.html",
+    "h1": 1,
+    "title": 1,
+    "description": 1,
+    "canonical": 1,
+    "jsonLd": 0
+  }
+]
