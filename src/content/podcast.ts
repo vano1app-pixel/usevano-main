@@ -9,6 +9,10 @@ export const SHOW = {
   spotify: "https://open.spotify.com/show/033DSDTDi7S8VOd5mSBl0W",
   youtube: "https://www.youtube.com/@VANO.shortz",
   instagram: "https://www.instagram.com/vano_podcast/",
+  apple: "https://podcasts.apple.com/ie/podcast/vano-podcast/id6804809081",
+  amazon:
+    "https://music.amazon.com/podcasts/f35fd03a-4570-4d5b-b708-32d37c1cd6c1/vano-podcast",
+  feed: "https://anchor.fm/s/11429ec5c/podcast/rss",
 };
 export const BOOKING = { whatsapp: "353899817111" };
 export const CONTACT = {
@@ -19,19 +23,36 @@ export const PLATFORMS = [
     name: "Spotify",
     url: SHOW.spotify,
     handle: "VANO Podcast",
-    note: "Listen to the full conversations",
+    note: "Watch & listen",
+    icon: "spotify",
+  },
+  {
+    name: "Apple Podcasts",
+    url: SHOW.apple,
+    handle: "VANO Podcast",
+    note: "Listen to the show",
+    icon: "applepodcasts",
   },
   {
     name: "YouTube",
     url: SHOW.youtube,
     handle: "@VANO.shortz",
-    note: "Watch episodes & short clips",
+    note: "Episodes & clips",
+    icon: "youtube",
+  },
+  {
+    name: "Amazon Music",
+    url: SHOW.amazon,
+    handle: "VANO Podcast",
+    note: "Listen to the show",
+    icon: "amazonmusic",
   },
   {
     name: "Instagram",
     url: SHOW.instagram,
     handle: "@vano_podcast",
-    note: "Follow the show",
+    note: "Clips & updates",
+    icon: "instagram",
   },
 ];
 export type GuestLink = { label: string; url: string };
@@ -348,7 +369,22 @@ export function seriesSchema() {
       { "@type": "Person", name: "Michael Okocha" },
     ],
     locationCreated: { "@type": "Place", name: SHOW.city },
-    sameAs: [SHOW.spotify, SHOW.youtube, SHOW.instagram],
+    sameAs: [
+      SHOW.spotify,
+      SHOW.apple,
+      SHOW.youtube,
+      SHOW.amazon,
+      SHOW.instagram,
+    ],
     episode: EPISODES.map(episodeSchema),
   };
 }
+
+export type ListenerComment = {
+  quote: string;
+  platform: string;
+  sourceUrl: string;
+};
+// Only genuine supplied/verified comments belong here. Do not store author
+// names or avatars in the public bundle; a CSS blur alone is not redaction.
+export const LISTENER_COMMENTS: ListenerComment[] = [];

@@ -28,6 +28,8 @@ export function podcastLlms() {
     `- [Spotify](${SHOW.spotify})`,
     `- [YouTube: @VANO.shortz](${SHOW.youtube})`,
     `- [Instagram: @vano_podcast](${SHOW.instagram})`,
+    `- [Apple Podcasts](${SHOW.apple})`,
+    `- [Amazon Music](${SHOW.amazon})`,
     "",
     "## Episodes",
     ...EPISODES.map(

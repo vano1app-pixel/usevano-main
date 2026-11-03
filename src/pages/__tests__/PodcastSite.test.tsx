@@ -28,6 +28,27 @@ function open(path: string) {
   );
 }
 describe("public podcast journeys", () => {
+  it("replaces the generic heading with verified platform destinations and logos", () => {
+    const { container } = open("/");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Watch & listen." }),
+    ).toBeInTheDocument();
+    const links = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(".vp-distribution-link"),
+    );
+    expect(links).toHaveLength(5);
+    expect(
+      links.find((link) => link.textContent?.includes("Apple Podcasts"))?.href,
+    ).toBe("https://podcasts.apple.com/ie/podcast/vano-podcast/id6804809081");
+    expect(
+      links.find((link) => link.textContent?.includes("Amazon Music"))?.href,
+    ).toContain("f35fd03a-4570-4d5b-b708-32d37c1cd6c1");
+    expect(
+      links.every((link) =>
+        Boolean(link.querySelector("img")?.getAttribute("src")),
+      ),
+    ).toBe(true);
+  });
   it("keeps existing root auth returns out of the podcast homepage", () => {
     expect(isLegacyAuthReturn("/", "?code=test-code", "")).toBe(true);
     expect(
@@ -63,10 +84,10 @@ describe("public podcast journeys", () => {
   });
   it("opens the latest episode and keeps guest links separate from listen links", () => {
     const { container } = open("/");
-    expect(container.querySelector(".vp-feature-label")).toHaveTextContent(
+    expect(container.querySelector(".vp-stage-label")).toHaveTextContent(
       "NEW EPISODE",
     );
-    expect(container.querySelector(".vp-feature-label")).toHaveTextContent(
+    expect(container.querySelector(".vp-stage-label")).toHaveTextContent(
       "EP. 05",
     );
     expect(
@@ -125,6 +146,10 @@ describe("public podcast journeys", () => {
   });
   it("filters actual clips and restores the full selection", () => {
     const { container } = open("/clips");
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Watch & listen." }),
+    ).toBeInTheDocument();
     expect(container.querySelectorAll("a.vp-clip")).toHaveLength(3);
     for (const guest of ["Jack Garvey", "Milosz Nelka", "Ayush Puri"]) {
       expect(container.querySelector(".vp-clip-grid")?.textContent).toContain(

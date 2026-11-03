@@ -1,13 +1,8 @@
 import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import {
-  ArrowDown,
-  ArrowRight,
-  ArrowUpRight,
-  Play,
-  X,
-  Headphones,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Play, X, Headphones } from "lucide-react";
+import ListenerComments from "@/components/podcast/ListenerComments";
+import EpisodeCarousel from "@/components/podcast/EpisodeCarousel";
 import GuestEnquiryForm from "@/components/podcast/GuestEnquiryForm";
 import { SEOHead } from "@/components/SEOHead";
 import {
@@ -132,11 +127,9 @@ export function ClipShelf({ full = false }: { full?: boolean }) {
       <div className="vp-wrap">
         <div className="vp-section-top">
           <div>
-            <p className="vp-kicker">
-              A little less scrolling. A little more substance.
-            </p>
+            <p className="vp-kicker">VANO / CLIPS</p>
             <Heading>
-              {full ? "The short version." : "Big ideas. Short cuts."}
+              {full ? "Clips from the show." : "From the conversations."}
             </Heading>
           </div>
           {!full && (
@@ -146,8 +139,7 @@ export function ClipShelf({ full = false }: { full?: boolean }) {
           )}
         </div>
         <p className="vp-section-intro">
-          A few of our favourite moments from the conversations. Pick one and
-          watch it on YouTube.
+          Pick a moment from the show and watch it on YouTube.
         </p>
         {full && (
           <div className="vp-filters" aria-label="Filter clips">
@@ -205,20 +197,29 @@ export function ClipShelf({ full = false }: { full?: boolean }) {
     </section>
   );
 }
-export function Platforms() {
+export function Platforms({ primary = false }: { primary?: boolean }) {
+  const Heading = primary ? "h1" : "h2";
   return (
-    <section className="vp-platforms vp-wrap">
-      <p className="vp-kicker">The full story. Your favourite format.</p>
-      <div className="vp-platform-grid">
-        {PLATFORMS.map((p, i) => (
-          <External key={p.name} href={p.url} className="vp-platform">
-            <span className="vp-platform-index">0{i + 1}</span>
-            <div>
-              <h3>{p.name}</h3>
-              <p>{p.handle}</p>
-              <small>{p.note}</small>
-            </div>
-            <ArrowUpRight size={23} />
+    <section
+      className="vp-distribution vp-wrap"
+      aria-labelledby="platforms-heading"
+    >
+      <Heading id="platforms-heading">Watch & listen.</Heading>
+      <div className="vp-distribution-links">
+        {PLATFORMS.map((platform) => (
+          <External
+            key={platform.name}
+            href={platform.url}
+            className="vp-distribution-link"
+          >
+            <img
+              src={`/podcast/platforms/${platform.icon}.svg`}
+              alt=""
+              width="28"
+              height="28"
+            />
+            <span>{platform.name}</span>
+            <ArrowUpRight size={12} aria-hidden="true" />
           </External>
         ))}
       </div>
@@ -286,109 +287,20 @@ export function HostSection() {
   );
 }
 export default function Podcast() {
-  const e = EPISODES[0];
   return (
     <>
       <PodcastMeta
-        title="VANO Podcast — founders, on the record"
+        title="VANO Podcast — episodes, clips & guests"
         description={`${SHOW.tagline} Hosted by ${SHOW.hosts} in Galway. Listen to episodes, watch clips and meet the guests.`}
         jsonLd={seriesSchema()}
       />
-      <section className="vp-hero vp-wrap">
-        <div className="vp-hero-copy">
-          <p className="vp-kicker">
-            <span className="vp-dot" /> FROM GALWAY, IRELAND
-          </p>
-          <h1>
-            Founders,
-            <br />
-            on the
-            <br />
-            <em>record.</em>
-          </h1>
-          <p className="vp-hero-description">
-            The big bets. The early mistakes.
-            <br />
-            The people figuring it out as they go.
-          </p>
-          <div className="vp-hero-actions">
-            <Link className="vp-button" to={`/episodes/${e.slug}`}>
-              <Play size={16} fill="currentColor" /> Start with the latest
-            </Link>
-            <a href="#episodes" className="vp-text-link">
-              All episodes <ArrowDown size={16} />
-            </a>
-          </div>
-          <p className="vp-hero-hosts">With Ayush Puri & Michael Okocha</p>
-        </div>
-        <div className="vp-hero-feature">
-          <div className="vp-feature-label">
-            <Wave />
-            <span>NEW EPISODE</span>
-            <span>EP. {String(e.number).padStart(2, "0")}</span>
-          </div>
-          <Link to={`/episodes/${e.slug}`} className="vp-feature-image">
-            <img
-              src={e.image}
-              alt={`${e.guest} on episode ${e.number}: ${e.title}`}
-              width="1280"
-              height="720"
-              loading="eager"
-            />
-            <span className="vp-feature-watch">
-              <Play size={19} fill="currentColor" /> Watch the conversation
-            </span>
-          </Link>
-          <div className="vp-feature-caption">
-            <div>
-              <p>
-                {e.guest.toUpperCase()}
-                {e.company && ` / ${e.company.toUpperCase()}`}
-              </p>
-              <h2>
-                <Link to={`/episodes/${e.slug}`}>{e.title}.</Link>
-              </h2>
-            </div>
-            <Link
-              to={`/episodes/${e.slug}`}
-              className="vp-round"
-              aria-label={`Explore the ${e.guest} episode`}
-            >
-              <ArrowUpRight />
-            </Link>
-          </div>
-          <div className="vp-feature-footer">
-            <span>
-              {formatDate(e.date)} · {e.length}
-            </span>
-            {e.links[0] && (
-              <External href={e.links[0].url}>
-                Meet the guest <ArrowUpRight size={14} />
-              </External>
-            )}
-          </div>
-        </div>
-      </section>
-      <div className="vp-programme">
-        <div className="vp-wrap">
-          <span>
-            LONG CONVERSATIONS.
-            <br />
-            REAL PEOPLE.
-          </span>
-          <p>
-            Startups, ambition and figuring things out.
-            <br />
-            <b>Built from Ireland. Open to anyone curious.</b>
-          </p>
-          <Wave />
-        </div>
-      </div>
+      <Platforms primary />
+      <EpisodeCarousel />
       <section id="episodes" className="vp-episodes vp-wrap">
         <div className="vp-section-top">
           <div>
-            <p className="vp-kicker">Take a seat. Stay for the story.</p>
-            <h2>Worth a proper listen.</h2>
+            <p className="vp-kicker">The show so far.</p>
+            <h2>All episodes.</h2>
           </div>
           <Link to="/episodes" className="vp-text-link">
             All {EPISODES.length} episodes <ArrowUpRight size={17} />
@@ -401,7 +313,7 @@ export default function Podcast() {
         </div>
       </section>
       <ClipShelf />
-      <Platforms />
+      <ListenerComments />
       <section className="vp-businesses vp-wrap">
         <p className="vp-kicker">
           Meet the businesses behind the conversations

@@ -1,0 +1,4 @@
+Platform logos: Simple Icons (https://github.com/simple-icons/simple-icons), CC0-1.0.
+Spotify, Apple Podcasts, YouTube, Instagram: develop/icons/<brand>.svg, retrieved 2026-11-03.
+Amazon Music: 11.15.0/icons/amazonmusic.svg, retrieved 2026-11-03.
+SVG fill changed to VANO ink for a monochrome destination strip. Brand marks remain the property of their owners.

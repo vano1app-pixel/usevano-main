@@ -98,6 +98,8 @@ export default function PodcastSite() {
             <span>© {new Date().getFullYear()} VANO Podcast</span>
             <nav aria-label="Footer navigation">
               <External href={SHOW.spotify}>Spotify</External>
+              <External href={SHOW.apple}>Apple Podcasts</External>
+              <External href={SHOW.amazon}>Amazon Music</External>
               <External href={SHOW.youtube}>YouTube</External>
               <External href={SHOW.instagram}>Instagram</External>
               <Link to="/notes">Show notes</Link>
