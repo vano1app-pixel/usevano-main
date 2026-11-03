@@ -45,7 +45,8 @@ export type Episode = {
   length: string;
   duration: string;
   spotifyId: string;
-  youtubeId: string;
+  youtubeId?: string;
+  companyUrl?: string;
   image: string;
   description: string;
   topics: string[];
@@ -55,11 +56,54 @@ export type Episode = {
 };
 export const EPISODES: Episode[] = [
   {
+    number: 5,
+    slug: "frank-forde-whiskey-born-from-love",
+    title: "A Whiskey Born From Love",
+    guest: "Frank Forde",
+    company: "Saudade & Sláinte",
+    date: "2026-11-02",
+    length: "44 min",
+    duration: "PT44M11S",
+    spotifyId: "0j8s4tswMxcj7ser5JdGYF",
+    image: "/podcast/ep05.png",
+    description:
+      "Frank Forde joins VANO Podcast to discuss building Saudade & Sláinte Irish Whiskey: the Irish-Brazilian love story behind the brand, its target market, marketing, pricing and the challenges of starting a whiskey business.",
+    topics: [
+      "The story behind the brand",
+      "Irish & Brazilian culture",
+      "Finding a target market",
+      "Marketing & pricing",
+    ],
+    companyDescription:
+      "Saudade & Sláinte is the Irish whiskey venture founded by Dunmore native Frank Forde with Galway partners Gareth Carrick and Mark Kavanagh. The brand brings together Frank’s Irish roots and his Brazilian wife Joecy’s culture. Frank’s own profile describes his VANO conversation as a founder interview about the brand, its market and building the company.",
+    links: [
+      {
+        label: "Frank Forde · LinkedIn",
+        url: "https://ie.linkedin.com/in/frank-forde-09b759445",
+      },
+    ],
+    sources: [
+      {
+        label: "Original episode on Spotify",
+        url: "https://open.spotify.com/episode/0j8s4tswMxcj7ser5JdGYF",
+      },
+      {
+        label: "Frank’s founder profile & VANO interview details",
+        url: "https://ie.linkedin.com/in/frank-forde-09b759445",
+      },
+      {
+        label: "The Tuam Herald · the story behind the brand",
+        url: "https://www.tuamherald.ie/2026/10/20/unique-whiskey-blend-tells-a-dunmore-brazilian-love-story/",
+      },
+    ],
+  },
+  {
     number: 4,
     slug: "jack-garvey-ganzy",
     title: "Betting it all on USA",
     guest: "Jack Garvey",
     company: "Ganzy",
+    companyUrl: "https://ganzy.ie",
     date: "2026-08-24",
     length: "58 min",
     duration: "PT58M12S",
@@ -94,6 +138,7 @@ export const EPISODES: Episode[] = [
     title: "You need to think bigger",
     guest: "Ahroon Santhosh & Michael Sweeney Heffernan",
     company: "Kríos",
+    companyUrl: "https://www.krios.ie/",
     date: "2026-07-27",
     length: "1 hr 24 min",
     duration: "PT1H24M50S",
@@ -272,14 +317,19 @@ export function episodeSchema(e: Episode) {
     timeRequired: e.duration,
     url: `${ORIGIN}/episodes/${e.slug}`,
     image: `${ORIGIN}${e.image}`,
-    sameAs: [episodeUrl(e), `https://www.youtube.com/watch?v=${e.youtubeId}`],
+    sameAs: [
+      episodeUrl(e),
+      ...(e.youtubeId
+        ? [`https://www.youtube.com/watch?v=${e.youtubeId}`]
+        : []),
+    ],
     partOfSeries: {
       "@id": `${ORIGIN}/#show`,
       "@type": "PodcastSeries",
       name: SHOW.name,
     },
     about: e.company
-      ? { "@type": "Organization", name: e.company, url: e.links[0].url }
+      ? { "@type": "Organization", name: e.company, url: e.companyUrl }
       : undefined,
   };
 }

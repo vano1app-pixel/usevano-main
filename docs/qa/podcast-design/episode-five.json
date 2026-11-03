@@ -1,0 +1,18 @@
+{
+  "source": "https://open.spotify.com/embed/episode/0j8s4tswMxcj7ser5JdGYF",
+  "verifiedAt": "2026-11-02",
+  "episode": {
+    "id": "0j8s4tswMxcj7ser5JdGYF",
+    "title": "EP. 5 — \"A Whiskey Born From Love\" with Frank Forde",
+    "releaseDate": {
+      "isoString": "2026-11-02T23:41:00Z"
+    },
+    "duration": 2651413,
+    "hasVideo": true,
+    "isExplicit": true,
+    "playabilityReason": "AGE_UNKNOWN"
+  },
+  "artwork": "public/podcast/ep05.png",
+  "youtubeVerified": false,
+  "clipsPublishedOnSite": false
+}

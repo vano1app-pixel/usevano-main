@@ -8,7 +8,7 @@ import {
   isLegacyAuthReturn,
   isLegacyOperationalPath,
 } from "@/lib/podcastRoutes";
-import { EPISODES } from "@/content/podcast";
+import { EPISODES, episodeSchema } from "@/content/podcast";
 import { podcastLlms, podcastSitemap } from "@/content/podcastDiscovery";
 beforeEach(() => {
   (
@@ -63,11 +63,25 @@ describe("public podcast journeys", () => {
   });
   it("opens the latest episode and keeps guest links separate from listen links", () => {
     const { container } = open("/");
+    expect(container.querySelector(".vp-feature-label")).toHaveTextContent(
+      "NEW EPISODE",
+    );
+    expect(container.querySelector(".vp-feature-label")).toHaveTextContent(
+      "EP. 05",
+    );
+    expect(
+      screen.getByRole("img", {
+        name: "Frank Forde on episode 5: A Whiskey Born From Love",
+      }),
+    ).toHaveAttribute("src", "/podcast/ep05.png");
     fireEvent.click(
       screen.getByRole("link", { name: /start with the latest/i }),
     );
     expect(
-      screen.getByRole("heading", { level: 1, name: "Betting it all on USA." }),
+      screen.getByRole("heading", {
+        level: 1,
+        name: "A Whiskey Born From Love.",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /listen on spotify/i }),
@@ -76,8 +90,21 @@ describe("public podcast journeys", () => {
       `https://open.spotify.com/episode/${EPISODES[0].spotifyId}`,
     );
     expect(
-      screen.getByRole("link", { name: /Jack Garvey · founder website/i }),
-    ).toHaveAttribute("href", "https://jackgarvey.me/");
+      screen.getByRole("link", { name: /Frank Forde · LinkedIn/i }),
+    ).toHaveAttribute(
+      "href",
+      "https://ie.linkedin.com/in/frank-forde-09b759445",
+    );
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: /watch on spotify/i }),
+    ).toHaveAttribute(
+      "href",
+      "https://open.spotify.com/episode/0j8s4tswMxcj7ser5JdGYF",
+    );
+    expect(
+      screen.queryByRole("button", { name: /play the full episode/i }),
+    ).toBeNull();
     expect(container.querySelector("a a")).toBeNull();
   }, 15000);
   it("loads video only after play, provides a fallback and closes the player", () => {
@@ -140,8 +167,16 @@ describe("public podcast journeys", () => {
     expect(screen.queryByText("€100")).toBeNull();
   });
   it("only advertises real podcast routes to search and answer engines", () => {
+    const latest = EPISODES[0];
+    expect(latest.number).toBe(5);
+    expect(episodeSchema(latest).sameAs).toEqual([
+      "https://open.spotify.com/episode/0j8s4tswMxcj7ser5JdGYF",
+    ]);
+    expect(episodeSchema(latest).datePublished).toBe("2026-11-02");
     const sitemap = podcastSitemap(),
       llms = podcastLlms();
+    expect(sitemap).toContain("/episodes/frank-forde-whiskey-born-from-love");
+    expect(llms).toContain("A Whiskey Born From Love");
     expect(sitemap).toContain("/episodes/krios-ahroon-michael");
     expect(sitemap).not.toMatch(/\/blog|\/join|cleaning-galway|glossary/);
     expect(llms).toContain("https://www.krios.ie/");

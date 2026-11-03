@@ -3,15 +3,15 @@
 Implementation is a review draft. Production has not been changed.
 
 - TypeScript check passed after the public/operational routing split.
-- Full unit suite: 32 files, 352 tests passed (`npm test -- --maxWorkers=2`).
-- Latest focused podcast suite: 8 tests passed, including the additional operational-route preservation and root sign-in callback checks.
-- Complete production build passed; 14 public podcast pages plus a custom 404 were generated. Final rebuild follows the route and CommonJS/ESM compatibility cleanup.
-- Inspected generated HTML: each of the 15 pages has one H1, title, description and canonical; every JSON-LD script parses. Sitemap has 14 URLs. No old jobs blog HTML is generated. See static-pages.json.
+- Full unit suite: 34 files, 380 tests passed (`npm test -- --maxWorkers=2`).
+- Latest focused podcast suite: 8 tests passed, including episode-five homepage/detail/Spotify schema checks, earlier YouTube playback controls and preserved operational routes.
+- Complete production build passed; 15 public podcast pages plus a custom 404 were generated. Final rebuild follows the route and CommonJS/ESM compatibility cleanup.
+- Inspected generated HTML: each of the 16 pages has one H1, title, description and canonical; every JSON-LD script parses. Sitemap has 15 URLs. No old jobs blog HTML is generated. See static-pages.json.
 - Covered interactions: episode navigation, click-to-load/close player, direct listening links, clip filter/reset, sourced guest links, old-blog-to-notes routing, digital/in-person guest enquiries with a user-sent WhatsApp backup. Tests intentionally prevent external iframe network loading; actual video playback still needs browser verification.
 - Existing private operational paths continue through the legacy application and get noindex response headers. Native home uses the existing household/find screen. Legacy agreement URLs remain available with noindex headers; public podcast policies use /site-privacy and /site-terms. Root sign-in callbacks retain their query/fragment on the way to /auth. No database, payment or legacy messaging-function changes. A new Vercel guest-enquiry API uses the already-configured Resend key.
 - Browser origin permission denied localhost at 127.0.0.1:8091, including after the user's general permission change. No alternative browser/network workaround was used. Desktop/phone/narrow layout, keyboard/reduced-motion and actual player/destination checks remain unverified.
 - Instagram and TikTok browser access was declined. Instagram @vano_podcast comes from the local account inventory checked 23 October. TikTok ownership and handle remain unresolved; none is fabricated or linked.
-- Spotify public metadata confirms four episodes. Episode five was still a draft in Creators when checked; it is not advertised as released.
+- Superseded check: episode five was initially a draft. At 23:41 UTC on 2 November the published Spotify show/episode metadata lists EP. 5 — "A Whiskey Born From Love" with Frank Forde, ID 0j8s4tswMxcj7ser5JdGYF, duration 2,651,413 ms. It is now the first/latest episode in the site data.
 - The channel Shorts catalogue was checked on 2 November. Three selected clips now cover episodes 4 (28nOfX6ZkM4), 2 (Rp_ECuzP0ic) and 1 (jl5HQ1lnyyA); thumbnail speaker/studio appearance was matched to the original episode artwork. These are editorial picks, not a claimed all-time ranking.
 - Kríos company and founder links use its official about page. Ganzy's domain did not resolve; the episode/note pages disclose this and also link Jack Garvey's own site. Current company context is separated from the recorded episode description.
 
@@ -39,3 +39,11 @@ Deployment packaging: API tests live under src/lib/__tests__, outside Vercel’s
 Remote build-log review caught TS2835 errors despite Vercel's Ready status: NodeNext server imports need explicit .js extensions. Fixed the enquiry and sitemap dependency chains and added tsconfig.api.json to the normal typecheck command so server imports are checked before deployment. Final corrected preview must be checked again for clean build logs.
 
 Corrected import validation: strict NodeNext API compilation and emitted Node ESM loading passed for both enquiry and sitemap handlers. GET method guard and sitemap output were exercised locally without network/provider calls. All 34 focused podcast/form/API tests passed after the fix.
+
+## Episode five release
+
+Owner confirmed publication. Spotify show and individual embed metadata now list the released episode, dated 2 November 2026 (23:41 UTC), 44:11, with video. Anonymous embed playback reports AGE_UNKNOWN for this explicit episode, so availability in Spotify's listing is verified; actual authenticated playback has not been exercised. Original artwork comes from Downloads/Whiskey Born From Love.png and is copied without visual alteration. Homepage feature number/title/guest/artwork/link now follow the latest episode data. The episode list, individual page, PodcastEpisode/Series data, sitemap and llms include episode five. YouTube's full-video listing still has only episodes 1–4, so episode five opens its actual Spotify page instead of constructing a missing YouTube URL. Existing episode 1/2/4 clips stay in place while the owner prepares episode-five clips. Company context uses Frank's own public LinkedIn founder/interview listing and The Tuam Herald report, distinct from a transcript.
+
+Sources: https://open.spotify.com/episode/0j8s4tswMxcj7ser5JdGYF ; https://ie.linkedin.com/in/frank-forde-09b759445 ; https://www.tuamherald.ie/2026/10/20/unique-whiskey-blend-tells-a-dunmore-brazilian-love-story/
+
+Episode-five final local checks passed: normal app + strict API typecheck; full 380-test suite; focused eight-test podcast suite; full build/prerender; and 16-page static validation including the new hero, archive count, real Spotify-only player/schema, artwork, sitemap and llms. Reviewer’s stale four-conversation copy finding was fixed with a dynamic count and updated archive/About descriptions. Browser rendering and authenticated Spotify playback remain unverified under the existing browser permission block.

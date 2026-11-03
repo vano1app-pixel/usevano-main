@@ -324,13 +324,13 @@ export default function Podcast() {
         <div className="vp-hero-feature">
           <div className="vp-feature-label">
             <Wave />
-            <span>THE LATEST CONVERSATION</span>
-            <span>EP. 04</span>
+            <span>NEW EPISODE</span>
+            <span>EP. {String(e.number).padStart(2, "0")}</span>
           </div>
           <Link to={`/episodes/${e.slug}`} className="vp-feature-image">
             <img
               src={e.image}
-              alt="Jack Garvey on episode four: Betting it all on USA"
+              alt={`${e.guest} on episode ${e.number}: ${e.title}`}
               width="1280"
               height="720"
               loading="eager"
@@ -341,19 +341,18 @@ export default function Podcast() {
           </Link>
           <div className="vp-feature-caption">
             <div>
-              <p>JACK GARVEY / GANZY</p>
+              <p>
+                {e.guest.toUpperCase()}
+                {e.company && ` / ${e.company.toUpperCase()}`}
+              </p>
               <h2>
-                <Link to={`/episodes/${e.slug}`}>
-                  An Irish founder.
-                  <br />
-                  An American ambition.
-                </Link>
+                <Link to={`/episodes/${e.slug}`}>{e.title}.</Link>
               </h2>
             </div>
             <Link
               to={`/episodes/${e.slug}`}
               className="vp-round"
-              aria-label="Explore the Jack Garvey episode"
+              aria-label={`Explore the ${e.guest} episode`}
             >
               <ArrowUpRight />
             </Link>
@@ -362,9 +361,11 @@ export default function Podcast() {
             <span>
               {formatDate(e.date)} · {e.length}
             </span>
-            <External href="https://jackgarvey.me/">
-              Meet Jack <ArrowUpRight size={14} />
-            </External>
+            {e.links[0] && (
+              <External href={e.links[0].url}>
+                Meet the guest <ArrowUpRight size={14} />
+              </External>
+            )}
           </div>
         </div>
       </section>
@@ -444,7 +445,7 @@ export function EpisodesPage() {
     <>
       <PodcastMeta
         title="Episodes — VANO Podcast"
-        description="Every VANO Podcast conversation: Jack Garvey of Ganzy, the Kríos team, Milosz Nelka and the original VANO story."
+        description="Every VANO Podcast conversation: Frank Forde of Saudade & Sláinte, Jack Garvey of Ganzy, the Kríos team, Milosz Nelka and the original VANO story."
         path="/episodes"
         jsonLd={{
           "@context": "https://schema.org",
@@ -461,7 +462,10 @@ export function EpisodesPage() {
           <br />
           the people building.
         </h1>
-        <p>Four conversations from Ireland. Pick a person, follow an idea.</p>
+        <p>
+          {EPISODES.length} conversations from Ireland. Pick a person, follow an
+          idea.
+        </p>
       </section>
       <section className="vp-wrap vp-episodes">
         <div className="vp-episode-grid vp-episode-grid-large">
@@ -476,6 +480,18 @@ export function EpisodesPage() {
 }
 function EpisodePlayer({ episode: e }: { episode: Episode }) {
   const [open, setOpen] = useState(false);
+  if (!e.youtubeId)
+    return (
+      <div className="vp-player">
+        <External className="vp-player-cover" href={episodeUrl(e)}>
+          <img src={e.image} alt="" width="1280" height="720" />
+          <span className="vp-feature-watch">
+            <Play size={20} fill="currentColor" /> Watch on Spotify{" "}
+            <ArrowUpRight size={16} />
+          </span>
+        </External>
+      </div>
+    );
   return (
     <div className="vp-player">
       <button
@@ -672,9 +688,9 @@ export function AboutPage() {
       <section className="vp-wrap vp-prose">
         <h2>From Galway, with questions.</h2>
         <p>
-          {SHOW.tagline} The archive includes Jack Garvey of Ganzy, Ahroon
-          Santhosh and Michael Sweeney Heffernan of Kríos, Milosz Nelka, and the
-          story behind the original VANO venture.
+          {SHOW.tagline} The archive includes Frank Forde of Saudade & Sláinte,
+          Jack Garvey of Ganzy, Ahroon Santhosh and Michael Sweeney Heffernan of
+          Kríos, Milosz Nelka, and the story behind the original VANO venture.
         </p>
         <Link className="vp-text-link" to="/episodes">
           Explore the conversations <ArrowRight size={16} />
