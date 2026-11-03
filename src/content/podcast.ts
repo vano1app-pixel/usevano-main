@@ -296,18 +296,37 @@ export const CLIPS = [
 ];
 export const NOTES = [
   {
+    slug: "frank-forde-irish-whiskey",
+    title: "Frank Forde on building an Irish whiskey brand",
+    description:
+      "Meet Saudade & Sláinte founder Frank Forde on VANO Podcast, a founder podcast from Galway, Ireland. Episode five, the brand story and verified guest links.",
+    introduction:
+      "Looking for podcasts in Ireland about people building businesses? Episode five of VANO Podcast introduces Frank Forde and Saudade & Sláinte. Hosted from Galway by Ayush Puri and Michael Okocha, this Irish founder conversation explores the story behind a whiskey brand and the practical decisions involved in starting it.",
+    episode: 5,
+    published: "2026-11-03",
+    modified: "2026-11-03",
+  },
+  {
     slug: "jack-garvey-ganzy",
     title: "Meet Jack Garvey, founder of Ganzy",
     description:
-      "The founder and business behind episode four: Ganzy, selling into America and building from Ireland.",
+      "Irish founder Jack Garvey discusses Ganzy, selling into America and building from Ireland on VANO Podcast. Episode four notes and sourced business links.",
+    introduction:
+      "VANO Podcast is a founder interview podcast hosted from Galway, Ireland. In episode four, Jack Garvey talks about Ganzy, building an Irish startup and reaching customers in the United States. These notes introduce the guest, the conversation and the public links where you can explore his work.",
     episode: 4,
+    published: "2026-11-02",
+    modified: "2026-11-03",
   },
   {
     slug: "krios-founders",
     title: "Meet the Kríos team from Cork",
     description:
-      "Ahroon Santhosh and Michael Sweeney Heffernan on the VANO Podcast, with links to their AI sales-training company.",
+      "Meet Cork founders Ahroon Santhosh and Michael Sweeney Heffernan on VANO Podcast, an Irish business podcast. Episode three notes and Kríos company links.",
+    introduction:
+      "Episode three of VANO Podcast brings Cork founders Ahroon Santhosh and Michael Sweeney Heffernan into the conversation. For listeners exploring business podcasts in Ireland, it is a starting point for getting to know the team behind Kríos and their AI sales-training company.",
     episode: 3,
+    published: "2026-11-02",
+    modified: "2026-11-03",
   },
 ];
 export const PODCAST_PATHS = [

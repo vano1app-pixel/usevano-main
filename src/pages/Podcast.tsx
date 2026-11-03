@@ -44,12 +44,14 @@ export function PodcastMeta({
   path = "/",
   jsonLd,
   noindex = false,
+  article,
 }: {
   title: string;
   description: string;
   path?: string;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   noindex?: boolean;
+  article?: { published: string; modified: string };
 }) {
   return (
     <SEOHead
@@ -57,7 +59,10 @@ export function PodcastMeta({
       description={description}
       url={ORIGIN + path}
       image={ORIGIN + "/podcast/og-podcast.png"}
-      keywords="VANO Podcast, Irish founder podcast, Galway, entrepreneurship, Ayush Puri, Michael Okocha, Kríos, Ganzy"
+      keywords="VANO Podcast, podcasts in Ireland, Irish podcasts, Galway podcast, Irish business podcast, founder interviews, entrepreneurship, Ayush Puri, Michael Okocha, Kríos, Ganzy, Frank Forde"
+      type={article ? "article" : "website"}
+      publishedTime={article?.published}
+      modifiedTime={article?.modified}
       jsonLd={jsonLd}
       noindex={noindex}
     />
@@ -290,8 +295,8 @@ export default function Podcast() {
   return (
     <>
       <PodcastMeta
-        title="VANO Podcast — episodes, clips & guests"
-        description={`${SHOW.tagline} Hosted by ${SHOW.hosts} in Galway. Listen to episodes, watch clips and meet the guests.`}
+        title="VANO Podcast — Irish founder interviews from Galway, Ireland"
+        description="An Irish business podcast from Galway with Ayush Puri and Michael Okocha. Watch founder interviews, explore episode clips and apply to be a guest."
         jsonLd={seriesSchema()}
       />
       <Platforms primary />
@@ -654,14 +659,17 @@ export function NotesPage() {
   return (
     <>
       <PodcastMeta
-        title="Notes from the show — VANO Podcast"
-        description="Guest and company notes from the VANO Podcast, with sources, episode links and the businesses behind the conversations."
+        title="Irish podcast notes & founder stories — VANO Podcast"
+        description="Explore VANO Podcast show notes from Galway, Ireland: Irish founders, guest businesses, episode links and sources for Kríos, Ganzy and Saudade & Sláinte."
         path="/notes"
       />
       <section className="vp-wrap vp-page-heading">
         <p className="vp-kicker">Notes from the show</p>
         <h1>Follow the story.</h1>
-        <p>People, businesses and useful links from our conversations.</p>
+        <p>
+          Irish founders, guest businesses and useful links from our podcast
+          conversations in Galway, Ireland.
+        </p>
       </section>
       <div className="vp-wrap vp-notes">
         {NOTES.map((n) => (
@@ -691,17 +699,18 @@ export function NotePage() {
         title={`${n.title} — VANO Podcast notes`}
         description={n.description}
         path={`/notes/${n.slug}`}
+        article={{ published: n.published, modified: n.modified }}
         jsonLd={{
           "@context": "https://schema.org",
           "@type": "Article",
           headline: n.title,
           description: n.description,
-          datePublished: "2026-11-02",
-          dateModified: "2026-11-02",
+          datePublished: n.published,
+          dateModified: n.modified,
           author: { "@type": "Organization", name: SHOW.name, url: ORIGIN },
           mainEntityOfPage: `${ORIGIN}/notes/${n.slug}`,
           about: e.company
-            ? { "@type": "Organization", name: e.company, url: e.links[0].url }
+            ? { "@type": "Organization", name: e.company, url: e.companyUrl }
             : undefined,
           image: ORIGIN + e.image,
         }}
@@ -711,16 +720,18 @@ export function NotePage() {
           ← Notes from the show
         </Link>
         <p className="vp-kicker">
-          EPISODE {e.number} / UPDATED 2 NOVEMBER 2026
+          EPISODE {e.number} / UPDATED {formatDate(n.modified)}
         </p>
         <h1>{n.title}.</h1>
-        <p className="vp-lead">{e.description}</p>
+        <p className="vp-lead">{n.introduction}</p>
         <img
           src={e.image}
           alt={`${e.guest} on the VANO Podcast`}
           width="1280"
           height="720"
         />
+        <h2>Inside this Irish founder interview</h2>
+        <p>{e.description}</p>
         <h2>The business behind the conversation</h2>
         <p>{e.companyDescription}</p>
         <h2>What we talked about</h2>
@@ -750,6 +761,13 @@ export function NotePage() {
         <Link className="vp-button" to={`/episodes/${e.slug}`}>
           <Play size={16} /> Watch & listen <ArrowRight size={16} />
         </Link>
+        <h2>More from VANO Podcast in Ireland</h2>
+        <p>
+          Watch more <Link to="/episodes">Irish founder interviews</Link>,
+          explore <Link to="/clips">podcast clips</Link>, or{" "}
+          <Link to="/contact">apply to be a podcast guest</Link>. Record
+          digitally from anywhere or join us in person in Galway, Ireland.
+        </p>
         <h2>Sources</h2>
         <div className="vp-guest-links">
           {e.sources.map((l) => (

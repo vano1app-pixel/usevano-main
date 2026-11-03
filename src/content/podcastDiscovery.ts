@@ -14,7 +14,7 @@ const xmlEscape = (s: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 export function podcastSitemap() {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${PODCAST_PATHS.map((p) => `<url><loc>${xmlEscape(ORIGIN + p)}</loc><lastmod>2026-11-02</lastmod></url>`).join("\n")}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${PODCAST_PATHS.map((p) => `<url><loc>${xmlEscape(ORIGIN + p)}</loc><lastmod>2026-11-03</lastmod></url>`).join("\n")}\n</urlset>\n`;
 }
 export function podcastLlms() {
   return [

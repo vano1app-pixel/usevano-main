@@ -1,6 +1,6 @@
 # VANO Podcast release verification — 3 November 2026
 
-Production is unchanged. The owner supplied literal **667** for this release. The remaining release gate is a real phone/desktop preview check: the computer-use backend exposes no apps or browsers and reports `Sky Computer Use native pipe startup failed`, including after one supported reset. The owner has been asked to reconnect Chrome. No alternate automation or network route was used to bypass earlier browser-origin denials.
+The owner supplied literal **667** for this release and subsequently instructed **“publish it for now”** after the unavailable browser check was explicitly explained. This is the owner’s direction to proceed with the current release while recording the unverified visual state. Real phone/desktop preview checks remain unavailable: the computer-use backend exposes no apps or browsers and reports `Sky Computer Use native pipe startup failed`, including after one supported reset. The owner has been asked to reconnect Chrome. No alternate automation or network route was used to bypass earlier browser-origin denials.
 
 ## Verified implementation and checks
 
@@ -42,6 +42,11 @@ Private operational paths retain the legacy application with noindex headers. Na
 
 The reviewer’s native GET leakage, analytics-prefill and duplicate /clips H1 findings were fixed. API tests are outside Vercel's api auto-deployment directory. Explicit .js imports and normal strict NodeNext checks fix the server ESM packaging issue caught in earlier remote logs.
 
-## Required before production
+## Release authorisation and verification limits
 
-The repository's AGENTS.md requires opening the Vercel preview and clicking the changed flow before merge. The design gate requires actual desktop 1440×900, phone 390×844 and narrow layout review, primary-action/player and keyboard/reduced-motion checks. Chrome is currently disconnected from computer use. **667 has already been supplied; no further deployment approval is needed.** Restore browser access for the remaining preview checks, then merge via the PR, verify the production URL and record the result. Do not call this preview a live release.
+The repository's AGENTS.md requires opening the Vercel preview and clicking the changed flow before merge. The design gate requires actual desktop 1440×900, phone 390×844 and narrow layout review, primary-action/player and keyboard/reduced-motion checks. Chrome is currently disconnected from computer use. **667 has already been supplied; no further deployment approval is needed.** The owner’s later “publish it for now” direction supersedes the unavailable visual-check gate for this release. Merge via the reviewed PR after CI, verify production through deployment status and HTTP content, and record the result. Actual phone/desktop appearance and inbox delivery remain unverified.
+
+
+## Final guest-action and Ireland podcast SEO changes
+
+The owner requested a larger green “Be a guest” action and keyword-based podcast articles before publishing. The header action now uses the existing sage green, white text, 14px desktop/13px mobile labels and 48px desktop/46px mobile minimum height. Show notes now contain three sourced guest articles, including Frank Forde, with unique introductions using Irish business podcast, podcasts in Ireland and Galway naturally. Home and notes metadata, Article Open Graph type/publication dates, Article/PodcastEpisode/Series data, visible internal links and the sitemap cover the actual content. No ranking or indexing result is claimed. Canonical URLs remain on vanojobs.com and the notes stay linked in the footer. A person’s LinkedIn profile is no longer assigned as an Organization URL in article data.
