@@ -67,6 +67,7 @@ export type Episode = {
   duration: string;
   spotifyId: string;
   youtubeId?: string;
+  youtubeAgeRestricted?: boolean;
   companyUrl?: string;
   image: string;
   description: string;
@@ -86,6 +87,8 @@ export const EPISODES: Episode[] = [
     length: "44 min",
     duration: "PT44M11S",
     spotifyId: "0j8s4tswMxcj7ser5JdGYF",
+    youtubeId: "pmXtzuVYctw",
+    youtubeAgeRestricted: true,
     image: "/podcast/ep05.png",
     description:
       "Frank Forde joins VANO Podcast to discuss building Saudade & Sláinte Irish Whiskey: the Irish-Brazilian love story behind the brand, its target market, marketing, pricing and the challenges of starting a whiskey business.",
@@ -104,6 +107,10 @@ export const EPISODES: Episode[] = [
       },
     ],
     sources: [
+      {
+        label: "Full episode on YouTube",
+        url: "https://www.youtube.com/watch?v=pmXtzuVYctw",
+      },
       {
         label: "Original episode on Spotify",
         url: "https://open.spotify.com/episode/0j8s4tswMxcj7ser5JdGYF",

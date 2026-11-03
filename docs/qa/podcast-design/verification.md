@@ -24,7 +24,7 @@ Instagram @vano_podcast comes from the local account inventory checked 23 Octobe
 
 ## Episodes, guests and clips
 
-Spotify's published show and individual metadata list EP. 5 — “A Whiskey Born From Love” with Frank Forde, ID 0j8s4tswMxcj7ser5JdGYF, released 2 November at 23:41 UTC, duration 44:11, with video. Anonymous embed playback reports AGE_UNKNOWN for the explicit episode. Actual authenticated playback is unverified. Original artwork was copied unaltered from Downloads/Whiskey Born From Love.png. Episode five opens its real Spotify page; no missing YouTube release is invented.
+Spotify's published show and individual metadata list EP. 5 — “A Whiskey Born From Love” with Frank Forde, ID 0j8s4tswMxcj7ser5JdGYF, released 2 November at 23:41 UTC, duration 44:11, with video. Anonymous embed playback reports AGE_UNKNOWN for the explicit episode. Actual authenticated playback is unverified in this site-check session. Original artwork was copied unaltered from Downloads/Whiskey Born From Love.png. A fresh YouTube check on 3 November confirms the channel now lists episode five as pmXtzuVYctw, duration 2,651 seconds, age_limit 18 and availability needs_auth. The cover opens its real YouTube watch page directly so an age-restricted iframe is not presented. The separate Spotify listening link remains. Episode schema includes both real destinations. See episode-five-youtube.json.
 
 Frank's company Saudade & Sláinte is sourced to his own LinkedIn founder/interview listing and The Tuam Herald's Dunmore/Brazilian story. Kríos links use its official about page. Ganzy's domain failed DNS; the page discloses this and links Jack Garvey's own site. Present company context is distinguished from recorded episode discussion.
 

@@ -118,11 +118,8 @@ describe("public podcast journeys", () => {
     );
     expect(container.querySelector("iframe")).toBeNull();
     expect(
-      screen.getByRole("link", { name: /watch on spotify/i }),
-    ).toHaveAttribute(
-      "href",
-      "https://open.spotify.com/episode/0j8s4tswMxcj7ser5JdGYF",
-    );
+      screen.getByRole("link", { name: /^watch on youtube/i }),
+    ).toHaveAttribute("href", "https://www.youtube.com/watch?v=pmXtzuVYctw");
     expect(
       screen.queryByRole("button", { name: /play the full episode/i }),
     ).toBeNull();
@@ -196,6 +193,7 @@ describe("public podcast journeys", () => {
     expect(latest.number).toBe(5);
     expect(episodeSchema(latest).sameAs).toEqual([
       "https://open.spotify.com/episode/0j8s4tswMxcj7ser5JdGYF",
+      "https://www.youtube.com/watch?v=pmXtzuVYctw",
     ]);
     expect(episodeSchema(latest).datePublished).toBe("2026-11-02");
     const sitemap = podcastSitemap(),

@@ -392,14 +392,21 @@ export function EpisodesPage() {
 }
 function EpisodePlayer({ episode: e }: { episode: Episode }) {
   const [open, setOpen] = useState(false);
-  if (!e.youtubeId)
+  if (!e.youtubeId || e.youtubeAgeRestricted)
     return (
       <div className="vp-player">
-        <External className="vp-player-cover" href={episodeUrl(e)}>
+        <External
+          className="vp-player-cover"
+          href={
+            e.youtubeId
+              ? `https://www.youtube.com/watch?v=${e.youtubeId}`
+              : episodeUrl(e)
+          }
+        >
           <img src={e.image} alt="" width="1280" height="720" />
           <span className="vp-feature-watch">
-            <Play size={20} fill="currentColor" /> Watch on Spotify{" "}
-            <ArrowUpRight size={16} />
+            <Play size={20} fill="currentColor" /> Watch on{" "}
+            {e.youtubeId ? "YouTube" : "Spotify"} <ArrowUpRight size={16} />
           </span>
         </External>
       </div>
