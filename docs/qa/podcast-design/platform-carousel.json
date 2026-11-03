@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "50f75d5e455e157c1b990cc99e1e04726ee888ee",
+  "publicPages": 15,
+  "custom404": true,
+  "allPagesSingleH1": true,
+  "homepageH1": "Watch & listen.",
+  "platformLinks": [
+    "https://open.spotify.com/show/033DSDTDi7S8VOd5mSBl0W",
+    "https://podcasts.apple.com/ie/podcast/vano-podcast/id6804809081",
+    "https://www.youtube.com/@VANO.shortz",
+    "https://music.amazon.com/podcasts/f35fd03a-4570-4d5b-b708-32d37c1cd6c1/vano-podcast",
+    "https://www.instagram.com/vano_podcast/"
+  ],
+  "logoAssets": 5,
+  "initialEpisode": 5,
+  "realCommentsPublished": 0,
+  "visualBrowserCheck": "blocked: computer-use native pipe unavailable",
+  "productionPublished": false
+}
