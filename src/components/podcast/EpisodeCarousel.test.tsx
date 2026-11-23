@@ -15,18 +15,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("episode carousel", () => {
-  it("starts on Frank and rotates both ways with keyboard and direct selectors", () => {
+  it("starts on Jonathan and rotates both ways with keyboard and direct selectors", () => {
     open();
     expect(
-      screen.getByRole("heading", { name: "A Whiskey Born From Love." }),
+      screen.getByRole("heading", { name: "Building for a Greater Purpose." }),
     ).toBeInTheDocument();
     expect(screen.getByText("NEW EPISODE")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /start with the latest/i }),
-    ).toHaveAttribute("href", "/episodes/frank-forde-whiskey-born-from-love");
+    ).toHaveAttribute("href", "/episodes/jonathan-lane-building-for-a-greater-purpose");
     fireEvent.click(screen.getByRole("button", { name: "Next episode" }));
     expect(
-      screen.getByRole("heading", { name: "Betting it all on USA." }),
+      screen.getByRole("heading", { name: "A Whiskey Born From Love." }),
     ).toBeInTheDocument();
     expect(screen.queryByText("NEW EPISODE")).toBeNull();
     fireEvent.keyDown(screen.getByRole("region"), { key: "ArrowLeft" });
@@ -46,7 +46,7 @@ describe("episode carousel", () => {
       vi.advanceTimersByTime(8000);
     });
     expect(
-      screen.getByRole("heading", { name: "Betting it all on USA." }),
+      screen.getByRole("heading", { name: "A Whiskey Born From Love." }),
     ).toBeInTheDocument();
     const pause = screen.getByRole("button", { name: "Pause rotation" });
     fireEvent.focus(pause);
@@ -55,7 +55,7 @@ describe("episode carousel", () => {
       vi.advanceTimersByTime(16000);
     });
     expect(
-      screen.getByRole("heading", { name: "Betting it all on USA." }),
+      screen.getByRole("heading", { name: "A Whiskey Born From Love." }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Play rotation" }),
@@ -73,7 +73,7 @@ describe("episode carousel", () => {
       screen.getByRole("heading", { name: "You need to think bigger." }),
     ).toBeInTheDocument();
   });
-  it("keeps Frank stable and disables automatic movement for reduced motion", () => {
+  it("keeps Jonathan stable and disables automatic movement for reduced motion", () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({
       matches: true,
       addEventListener: vi.fn(),
@@ -84,11 +84,11 @@ describe("episode carousel", () => {
       screen.getByRole("button", { name: "Reduced motion" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("heading", { name: "A Whiskey Born From Love." }),
+      screen.getByRole("heading", { name: "Building for a Greater Purpose." }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next episode" }));
     expect(
-      screen.getByRole("heading", { name: "Betting it all on USA." }),
+      screen.getByRole("heading", { name: "A Whiskey Born From Love." }),
     ).toBeInTheDocument();
   });
 });

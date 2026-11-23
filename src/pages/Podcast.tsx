@@ -362,7 +362,7 @@ export function EpisodesPage() {
     <>
       <PodcastMeta
         title="Episodes — VANO Podcast"
-        description="Every VANO Podcast conversation: Frank Forde of Saudade & Sláinte, Jack Garvey of Ganzy, the Kríos team, Milosz Nelka and the original VANO story."
+        description="Every VANO Podcast conversation: Jonathan Lane of BranchAI, Frank Forde of Saudade & Sláinte, Jack Garvey of Ganzy, the Kríos team, Milosz Nelka and the original VANO story."
         path="/episodes"
         jsonLd={{
           "@context": "https://schema.org",
@@ -612,7 +612,7 @@ export function AboutPage() {
       <section className="vp-wrap vp-prose">
         <h2>From Galway, with questions.</h2>
         <p>
-          {SHOW.tagline} The archive includes Frank Forde of Saudade & Sláinte,
+          {SHOW.tagline} The archive includes Jonathan Lane of BranchAI, Frank Forde of Saudade & Sláinte,
           Jack Garvey of Ganzy, Ahroon Santhosh and Michael Sweeney Heffernan of
           Kríos, Milosz Nelka, and the story behind the original VANO venture.
         </p>

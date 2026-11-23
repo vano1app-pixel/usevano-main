@@ -78,6 +78,35 @@ export type Episode = {
 };
 export const EPISODES: Episode[] = [
   {
+    number: 6,
+    slug: "jonathan-lane-building-for-a-greater-purpose",
+    title: "Building for a Greater Purpose",
+    guest: "Jonathan Lane",
+    company: "BranchAI",
+    date: "2026-11-18",
+    length: "1 hr 8 min",
+    duration: "PT1H7M51S",
+    spotifyId: "7cIHtNpJ5ha3JSI0hBPA5m",
+    youtubeId: "k9NCtbFwnNM",
+    image: "/podcast/ep06.jpg",
+    description:
+      "Jonathan Lane, CEO of BranchAI, joins Ayush and Michael to talk about building a study companion for secondary school students with dyslexia, caring about the problem you solve, and finding a purpose beyond profit.",
+    topics: [
+      "Accessible learning",
+      "Building with AI",
+      "Purpose beyond profit",
+      "Finding a problem worth solving",
+    ],
+    companyDescription:
+      "In this conversation, Jonathan describes BranchAI as a study companion for secondary school students with dyslexia. The episode explores why he is building it and the impact he wants the work to have.",
+    links: [],
+    sources: [
+      { label: "Original episode on Spotify", url: "https://open.spotify.com/episode/7cIHtNpJ5ha3JSI0hBPA5m" },
+      { label: "Full episode on YouTube", url: "https://www.youtube.com/watch?v=k9NCtbFwnNM" },
+      { label: "Original podcast RSS", url: SHOW.feed },
+    ],
+  },
+  {
     number: 5,
     slug: "frank-forde-whiskey-born-from-love",
     title: "A Whiskey Born From Love",
