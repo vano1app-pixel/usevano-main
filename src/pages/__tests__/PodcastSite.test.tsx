@@ -88,20 +88,20 @@ describe("public podcast journeys", () => {
       "NEW EPISODE",
     );
     expect(container.querySelector(".vp-stage-label")).toHaveTextContent(
-      "EP. 05",
+      "EP. 06",
     );
     expect(
       screen.getByRole("img", {
-        name: "Frank Forde on episode 5: A Whiskey Born From Love",
+        name: "Jonathan Lane on episode 6: Building for a Greater Purpose",
       }),
-    ).toHaveAttribute("src", "/podcast/ep05.png");
+    ).toHaveAttribute("src", "/podcast/ep06.jpg");
     fireEvent.click(
       screen.getByRole("link", { name: /start with the latest/i }),
     );
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "A Whiskey Born From Love.",
+        name: "Building for a Greater Purpose.",
       }),
     ).toBeInTheDocument();
     expect(
@@ -110,21 +110,22 @@ describe("public podcast journeys", () => {
       "href",
       `https://open.spotify.com/episode/${EPISODES[0].spotifyId}`,
     );
-    expect(
-      screen.getByRole("link", { name: /Frank Forde · LinkedIn/i }),
-    ).toHaveAttribute(
-      "href",
-      "https://ie.linkedin.com/in/frank-forde-09b759445",
-    );
     expect(container.querySelector("iframe")).toBeNull();
     expect(
-      screen.getByRole("link", { name: /^watch on youtube/i }),
-    ).toHaveAttribute("href", "https://www.youtube.com/watch?v=pmXtzuVYctw");
+      screen.getByRole("button", { name: /play the full episode/i }),
+    ).toBeInTheDocument();
+    expect(container.querySelector("a a")).toBeNull();
+  }, 15000);
+  it("keeps the age-restricted whiskey episode on its direct YouTube link", () => {
+    open("/episodes/frank-forde-whiskey-born-from-love");
+    expect(screen.getByRole("link", { name: /Frank Forde · LinkedIn/i }))
+      .toHaveAttribute("href", "https://ie.linkedin.com/in/frank-forde-09b759445");
+    expect(screen.getByRole("link", { name: /^watch on youtube/i }))
+      .toHaveAttribute("href", "https://www.youtube.com/watch?v=pmXtzuVYctw");
     expect(
       screen.queryByRole("button", { name: /play the full episode/i }),
     ).toBeNull();
-    expect(container.querySelector("a a")).toBeNull();
-  }, 15000);
+  });
   it("loads video only after play, provides a fallback and closes the player", () => {
     const { container } = open("/episodes/krios-ahroon-michael");
     expect(container.querySelector("iframe")).toBeNull();
@@ -190,16 +191,18 @@ describe("public podcast journeys", () => {
   });
   it("only advertises real podcast routes to search and answer engines", () => {
     const latest = EPISODES[0];
-    expect(latest.number).toBe(5);
+    expect(latest.number).toBe(6);
     expect(episodeSchema(latest).sameAs).toEqual([
-      "https://open.spotify.com/episode/0j8s4tswMxcj7ser5JdGYF",
-      "https://www.youtube.com/watch?v=pmXtzuVYctw",
+      "https://open.spotify.com/episode/7cIHtNpJ5ha3JSI0hBPA5m",
+      "https://www.youtube.com/watch?v=k9NCtbFwnNM",
     ]);
-    expect(episodeSchema(latest).datePublished).toBe("2026-11-02");
+    expect(episodeSchema(latest).datePublished).toBe("2026-11-18");
     const sitemap = podcastSitemap(),
       llms = podcastLlms();
     expect(sitemap).toContain("/episodes/frank-forde-whiskey-born-from-love");
     expect(llms).toContain("A Whiskey Born From Love");
+    expect(sitemap).toContain("/episodes/jonathan-lane-building-for-a-greater-purpose");
+    expect(llms).toContain("Building for a Greater Purpose");
     expect(sitemap).toContain("/episodes/krios-ahroon-michael");
     expect(sitemap).not.toMatch(/\/blog|\/join|cleaning-galway|glossary/);
     expect(llms).toContain("https://www.krios.ie/");
